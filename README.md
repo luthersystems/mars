@@ -21,6 +21,14 @@ without arguments or point it to the appropriate key file in special cases.
 
 #Usage
 
+Ensure your project has a `.terraform-version` file specifying which terraform
+version to use (technically optional).  See
+[tfenv](https://github.com/kamatama41/tfenv) for more details.
+
+```
+echo 0.11.3 > .terraform-version
+```
+
 General usage has the following form.
 
 ```sh
@@ -50,4 +58,14 @@ less painful.
 ```
 ln -s $(pwd)/mars.sh ~/bin/mars
 mars -h
+```
+
+If you need to run a raw terraform command using the `terraform` binary
+installed in the container you may run `mars terraform` but without care python
+will intercept options/flags intended for terraform.  Often you will have to
+use the special argument `--` to tell python not to try and parse the flags
+meant for terraform.
+
+```
+mars dev terraform -- providers --help
 ```

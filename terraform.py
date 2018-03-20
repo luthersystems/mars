@@ -59,6 +59,10 @@ class Terraform(object):
         untaint_parser.add_argument("name", help="A resource to untaint", nargs='+')
         untaint_parser.set_defaults(parser_func=self.untaint)
 
+        terraform_parser = subparsers.add_parser('terraform')
+        terraform_parser.add_argument("args", help="A resource to untaint", nargs='+')
+        terraform_parser.set_defaults(parser_func=self.terraform)
+
         args = argparser.parse_args()
 
         self.env = args.env
@@ -78,6 +82,7 @@ class Terraform(object):
         args.parser_func(**kwargs)
 
     def init(self, backend_config=None):
+        self._tfenv_init()
         args = []
         if backend_config is not None:
             for config in backend_config:
@@ -88,7 +93,16 @@ class Terraform(object):
             ['terraform', 'init'] + list(args))
         exit(rc)
 
+    def terraform(self, args):
+        self._tfenv_init()
+        cmd = ['terraform']
+        cmd.extend(args)
+        rc = self._script(cmd)
+        if rc != 0:
+            exit(rc)
+
     def plan(self, destroy=False, out=None, apply_plan=False):
+        self._tfenv_init()
         plan_path = out
         if apply_plan and plan_path is None:
             plan_dir = ".tf-plans"
@@ -135,6 +149,7 @@ class Terraform(object):
         exit(rc)
 
     def apply(self, plan=None):
+        self._tfenv_init()
         args = []
         if plan:
             args = [plan]
@@ -146,6 +161,7 @@ class Terraform(object):
         exit(rc)
 
     def destroy(self):
+        self._tfenv_init()
         args = self._var_file_args()
         rc = self._script(
             self._tf_workspace_select(),
@@ -153,6 +169,7 @@ class Terraform(object):
         exit(rc)
 
     def show(self, plan=None):
+        self._tfenv_init()
         args = []
         if plan:
             args = [plan]
@@ -162,6 +179,7 @@ class Terraform(object):
         exit(rc)
 
     def graph(self, draw_cycles=None):
+        self._tfenv_init()
         args = []
         if draw_cycles:
             args = ['-draw-cycles']
@@ -171,6 +189,7 @@ class Terraform(object):
         exit(rc)
 
     def taint(self, name=None):
+        self._tfenv_init()
         names = name
         if isinstance(name, str):
             names = [name]
@@ -182,6 +201,7 @@ class Terraform(object):
                 exit(rc)
 
     def untaint(self, name=None):
+        self._tfenv_init()
         names = name
         if isinstance(name, str):
             names = [name]
@@ -191,6 +211,16 @@ class Terraform(object):
                 ['terraform', 'untaint', n])
             if rc != 0:
                 exit(rc)
+
+    def _tfenv_init(self):
+        if not os.path.exists('.terraform-version'):
+            # There is no specified version so we will use the default installed in the container.
+            warn = 'WARNING: .terraform-version not found -- using the default installed terraform'
+            sys.stderr.write('\n' + warn + '\n\n')
+            return
+        rc = self._script(["tfenv", "install"])
+        if rc != 0:
+            exit(rc)
 
     def _locate_var_files(self):
         if self._var_files is None:
