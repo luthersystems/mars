@@ -19,3 +19,5 @@ ENTRYPOINT ["/opt/mars/terraform.py"]
 RUN apt-get update && apt-get install -yq curl unzip perl python3
 
 RUN tfenv install 0.11.2
+RUN tfenv install 0.11.3
+RUN tfenv install 0.11.4
