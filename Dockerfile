@@ -4,6 +4,7 @@ ADD terraform.py /opt/mars/terraform.py
 RUN chmod a+x /opt/mars/terraform.py
 
 ADD build/tfenv /opt/tfenv
+RUN mkdir -p /opt/tfenv/versions && chmod -R a+w /opt/tfenv/versions
 ENV PATH="/opt/tfenv/bin:${PATH}"
 
 RUN mkdir -p /terraform /opt/home
