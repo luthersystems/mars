@@ -102,6 +102,7 @@ class Terraform(object):
             exit(rc)
 
     def plan(self, destroy=False, out=None, apply_plan=False):
+        self._check_env()
         self._tfenv_init()
         plan_path = out
         if apply_plan and plan_path is None:
@@ -149,6 +150,7 @@ class Terraform(object):
         exit(rc)
 
     def apply(self, plan=None):
+        self._check_env()
         self._tfenv_init()
         args = []
         if plan:
@@ -161,6 +163,7 @@ class Terraform(object):
         exit(rc)
 
     def destroy(self):
+        self._check_env()
         self._tfenv_init()
         args = self._var_file_args()
         rc = self._script(
@@ -169,6 +172,7 @@ class Terraform(object):
         exit(rc)
 
     def show(self, plan=None):
+        self._check_env()
         self._tfenv_init()
         args = []
         if plan:
@@ -179,6 +183,7 @@ class Terraform(object):
         exit(rc)
 
     def graph(self, draw_cycles=None):
+        self._check_env()
         self._tfenv_init()
         args = []
         if draw_cycles:
@@ -189,6 +194,7 @@ class Terraform(object):
         exit(rc)
 
     def taint(self, name=None):
+        self._check_env()
         self._tfenv_init()
         names = name
         if isinstance(name, str):
@@ -201,6 +207,7 @@ class Terraform(object):
                 exit(rc)
 
     def untaint(self, name=None):
+        self._check_env()
         self._tfenv_init()
         names = name
         if isinstance(name, str):
@@ -211,6 +218,17 @@ class Terraform(object):
                 ['terraform', 'untaint', n])
             if rc != 0:
                 exit(rc)
+
+    def _check_env(self):
+        '''
+        We want to fail most commands if the environment doesn't exist.  In the past this was
+        harmless but under new deployment methods you can end up in the wrong workspace for the
+        subproject you are in.
+        '''
+        env_dir = os.path.join(self.var_dir, self.env)
+        if not os.path.exists(env_dir):
+            sys.stderr.write('\nNo environment in this project: {}\n\n.'.format(self.env))
+            exit(1)
 
     def _tfenv_init(self):
         if not os.path.exists('.terraform-version'):

@@ -18,6 +18,6 @@ ENTRYPOINT ["/opt/mars/terraform.py"]
 #   https://github.com/kamatama41/tfenv/blob/c859abc80bcab1cdb3b166df358e82ff7c1e1d36/README.md#usage
 RUN apt-get update && apt-get install -yq curl unzip perl python3
 
-RUN tfenv install 0.11.2
-RUN tfenv install 0.11.3
-RUN tfenv install 0.11.4
+RUN tfenv install 0.11.2 && \
+    tfenv install 0.11.3 && \
+    tfenv install 0.11.4
