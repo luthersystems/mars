@@ -4,6 +4,7 @@ ADD terraform.py /opt/mars/terraform.py
 RUN chmod a+x /opt/mars/terraform.py
 
 ADD build/tfenv /opt/tfenv
+RUN mkdir -p /opt/tfenv/versions && chmod -R a+w /opt/tfenv/versions
 ENV PATH="/opt/tfenv/bin:${PATH}"
 
 RUN mkdir -p /terraform /opt/home
@@ -18,3 +19,5 @@ ENTRYPOINT ["/opt/mars/terraform.py"]
 RUN apt-get update && apt-get install -yq curl unzip perl python3
 
 RUN tfenv install 0.11.2
+RUN tfenv install 0.11.3
+RUN tfenv install 0.11.4

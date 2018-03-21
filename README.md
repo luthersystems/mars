@@ -32,12 +32,14 @@ echo 0.11.3 > .terraform-version
 General usage has the following form.
 
 ```sh
+LOCAL_CACHE="$HOME/.mars/tfenv/versions"
 END_USER=$(id -u $USER):$(id -g $USER)
 DOCKER_WORKDIR=/terraform
 
 PROJECT_PATH=$(pwd)
 docker run --rm -it \
     -u $END_USER \
+    -v "$LOCAL_CACHE:/opt/tfenv/versions" \
     -v "$PROJECT_PATH:/terraform" \
     -v "$HOME/.aws/:/opt/home/.aws" \
     -v "$SSH_AUTH_SOCK:$SSH_AUTH_SOCK" \
@@ -50,10 +52,18 @@ directory will be owned by the correct user (not root).  AWS credentials must
 be mounted into /opt/home, which is containers value for environment variable
 `HOME`.  Finally, in order for ssh to work the ssh-agent's socket must be
 mounted into the container from the host and variable `SSH_AUTH_SOCK` has to be
-set, telling the container where to find the unix socket..
+set, telling the container where to find the unix socket.
 
-You can install a symlink pointing to "mars.sh" to make running the container
-less painful.
+Mounting to path /opt/tfenv/versions is not a requirement but will prevent
+containers run with `--rm` from continuously needing to download versions of
+terraform not included in the default installation.  The mount, or
+alternatively running with `--rm`, will bypass this issue.  For now, `--rm` and
+mounting the cache in the docker command fits our workflow better so we
+typically do that.
+
+To ease working with the container it is advisable to either write a wrapper
+script orinstall a symlink pointing to this project's "mars.sh" script to make
+running the container less painful.
 
 ```
 ln -s $(pwd)/mars.sh ~/bin/mars
