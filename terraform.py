@@ -8,6 +8,7 @@ import sys
 import time
 import itertools
 import os.path
+import subprocess
 
 
 class Terraform(object):
@@ -102,8 +103,9 @@ class Terraform(object):
             exit(rc)
 
     def plan(self, destroy=False, out=None, apply_plan=False):
-        self._check_env()
         self._tfenv_init()
+        self._check_env()
+        self._prompt_env_switch()
         plan_path = out
         if apply_plan and plan_path is None:
             plan_dir = ".tf-plans"
@@ -150,8 +152,9 @@ class Terraform(object):
         exit(rc)
 
     def apply(self, plan=None):
-        self._check_env()
         self._tfenv_init()
+        self._check_env()
+        self._prompt_env_switch()
         args = []
         if plan:
             args = [plan]
@@ -163,8 +166,9 @@ class Terraform(object):
         exit(rc)
 
     def destroy(self):
-        self._check_env()
         self._tfenv_init()
+        self._check_env()
+        self._prompt_env_switch()
         args = self._var_file_args()
         rc = self._script(
             self._tf_workspace_select(),
@@ -172,8 +176,9 @@ class Terraform(object):
         exit(rc)
 
     def show(self, plan=None):
-        self._check_env()
         self._tfenv_init()
+        self._check_env()
+        self._prompt_env_switch()
         args = []
         if plan:
             args = [plan]
@@ -183,8 +188,9 @@ class Terraform(object):
         exit(rc)
 
     def graph(self, draw_cycles=None):
-        self._check_env()
         self._tfenv_init()
+        self._check_env()
+        self._prompt_env_switch()
         args = []
         if draw_cycles:
             args = ['-draw-cycles']
@@ -194,8 +200,9 @@ class Terraform(object):
         exit(rc)
 
     def taint(self, name=None):
-        self._check_env()
         self._tfenv_init()
+        self._check_env()
+        self._prompt_env_switch()
         names = name
         if isinstance(name, str):
             names = [name]
@@ -207,6 +214,7 @@ class Terraform(object):
                 exit(rc)
 
     def untaint(self, name=None):
+        self._prompt_env_switch()
         self._check_env()
         self._tfenv_init()
         names = name
@@ -229,6 +237,26 @@ class Terraform(object):
         if not os.path.exists(env_dir):
             sys.stderr.write('\nNo environment in this project: {}\n\n.'.format(self.env))
             exit(1)
+
+    def _prompt_env_switch(self):
+        # FIXME:  Get the real current environment
+        curr_env = self._exec_capture('terraform', 'workspace', 'show')
+        curr_env = curr_env.decode('utf-8').strip()
+        if curr_env == self.env:
+            return
+        print('\nswitching environment \x1b[31m{}\x1b[0m ~> \x1b[32m{}\x1b[0m\n\n'
+              .format(curr_env, self.env))
+        while 1:
+            resp = input("switch to {}? [y/N] ".format(self.env))
+            if resp:
+                resp = resp.lower()
+            else:
+                resp = 'n'
+            if resp == 'n' or resp == 'no':
+                exit(1)
+            if resp == 'y' or resp == 'yes':
+                break
+            sys.stderr.write('what?\n')
 
     def _tfenv_init(self):
         if not os.path.exists('.terraform-version'):
@@ -294,6 +322,21 @@ class Terraform(object):
         sys.stderr.write(cmd + '\n')
         rc = os.system(cmd)
         return rc
+
+    def _script_capture(self, *cmds, **kwargs):
+        def mkcmd(args):
+            return ' '.join(shlex.quote(a) for a in args)
+        script = ' && '.join(map(mkcmd, cmds))
+        chdir = kwargs.get('chdir')
+        cmd = '({})'.format(script)
+        sys.stderr.write(cmd + '\n')
+        return subprocess.check_output(['sh', '-c', script], shell=True, cwd=chdir)
+
+    def _exec_capture(self, *cmdargs, **kwargs):
+        cmd = ' '.join(shlex.quote(a) for a in cmdargs)
+        chdir = kwargs.get('chdir')
+        sys.stderr.write(cmd + '\n')
+        return subprocess.check_output(cmd, shell=True, cwd=chdir)
 
 
 if __name__ == '__main__':

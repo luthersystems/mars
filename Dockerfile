@@ -1,8 +1,5 @@
 FROM ubuntu:16.04
 
-ADD terraform.py /opt/mars/terraform.py
-RUN chmod a+x /opt/mars/terraform.py
-
 ADD build/tfenv /opt/tfenv
 RUN mkdir -p /opt/tfenv/versions && chmod -R a+w /opt/tfenv/versions
 ENV PATH="/opt/tfenv/bin:${PATH}"
@@ -11,6 +8,9 @@ RUN mkdir -p /terraform /opt/home
 ENV HOME="/opt/home"
 
 WORKDIR /terraform
+
+ADD terraform.py /opt/mars/terraform.py
+RUN chmod a+x /opt/mars/terraform.py
 ENTRYPOINT ["/opt/mars/terraform.py"]
 
 # Update apt cache and install prerequisites before running tfenv for the first
