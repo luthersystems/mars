@@ -52,6 +52,9 @@ class Terraform(object):
                                  nargs='+')
         init_parser.set_defaults(parser_func=self.init)
 
+        new_workspace_parser = subparsers.add_parser('new-workspace')
+        new_workspace_parser.set_defaults(parser_func=self.new_workspace)
+
         taint_parser = subparsers.add_parser('taint')
         taint_parser.add_argument("name", help="A resource to taint", nargs='+')
         taint_parser.set_defaults(parser_func=self.taint)
@@ -92,6 +95,11 @@ class Terraform(object):
         rc = self._script(
             # no switching workspaces for init -- not necessary
             ['terraform', 'init'] + list(args))
+        exit(rc)
+
+    def new_workspace(self):
+        self._tfenv_init()
+        rc = self._script(['terraform', 'workspace', 'new', self.env])
         exit(rc)
 
     def terraform(self, args):
