@@ -29,7 +29,8 @@ version to use (technically optional).  See
 echo 0.11.3 > .terraform-version
 ```
 
-General usage has the following form.
+If `$SSH_AUTH_SOCK` is mountable on docker containers (on Linux -- not macOS),
+general usage has the following form.
 
 ```sh
 LOCAL_CACHE="$HOME/.mars/tfenv/versions"
@@ -47,6 +48,18 @@ docker run --rm -it \
     luthersystems/mars COMMAND [FLAGS] ARGS
 ```
 
+**NOTE:**  If using macOS then an alternative method for forwarding the host's
+ssh-agent to the docker container is necessary (see long discussions spawning
+from [this thread](
+https://forums.docker.com/t/can-we-re-use-the-osx-ssh-agent-socket-in-a-container/8152)).
+It seems like
+[uber-common/docker-ssh-forward](https://github.com/uber-common/docker-ssh-agent-forward)
+is the defacto best option as the
+[avsm/docker-ssh-forward](https://github.com/avsm/docker-ssh-agent-forward)
+project recommended from the linked thread seems to be unmaintained now (years
+later).
+
+
 The user (`-u`) is set so that state files in the project's .terraform
 directory will be owned by the correct user (not root).  AWS credentials must
 be mounted into /opt/home, which is containers value for environment variable
@@ -62,11 +75,22 @@ mounting the cache in the docker command fits our workflow better so we
 typically do that.
 
 To ease working with the container it is advisable to either write a wrapper
-script orinstall a symlink pointing to this project's "mars.sh" script to make
+script orinstall a symlink pointing to a shell script in this project to make
 running the container less painful.
+
+On Linux, the following command will install the proper script symlink.
 
 ```
 ln -s $(pwd)/mars.sh ~/bin/mars
+mars -h
+```
+
+Users of macOS should instead symlink the macOS specific script `mars_macos.sh`
+which will make use of `pinata-ssh-mount` to forward the host ssh agent (see
+note above).
+
+```
+ln -s $(pwd)/mars_macos.sh ~/bin/mars
 mars -h
 ```
 
