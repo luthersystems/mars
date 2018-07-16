@@ -16,7 +16,7 @@ ENTRYPOINT ["/opt/mars/terraform.py"]
 # Update apt cache and install prerequisites before running tfenv for the first
 # time.
 #   https://github.com/kamatama41/tfenv/blob/c859abc80bcab1cdb3b166df358e82ff7c1e1d36/README.md#usage
-RUN apt-get update && apt-get install -yq curl unzip perl python3
+RUN apt-get update && apt-get install -yq curl unzip perl python3 git
 
 RUN tfenv install 0.11.2 && \
     tfenv install 0.11.3 && \
