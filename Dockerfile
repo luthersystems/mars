@@ -22,7 +22,8 @@ ENTRYPOINT ["/opt/mars/run.sh"]
 
 ADD terraform.py /opt/mars/terraform.py
 RUN chmod a+x /opt/mars/terraform.py
-RUN ssh-keyscan -H bitbucket.org >> /etc/ssh/authorized_keys
-ADD ssh_config /etc/ssh/ssh_config
 ADD run.sh /opt/mars/run.sh
 RUN chmod a+x /opt/mars/run.sh
+ADD ssh_config /etc/ssh/ssh_config
+# Grab bitbucket.org keys and place in known_hosts
+RUN ssh-keyscan -H bitbucket.org >> /etc/ssh/known_hosts

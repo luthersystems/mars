@@ -28,12 +28,12 @@ Host *
 #   GSSAPIDelegateCredentials no
 #   GSSAPIKeyExchange no
 #   GSSAPITrustDNS no
-    BatchMode yes
+#   BatchMode yes
 #   CheckHostIP yes
 #   AddressFamily any
 #   ConnectTimeout 0
-    StrictHostKeyChecking no
-    UserKnownHostsFile /dev/null
+#   StrictHostKeyChecking no
+    UserKnownHostsFile /etc/ssh/known_hosts
     PreferredAuthentications publickey
 #   IdentityFile ~/.ssh/identity
 #   IdentityFile ~/.ssh/id_rsa
