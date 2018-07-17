@@ -12,7 +12,7 @@ DOCKER_IMAGE=luthersystems/mars
 END_USER=$(id -u $USER):$(id -g $USER)
 DOCKER_WORKDIR=/terraform
 PROJECT_PATH=$(pwd)
-LOG_LEVEL=TRACE
+LOG_LEVEL=${LOG_LEVEL:-ERROR}
 
 if [ -z "$(docker ps | grep pinata-sshd)" ]; then
     echo 2>&1 "pinata-sshd not found;  run pinata-ssh-forward"
