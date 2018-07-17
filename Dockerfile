@@ -9,15 +9,21 @@ ENV HOME="/opt/home"
 
 WORKDIR /terraform
 
-ADD terraform.py /opt/mars/terraform.py
-RUN chmod a+x /opt/mars/terraform.py
-ENTRYPOINT ["/opt/mars/terraform.py"]
-
 # Update apt cache and install prerequisites before running tfenv for the first
 # time.
 #   https://github.com/kamatama41/tfenv/blob/c859abc80bcab1cdb3b166df358e82ff7c1e1d36/README.md#usage
-RUN apt-get update && apt-get install -yq curl unzip perl python3
+RUN apt-get update && apt-get install -yq curl unzip perl python3 git
 
 RUN tfenv install 0.11.2 && \
     tfenv install 0.11.3 && \
     tfenv install 0.11.4
+
+ENTRYPOINT ["/opt/mars/run.sh"]
+
+ADD terraform.py /opt/mars/terraform.py
+RUN chmod a+x /opt/mars/terraform.py
+ADD run.sh /opt/mars/run.sh
+RUN chmod a+x /opt/mars/run.sh
+ADD ssh_config /etc/ssh/ssh_config
+# Grab bitbucket.org keys and place in known_hosts
+RUN ssh-keyscan -H bitbucket.org >> /etc/ssh/known_hosts
