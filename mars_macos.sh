@@ -20,10 +20,11 @@ fi
 
 mkdir -p $TFENV_CACHE_PATH
 docker run --rm -it \
-    -u $END_USER \
+    -e USER_ID=$(id -u $USER) \
+    -e GROUP_ID=$(id -g $USER) \
     -e TF_LOG=$LOG_LEVEL \
     -v "$TFENV_CACHE_PATH:/opt/tfenv/versions" \
     -v "$PROJECT_PATH:/terraform" \
     -v "$HOME/.aws/:/opt/home/.aws" \
     $(pinata-ssh-mount) \
-    $DOCKER_IMAGE $@
+    $DOCKER_IMAGE "$@"
