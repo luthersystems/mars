@@ -56,10 +56,12 @@ class Terraform(object):
         new_workspace_parser.set_defaults(parser_func=self.new_workspace)
 
         taint_parser = subparsers.add_parser('taint')
+        taint_parser.add_argument("--module", help='Module containing the resource to taint')
         taint_parser.add_argument("name", help="A resource to taint", nargs='+')
         taint_parser.set_defaults(parser_func=self.taint)
 
         untaint_parser = subparsers.add_parser('untaint')
+        untaint_parser.add_argument("--module", help='Module containing the resource to untaint')
         untaint_parser.add_argument("name", help="A resource to untaint", nargs='+')
         untaint_parser.set_defaults(parser_func=self.untaint)
 
@@ -207,31 +209,39 @@ class Terraform(object):
             ['terraform', 'graph'] + list(args))
         exit(rc)
 
-    def taint(self, name=None):
+    def taint(self, name=None, module=None):
         self._tfenv_init()
         self._check_env()
         self._prompt_env_switch()
         names = name
         if isinstance(name, str):
             names = [name]
+        cmd_base = ['terraform', 'taint']
+        if module is not None:
+            cmd_base.extend(['-module', module])
         for n in names:
+            cmd = cmd_base + [n]
             rc = self._script(
                 self._tf_workspace_select(),
-                ['terraform', 'taint', n])
+                cmd)
             if rc != 0:
                 exit(rc)
 
-    def untaint(self, name=None):
+    def untaint(self, name=None, module=None):
         self._prompt_env_switch()
         self._check_env()
         self._tfenv_init()
         names = name
         if isinstance(name, str):
             names = [name]
+        cmd_base = ['terraform', 'untaint']
+        if module is not None:
+            cmd_base.extend(['-module', module])
         for n in names:
+            cmd = cmd_base + [n]
             rc = self._script(
                 self._tf_workspace_select(),
-                ['terraform', 'untaint', n])
+                cmd)
             if rc != 0:
                 exit(rc)
 

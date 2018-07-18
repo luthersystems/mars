@@ -12,7 +12,12 @@ DOCKER_IMAGE=luthersystems/mars
 END_USER=$(id -u $USER):$(id -g $USER)
 DOCKER_WORKDIR=/terraform
 PROJECT_PATH=$(pwd)
-LOG_LEVEL=${LOG_LEVEL:-ERROR}
+
+ENV_VARS=
+if [ -n "${TF_LOG+x}" ]; then
+    # TF_LOG has been set.  Forward it to the docker env.
+    ENV_VARS="-e TF_LOG=$TF_LOG $ENV_VARS"
+fi
 
 if [ -z "$(docker ps | grep pinata-sshd)" ]; then
     echo 2>&1 "pinata-sshd not found;  run pinata-ssh-forward"
@@ -22,7 +27,7 @@ mkdir -p $TFENV_CACHE_PATH
 docker run --rm -it \
     -e USER_ID=$(id -u $USER) \
     -e GROUP_ID=$(id -g $USER) \
-    -e TF_LOG=$LOG_LEVEL \
+    ${ENV_VARS} \
     -v "$TFENV_CACHE_PATH:/opt/tfenv/versions" \
     -v "$PROJECT_PATH:/terraform" \
     -v "$HOME/.aws/:/opt/home/.aws" \
