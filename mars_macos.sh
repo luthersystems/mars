@@ -32,7 +32,8 @@ if [ -n "${TF_LOG+x}" ]; then
 fi
 
 if [ -z "$(docker ps | grep pinata-sshd)" ]; then
-    echo 2>&1 "pinata-sshd not found;  run pinata-ssh-forward"
+    echo 2>&1 "pinata-sshd not found;  starting..."
+    pinata-ssh-forward
 fi
 
 docker volume create "$ANSIBLE_INVENTORY_CACHE_VOL"
