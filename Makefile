@@ -40,7 +40,7 @@ ${TFENV}:
 aws-ecr-login:
 	$(shell aws ecr get-login --region ${AWS_REGION} --no-include-email)
 
-${STATIC_IMAGE_DUMMY}: ${TFENV} terraform.py run.sh ssh_config
+${STATIC_IMAGE_DUMMY}: Dockerfile ${TFENV} terraform.py run.sh ssh_config luther_ansible.py requirements.txt
 	${DOCKER} build \
 		-t ${STATIC_IMAGE}:latest \
 		-t ${STATIC_IMAGE}:${VERSION} \

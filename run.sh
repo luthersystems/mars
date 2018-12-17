@@ -5,5 +5,5 @@ if [ x"$USER_ID" != x"0" ]; then
 fi
 pwconv
 grpconv
-CMD="PATH=$PATH /opt/mars/terraform.py $@"
+CMD="PATH=$PATH /opt/mars/mars.py $@"
 su -s "/bin/bash" -c "${CMD}" default 
