@@ -36,10 +36,15 @@ if [ -z "$(docker ps | grep pinata-sshd)" ]; then
     pinata-ssh-forward
 fi
 
+DOCKER_TERM_VARS=-i
+if [ -t 1 ]; then
+    DOCKER_TERM_VARS=-it
+fi
+
 docker volume create "$ANSIBLE_INVENTORY_CACHE_VOL"
 
 mkdir -p $TFENV_CACHE_PATH
-docker run --rm -it \
+docker run --rm $DOCKER_TERM_VARS \
     -e USER_ID=$(id -u $USER) \
     -e GROUP_ID=$(id -g $USER) \
     ${ENV_VARS} \
