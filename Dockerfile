@@ -1,8 +1,10 @@
 FROM ubuntu:16.04
 
+ADD build/packer /opt/bin/packer
+
 ADD build/tfenv /opt/tfenv
 RUN mkdir -p /opt/tfenv/versions && chmod -R a+w /opt/tfenv/versions
-ENV PATH="/opt/tfenv/bin:${PATH}"
+ENV PATH="/opt/tfenv/bin:/opt/bin:${PATH}"
 
 RUN mkdir -p /marsproject /opt/home
 ENV HOME="/opt/home"
@@ -25,6 +27,8 @@ RUN tfenv install 0.11.2 && \
 ENTRYPOINT ["/opt/mars/run.sh"]
 
 ADD mars.py /opt/mars/mars.py
+ADD command.py /opt/mars/command.py
+ADD packer.py /opt/mars/packer.py
 ADD luther_ansible.py /opt/mars/luther_ansible.py
 ADD terraform.py /opt/mars/terraform.py
 RUN chmod a+x /opt/mars/terraform.py

@@ -1,6 +1,14 @@
 include common.mk
 STATIC_IMAGE=luthersystems/${PROJECT}
 
+PYTHON_SOURCES=$(shell find . -name '*.py')
+
+# NOTE: There is a bug with PACKER_VERSION=1.4.0 that prevents running in debug mode
+PACKER_VERSION=1.3.5
+PACKER_ARCHIVE=build/packer_${PACKER_VERSION}_linux_amd64.zip
+PACKER=build/packer
+PACKER_URL=https://releases.hashicorp.com/packer/${PACKER_VERSION}/$(notdir ${PACKER_ARCHIVE})
+
 # The tfenv project is checked out using a git repository to avoid issues
 # because a user didn't set up SSH keys with github.
 # Use a luther clone of this repo for reproducibility.
@@ -36,11 +44,21 @@ ${TFENV}:
 	mkdir -p $(dir ${TFENV})
 	git clone ${TFENV_REPO} ${TFENV}
 
+.PHONY: packer
+packer: ${PACKER}
+
+${PACKER}: ${PACKER_ARCHIVE}
+	cd $(dir $<) && unzip -o $(notdir $<)
+	touch $@
+
+${PACKER_ARCHIVE}:
+	wget -O $@ ${PACKER_URL}
+
 .PHONY: aws-ecr-login
 aws-ecr-login:
 	$(shell aws ecr get-login --region ${AWS_REGION} --no-include-email)
 
-${STATIC_IMAGE_DUMMY}: Dockerfile ${TFENV} terraform.py run.sh ssh_config luther_ansible.py requirements.txt
+${STATIC_IMAGE_DUMMY}: Dockerfile ${TFENV} ${PACKER} ${PYTHON_SOURCES} run.sh ssh_config requirements.txt
 	${DOCKER} build \
 		-t ${STATIC_IMAGE}:latest \
 		-t ${STATIC_IMAGE}:${VERSION} \
