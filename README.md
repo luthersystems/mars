@@ -94,6 +94,8 @@ ln -s $(pwd)/mars_macos.sh ~/bin/mars
 mars -h
 ```
 
+##Terraform
+
 If you need to run a raw terraform command using the `terraform` binary
 installed in the container you may run `mars terraform` but without care python
 will intercept options/flags intended for terraform.  Often you will have to
@@ -102,4 +104,23 @@ meant for terraform.
 
 ```
 mars dev terraform -- providers --help
+```
+
+##Packer
+
+Running packer currently expects a specific directory structure.
+
+```
+/IMAGE/packer.json
+/...
+```
+
+A packer.json file is expected to be nested under a directory with the name of
+the output AMI.  This structure allows multiple pcaker AMIs to be built using
+common ansible roles.  Run packer commands by specifying the image and then the
+desired command.
+
+```
+mars IMAGE packer-validate
+mars IMAGE packer-build
 ```
