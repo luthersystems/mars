@@ -30,4 +30,6 @@ docker run --rm -it \
     -v "$HOME/.aws/:/opt/home/.aws" \
     -v "$SSH_AUTH_SOCK:$SSH_AUTH_SOCK" \
     -e "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" \
+    -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY \
+    -e AWS_SECURITY_TOKEN -e AWS_SESSION_TOKEN \
     $DOCKER_IMAGE $@

@@ -47,6 +47,8 @@ mkdir -p $TFENV_CACHE_PATH
 docker run --rm $DOCKER_TERM_VARS \
     -e USER_ID=$(id -u $USER) \
     -e GROUP_ID=$(id -g $USER) \
+    -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY \
+    -e AWS_SECURITY_TOKEN -e AWS_SESSION_TOKEN \
     ${ENV_VARS} \
     -v "$ANSIBLE_INVENTORY_CACHE_VOL:$ANSIBLE_INVENTORY_CACHE_MOUNT" \
     -v "$TFENV_CACHE_PATH:/opt/tfenv/versions" \
