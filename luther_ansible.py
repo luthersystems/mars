@@ -65,6 +65,10 @@ class Ansible(object):
         vault_decrypt_parser.add_argument('--path')
         vault_decrypt_parser.set_defaults(parser_func=self.vault_decrypt)
 
+        vault_view_parser = subparsers.add_parser('ansible-vault-view')
+        vault_view_parser.add_argument('path')
+        vault_view_parser.set_defaults(parser_func=self.vault_view)
+
         args = argparser.parse_args()
 
         if 'parser_func' not in vars(args):
@@ -148,6 +152,20 @@ class Ansible(object):
         if not os.path.exists(path):
             vault_action = 'create'
 
+        cmd = itertools.chain(
+            ['ansible-vault'],
+            vault_args,
+            [vault_action, path]
+        )
+        rc = self._exec_cmd(*cmd)
+        exit(rc)
+
+    def vault_view(self, path=None):
+        if path is None:
+            raise Exception('path not provided')
+        vault_args = self._ansible_vault_credentials()
+
+        vault_action = 'view'
         cmd = itertools.chain(
             ['ansible-vault'],
             vault_args,

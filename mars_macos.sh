@@ -54,5 +54,7 @@ docker run --rm $DOCKER_TERM_VARS \
     -v "$TFENV_CACHE_PATH:/opt/tfenv/versions" \
     -v "$PROJECT_PATH:$DOCKER_WORKDIR" \
     -v "$HOME/.aws/:/opt/home/.aws" \
+    -e ANSIBLE_LOAD_CALLBACK_PLUGINS=yes \
+    -e ANSIBLE_STDOUT_CALLBACK=yaml \
     $(pinata-ssh-mount) \
     $DOCKER_IMAGE "$@"
