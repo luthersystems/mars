@@ -1,5 +1,5 @@
-ansible==2.4.3.0
-boto3==1.6.11
-botocore==1.9.11
+ansible==2.8.1
+boto3==1.9.173
+botocore==1.12.173
 boto==2.45.0
 PyYAML==3.13
