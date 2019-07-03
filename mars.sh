@@ -2,6 +2,10 @@
 
 set -exo pipefail
 
+fullpath() {
+    cd "$1"  && pwd
+}
+
 # NOTE:  TFENV_CACHE_PATH is deliberately not the same path as tfenv's default
 # installation on the host machine.  On macOS mounting that path would download
 # linux binaries which would render tfenv unusable outside of the container.
@@ -18,18 +22,21 @@ ANSIBLE_INVENTORY_CACHE_MOUNT="/opt/home/.ansible"
 
 DOCKER_IMAGE=luthersystems/mars
 END_USER=$(id -u $USER):$(id -g $USER)
-DOCKER_WORKDIR=/marsproject
-PROJECT_PATH=$(pwd)
+DOCKER_PROJECT_PATH=/marsproject
+PROJECT_PATH=$(fullpath ${PROJECT_PATH:-$(pwd)})
+WORK_REL_PATH="${PWD#$PROJECT_PATH}"  # Includes leading dir separator
+DOCKER_WORK_DIR="$DOCKER_PROJECT_PATH$WORK_REL_PATH"
 
 mkdir -p $TFENV_CACHE_PATH
 docker run --rm -it \
     -u $END_USER \
     -v "$ANSIBLE_INVENTORY_CACHE_PATH:$ANSIBLE_INVENTORY_CACHE_MOUNT" \
     -v "$TFENV_CACHE_PATH:/opt/tfenv/versions" \
-    -v "$PROJECT_PATH:$DOCKER_WORKDIR" \
+    -v "$PROJECT_PATH:$DOCKER_PROJECT_PATH" \
     -v "$HOME/.aws/:/opt/home/.aws" \
     -v "$SSH_AUTH_SOCK:$SSH_AUTH_SOCK" \
     -e "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" \
+    -w "$DOCKER_WORK_DIR" \
     -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY \
     -e AWS_SECURITY_TOKEN -e AWS_SESSION_TOKEN \
     $DOCKER_IMAGE $@

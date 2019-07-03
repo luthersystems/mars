@@ -2,6 +2,10 @@
 
 set -exo pipefail
 
+fullpath() {
+    cd "$1" && pwd
+}
+
 # NOTE:  TFENV_CACHE_PATH is deliberately not the same path as tfenv's default
 # installation on the host machine.  On macOS mounting that path would download
 # linux binaries which would render tfenv unusable outside of the container.
@@ -19,11 +23,12 @@ TFENV_CACHE_PATH="$HOME/.mars/tfenv/versions"
 ANSIBLE_INVENTORY_CACHE_VOL=mars_ansible_inventory_cache
 ANSIBLE_INVENTORY_CACHE_MOUNT="/opt/home/.ansible"
 
-
 DOCKER_IMAGE=luthersystems/mars
 END_USER=$(id -u $USER):$(id -g $USER)
-DOCKER_WORKDIR=/marsproject
-PROJECT_PATH=$(pwd)
+DOCKER_PROJECT_PATH=/marsproject
+PROJECT_PATH=$(fullpath ${PROJECT_PATH:-$(pwd)})
+WORK_REL_PATH="${PWD#$PROJECT_PATH}"  # Includes leading dir separator
+DOCKER_WORK_DIR="$DOCKER_PROJECT_PATH$WORK_REL_PATH"
 
 ENV_VARS=
 if [ -n "${TF_LOG+x}" ]; then
@@ -52,8 +57,9 @@ docker run --rm $DOCKER_TERM_VARS \
     ${ENV_VARS} \
     -v "$ANSIBLE_INVENTORY_CACHE_VOL:$ANSIBLE_INVENTORY_CACHE_MOUNT" \
     -v "$TFENV_CACHE_PATH:/opt/tfenv/versions" \
-    -v "$PROJECT_PATH:$DOCKER_WORKDIR" \
     -v "$HOME/.aws/:/opt/home/.aws" \
+    -v "$PROJECT_PATH:$DOCKER_PROJECT_PATH" \
+    -w "$DOCKER_WORK_DIR" \
     -e ANSIBLE_LOAD_CALLBACK_PLUGINS=yes \
     -e ANSIBLE_STDOUT_CALLBACK=yaml \
     $(pinata-ssh-mount) \
