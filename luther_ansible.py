@@ -4,6 +4,7 @@ from glob import glob
 import shlex
 import os
 import os.path
+import re
 import sys
 import itertools
 import textwrap
@@ -226,6 +227,8 @@ class Ansible(object):
             # single variables that have been encrypted using vault_encrypt.
             with tempfile.NamedTemporaryFile(mode='w') as f:
                 raw = sys.stdin.read()
+                # remove leading line with YAML label and vault header if present
+                raw = re.sub("[^\n]+!vault \|\n", "", raw)
                 encrypted = textwrap.dedent(raw)
                 f.write(encrypted)
                 f.flush()
