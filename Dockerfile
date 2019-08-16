@@ -14,7 +14,7 @@ WORKDIR /marsproject
 # Update apt cache and install prerequisites before running tfenv for the first
 # time.
 #   https://github.com/kamatama41/tfenv/blob/c859abc80bcab1cdb3b166df358e82ff7c1e1d36/README.md#usage
-RUN apt-get update && apt-get install -yq git curl unzip perl python3 python3-pip libffi-dev libssl-dev vim
+RUN apt-get update && apt-get install -yq git curl unzip jq perl python3 python3-pip libffi-dev libssl-dev vim
 
 ADD requirements.txt /opt/mars/requirements.txt
 RUN pip3 install -r /opt/mars/requirements.txt
