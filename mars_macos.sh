@@ -46,7 +46,7 @@ if [ -t 1 ]; then
     DOCKER_TERM_VARS=-it
 fi
 
-docker volume create "$ANSIBLE_INVENTORY_CACHE_VOL"
+docker volume create "$ANSIBLE_INVENTORY_CACHE_VOL" 1>&2
 
 mkdir -p $TFENV_CACHE_PATH
 docker run --rm $DOCKER_TERM_VARS \
