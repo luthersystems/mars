@@ -106,9 +106,13 @@ class Terraform(object):
 
     def terraform(self, args):
         self._tfenv_init()
+        self._check_env()
+        self._prompt_env_switch()
         cmd = ['terraform']
         cmd.extend(args)
-        rc = self._script(cmd)
+        rc = self._script(
+            self._tf_workspace_select(),
+            cmd)
         if rc != 0:
             exit(rc)
 
@@ -228,9 +232,9 @@ class Terraform(object):
                 exit(rc)
 
     def untaint(self, name=None, module=None):
-        self._prompt_env_switch()
-        self._check_env()
         self._tfenv_init()
+        self._check_env()
+        self._prompt_env_switch()
         names = name
         if isinstance(name, str):
             names = [name]
@@ -262,10 +266,11 @@ class Terraform(object):
         curr_env = curr_env.decode('utf-8').strip()
         if curr_env == self.env:
             return
-        print('\nswitching environment \x1b[31m{}\x1b[0m ~> \x1b[32m{}\x1b[0m\n\n'
-              .format(curr_env, self.env))
+        sys.stderr.write(
+                '\nswitching environment \x1b[31m{}\x1b[0m ~> \x1b[32m{}\x1b[0m\n\n'.format(curr_env, self.env))
         while 1:
-            resp = input("switch to {}? [y/N] ".format(self.env))
+            sys.stderr.write("switch to {}? [y/N] ".format(self.env))
+            resp = input()
             if resp:
                 resp = resp.lower()
             else:
