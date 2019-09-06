@@ -13,6 +13,9 @@ fullpath() {
 # ~/.tfenv/versions but we might as well just use our own custom location.
 TFENV_CACHE_PATH="$HOME/.mars/tfenv/versions"
 
+# Cache directory for provider plugins
+TF_PLUGIN_CACHE_DIR="$HOME/.mars/tf-plugin-cache"
+
 # NOTE:  ANSIBLE_INVENTORY_CACHE_MOUNT is a property of the ec2.py configuration
 # (in ec2.ini) which defaults to ~/.ansible (/opt/home/.ansible in the
 # container).  So it is possible for an inventory configuration to fail by
@@ -49,14 +52,17 @@ fi
 docker volume create "$ANSIBLE_INVENTORY_CACHE_VOL" 1>&2
 
 mkdir -p $TFENV_CACHE_PATH
+mkdir -p $TF_PLUGIN_CACHE_DIR
 docker run --rm $DOCKER_TERM_VARS \
     -e USER_ID=$(id -u $USER) \
     -e GROUP_ID=$(id -g $USER) \
     -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY \
     -e AWS_SECURITY_TOKEN -e AWS_SESSION_TOKEN \
+    -e TF_PLUGIN_CACHE_DIR=/opt/tf-plugin-cache-dir \
     ${ENV_VARS} \
     -v "$ANSIBLE_INVENTORY_CACHE_VOL:$ANSIBLE_INVENTORY_CACHE_MOUNT" \
     -v "$TFENV_CACHE_PATH:/opt/tfenv/versions" \
+    -v "$TF_PLUGIN_CACHE_DIR:/opt/tf-plugin-cache-dir" \
     -v "$HOME/.aws/:/opt/home/.aws" \
     -v "$PROJECT_PATH:$DOCKER_PROJECT_PATH" \
     -w "$DOCKER_WORK_DIR" \
