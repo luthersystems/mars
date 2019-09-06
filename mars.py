@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import os
 import sys
 import terraform
 import luther_ansible
@@ -11,10 +10,10 @@ class Mars(object):
         args = sys.argv[1:]
         if len(args) == 0:
             sys.stderr.write('no arguments provided\n')
-            os.exit(1)
+            sys.exit(1)
         if len(args) < 2:
             sys.stderr.write('missing command\n')
-            os.exit(1)
+            sys.exit(1)
         command = args[1]
         # This is kind of a hack.  It might be best to use argparse here.
         if command.startswith('ansible-'):
