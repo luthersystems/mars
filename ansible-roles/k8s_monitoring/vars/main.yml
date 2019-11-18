@@ -1,0 +1,13 @@
+---
+# vars file for k8s_monitoring
+
+k8s_monitoring_chart_path: "{{k8s_monitoring_root_path}}/monitoring-umbrella"
+k8s_monitoring_chart_values_path: "{{k8s_monitoring_root_path}}/chart-values.yaml"
+
+prometheus_alertmanager_configmap_name: prometheus-alertmanager
+prometheus_alertmanager_configmap_fullname: "{{k8s_monitoring_helm_release}}-{{prometheus_alertmanager_configmap_name}}"
+
+grafana_credentials_secret_name: grafana-admin-credentials
+grafana_env_secret_name: grafana-env
+grafana_dashboard_configmap_name: grafana-dashboards
+grafana_dashboard_configmap_path: "{{k8s_monitoring_root_path}}/grafana-dashboards.yaml"

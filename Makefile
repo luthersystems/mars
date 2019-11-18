@@ -24,6 +24,8 @@ KEYBASE_URL=https://prerelease.keybase.io/keybase_amd64.deb
 STATIC_IMAGE_DUMMY=${call IMAGE_DUMMY,${STATIC_IMAGE}/${VERSION}}
 ECR_STATIC_IMAGE=${ECR_HOST}/${STATIC_IMAGE}
 
+ANSIBLE_ROLES=$(shell find ansible-roles)
+
 .PHONY: default
 default: docker-static
 	@
@@ -58,13 +60,13 @@ ${PACKER_ARCHIVE}:
 aws-ecr-login:
 	$(shell aws ecr get-login --region ${AWS_REGION} --no-include-email)
 
-${STATIC_IMAGE_DUMMY}: Dockerfile ${TFENV} ${PACKER} ${PYTHON_SOURCES} run.sh ssh_config requirements.txt
+${STATIC_IMAGE_DUMMY}: Dockerfile ${TFENV} ${PACKER} ${PYTHON_SOURCES} ${ANSIBLE_ROLES} run.sh ssh_config requirements.txt
 	${DOCKER} build \
 		-t ${STATIC_IMAGE}:latest \
 		-t ${STATIC_IMAGE}:${VERSION} \
+		-t ${ECR_STATIC_IMAGE}:latest \
+		-t ${ECR_STATIC_IMAGE}:${VERSION} \
 		.
-	docker tag ${STATIC_IMAGE}:latest ${ECR_STATIC_IMAGE}:latest
-	docker tag ${STATIC_IMAGE}:${VERSION} ${ECR_STATIC_IMAGE}:${VERSION}
 	${MKDIR_P} $(dir $@)
 	${TOUCH} $@
 

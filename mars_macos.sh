@@ -6,6 +6,15 @@ fullpath() {
     cd "$1" && pwd
 }
 
+getroot() {
+    GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+    if [ -z "$PROJECT_PATH"]; then
+        if [ -n "$GIT_ROOT" ]; then
+            PROJECT_PATH="$GIT_ROOT"
+        fi
+    fi
+}
+
 # NOTE:  TFENV_CACHE_PATH is deliberately not the same path as tfenv's default
 # installation on the host machine.  On macOS mounting that path would download
 # linux binaries which would render tfenv unusable outside of the container.
@@ -29,9 +38,17 @@ ANSIBLE_INVENTORY_CACHE_MOUNT="/opt/home/.ansible"
 DOCKER_IMAGE=luthersystems/mars
 END_USER=$(id -u $USER):$(id -g $USER)
 DOCKER_PROJECT_PATH=/marsproject
+getroot
 PROJECT_PATH=$(fullpath ${PROJECT_PATH:-$(pwd)})
 WORK_REL_PATH="${PWD#$PROJECT_PATH}"  # Includes leading dir separator
 DOCKER_WORK_DIR="$DOCKER_PROJECT_PATH$WORK_REL_PATH"
+
+MARS_VERSION=latest
+if [ -f "$PROJECT_PATH/.mars-version" ]; then
+    MARS_VERSION=$(cat $PROJECT_PATH/.mars-version)
+elif [ -f "$GIT_ROOT/.mars-version" ]; then
+    MARS_VERSION=$(cat $GIT_ROOT/.mars-version)
+fi
 
 ENV_VARS=
 if [ -n "${TF_LOG+x}" ]; then
@@ -69,4 +86,4 @@ docker run --rm $DOCKER_TERM_VARS \
     -e ANSIBLE_LOAD_CALLBACK_PLUGINS=yes \
     -e ANSIBLE_STDOUT_CALLBACK=yaml \
     $(pinata-ssh-mount) \
-    $DOCKER_IMAGE "$@"
+    "$DOCKER_IMAGE:$MARS_VERSION" "$@"

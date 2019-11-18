@@ -40,4 +40,7 @@ ADD ssh_config /etc/ssh/ssh_config
 # Grab bitbucket.org keys and place in known_hosts
 RUN ssh-keyscan -H bitbucket.org >> /etc/ssh/known_hosts
 
+ADD ansible-roles /opt/ansible/roles
+ENV ANSIBLE_ROLES_PATH=/opt/ansible/roles
+
 ENV EDITOR="vim -i NONE"
