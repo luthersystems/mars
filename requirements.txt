@@ -3,3 +3,4 @@ boto3==1.9.173
 botocore==1.12.173
 boto==2.45.0
 PyYAML==3.13
+python-dotenv==0.10.3

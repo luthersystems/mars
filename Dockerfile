@@ -31,6 +31,8 @@ ADD command.py /opt/mars/command.py
 ADD packer.py /opt/mars/packer.py
 ADD luther_ansible.py /opt/mars/luther_ansible.py
 ADD terraform.py /opt/mars/terraform.py
+ADD alb.py /opt/mars/alb.py
+ADD run.py /opt/mars/run.py
 RUN chmod a+x /opt/mars/terraform.py
 ADD run.sh /opt/mars/run.sh
 RUN chmod a+x /opt/mars/run.sh
