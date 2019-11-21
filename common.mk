@@ -42,3 +42,7 @@ GIT_LS_FILES=$(shell git ls-files $(1))
 DOCKER_WIN_DIR=$(shell cygpath -wm $(realpath $(1)))
 DOCKER_NIX_DIR=$(realpath $(1))
 DOCKER_DIR=$(if $(IS_WINDOWS),$(call DOCKER_WIN_DIR, $(1)),$(call DOCKER_NIX_DIR, $(1)))
+
+.PHONY: echo/%
+echo/%:
+	@echo "$($*)"

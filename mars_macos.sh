@@ -35,7 +35,8 @@ TF_PLUGIN_CACHE_DIR="$HOME/.mars/tf-plugin-cache"
 ANSIBLE_INVENTORY_CACHE_VOL=mars_ansible_inventory_cache
 ANSIBLE_INVENTORY_CACHE_MOUNT="/opt/home/.ansible"
 
-DOCKER_IMAGE=luthersystems/mars
+ECR_HOST=$(cd $(dirname $(greadlink -f "${BASH_SOURCE[0]}")) && make echo/ECR_HOST)
+DOCKER_IMAGE=$ECR_HOST/luthersystems/mars
 END_USER=$(id -u $USER):$(id -g $USER)
 DOCKER_PROJECT_PATH=/marsproject
 getroot

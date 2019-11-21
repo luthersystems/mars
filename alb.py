@@ -39,23 +39,17 @@ class ALBUtils(object):
 
         alb_tags = self.alb_client.describe_tags(ResourceArns=arns)
         for entry in alb_tags.get('TagDescriptions', []):
-            tags = {}
-            for tag_item in entry.get('Tags', []):
-                tags[tag_item.get('Key')] = tag_item.get('Value')
-            if self._matches_tags(tags, project=project, luther_env=luther_env, component=component, org=org):
+            tags = { item.get('Key'): item.get('Value') for item in entry.get('Tags', []) }
+            match = {'Project': project, 'Environment': luther_env, 'Component': component, 'Organization': org}
+            if self._matches_tags(tags, match):
                 if self.verbose:
                     sys.stderr.write('{}\n'.format(tags))
                 print(names[entry.get('ResourceArn')])
 
-    def _matches_tags(self, tags, project=None, luther_env=None, component=None, org=None):
-        if not self._matches_tag_value(tags, 'Project', project):
-            return False
-        if not self._matches_tag_value(tags, 'Environment', luther_env):
-            return False
-        if not self._matches_tag_value(tags, 'Component', component):
-            return False
-        if not self._matches_tag_value(tags, 'Organization', org):
-            return False
+    def _matches_tags(self, tags, match):
+        for k, v in match.items():
+            if not self._matches_tag_value(tags, k, v):
+                return False
         return True
 
     def _matches_tag_value(self, tags, tag_name, value):
