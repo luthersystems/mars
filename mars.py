@@ -4,6 +4,7 @@ import sys
 import terraform
 import luther_ansible
 import packer
+import alb
 
 class Mars(object):
     def main(self):
@@ -21,6 +22,9 @@ class Mars(object):
             prog.main()
         elif command.startswith('packer-'):
             prog = packer.Packer()
+            prog.main()
+        elif command.startswith('alb-'):
+            prog = alb.ALBUtils()
             prog.main()
         else:
             prog = terraform.Terraform()

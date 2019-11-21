@@ -1,0 +1,12 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: {{k8s_monitoring_namespace}}
+  name: {{grafana_dashboard_configmap_name}}
+data: {
+  {% for filename, object in grafana_default_dashboards %}
+  {{ filename }}: |
+    {{ object | to_nice_yaml | indent(4)}}
+  {% endfor %}
+}

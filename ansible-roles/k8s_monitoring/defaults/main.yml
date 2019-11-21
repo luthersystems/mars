@@ -1,0 +1,135 @@
+---
+# defaults file for k8s_monitoring
+
+k8s_monitoring_root_path: "{{kubectl_asset_root_path}}/monitoring"
+k8s_monitoring_helm_release: monitoring
+k8s_monitoring_namespace: monitoring
+
+grafana_admin_user: luther
+grafana_admin_password: !!null
+
+grafana_google_client_id: !!null
+grafana_google_client_secret: !!null
+
+grafana_frontend_url: http://localhost:9292/
+grafana_frontend_certificate_arn: arn:aws:acm:eu-central-1:967058059066:certificate/c37d5e83-3b1b-41bd-a109-81827d956b5e
+
+# maps filename (*.json) to dashboard objects
+grafana_default_dashboards: {}
+
+# maps group names to array of rule objects
+prometheus_server_default_rule_groups: {}
+
+prometheus_alertmanager_slack_api_url: !!null
+
+prometheus_alertmanager_configmap_data:
+  alertmanager.yml: |
+    ---
+    global:
+      slack_api_url: "{{prometheus_alertmanager_slack_api_url}}"
+
+    receivers:
+      - name: slack_alerts
+        slack_configs:
+        - send_resolved: true
+          channel: "#alerts"
+          title: '{% raw %}{{ template "slack.luther.title" . }}{% endraw %}'
+          text: '{% raw %}{{ template "slack.luther.text" . }}{% endraw %}'
+
+    templates:
+      - /etc/config/*.tmpl
+
+    route:
+      receiver: slack_alerts
+      group_wait: 15s
+      group_interval: 1m
+      group_by:
+        - project
+        - environment
+        - alertname
+  slack.luther.text.tmpl: !unsafe |
+    {{ define "slack.luther.text" -}}
+    {{ with $data := . -}}
+
+    {{ if eq .Status "firing" -}}
+    <!channel>: :scream_cat: {{len .Alerts.Firing}} active alerts in the group{{range .Alerts.Firing}} :fire:{{end}}
+    {{- else -}}
+    :disappointed_relieved: All alerts in the group are resolved
+    {{- end }}
+
+    {{- range $ann := .CommonAnnotations.SortedPairs }}
+    - *{{.Name}}*: {{.Value}}
+    {{- end }}
+    {{- if gt (len .Alerts) 1 }}
+    {{- range $alert := .Alerts }}
+    {{ if eq .Status "firing" }}:fire:{{ else }}:ok_hand:{{ end }} {{(.Labels.Remove $data.CommonLabels.Names).Values | join " "}}
+    {{- range $ann := (.Annotations.Remove $data.CommonAnnotations.Names).SortedPairs}}
+    - *{{.Name}}*: {{.Value}}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+  slack.luther.title.tmpl: !unsafe |
+    {{ define "slack.luther.title" -}}
+    [{{ .GroupLabels.project }}-{{ .GroupLabels.environment }}]
+    {{- range .GroupLabels.SortedPairs }}
+    {{- if or (eq .Name "project") (eq .Name "environment") }}{{ else }} {{ .Value }}{{ end }}{{ end }}
+    {{- if gt (len .CommonLabels) (len .GroupLabels)}} ({{(.CommonLabels.Remove .GroupLabels.Names).Values | join " "}}){{end}}
+    {{- end }}
+
+k8s_monitoring_chart_values:
+  prometheus:
+    server:
+      alerts: "{{prometheus_server_default_rule_groups}}"
+    alertmanager:
+      configMapOverrideName: "{{prometheus_alertmanager_configmap_name}}"
+  grafana:
+    admin:
+      existingSecret: "{{grafana_credentials_secret_name}}"
+    envFromSecret: "{{grafana_env_secret_name}}"
+    ingress:
+      enabled: true
+      hosts:
+        - "{{grafana_frontend_url | urlsplit('hostname')}}"
+      path: /*
+      extraPaths:
+        - path: /*
+          backend:
+            serviceName: ssl-redirect
+            servicePort: use-annotation
+      annotations:
+        alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
+        alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": { "Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
+        alb.ingress.kubernetes.io/backend-protocol: HTTP
+        alb.ingress.kubernetes.io/certificate-arn: '{{grafana_frontend_certificate_arn}}'
+        alb.ingress.kubernetes.io/scheme: internet-facing
+        alb.ingress.kubernetes.io/target-type: ip
+        kubernetes.io/ingress.class: alb
+        alb.ingress.kubernetes.io/tags: Project={{luther_project_id}},Environment={{luther_env}},Organization={{org_name}},Component=mon,Resource=alb
+    grafana.ini:
+      server:
+        root_url: '{{grafana_frontend_url}}'
+      auth.basic:
+        enabled: false
+      auth.google:
+        enabled: true
+        scopes: https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email
+        auth_url: https://accounts.google.com/o/oauth2/auth
+        token_url: https://accounts.google.com/o/oauth2/token
+        allowed_domains: luthersystems.com
+        allow_sign_up: true
+      analytics:
+        reporting_enabled: false
+    datasources:
+      datasources.yaml:
+        apiVersion: 1
+        datasources:
+          - name: Default
+            type: prometheus
+            access: proxy
+            url: "http://{{k8s_monitoring_helm_release}}-prometheus-server/"
+            isDefault: true
+            editable: false
+    dashboardsConfigMaps:
+      defaults: "{{grafana_dashboard_configmap_name}}"

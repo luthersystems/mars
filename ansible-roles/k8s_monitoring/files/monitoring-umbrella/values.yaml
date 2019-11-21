@@ -1,0 +1,55 @@
+# Default values for monitoring-umbrella.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+prometheus:
+  alertmanager:
+    enabled: true
+    replicaCount: 2
+    configMapOverrideName: test-prometheus-alertmanager-config
+    statefulSet:
+      enabled: true
+      headless:
+        enableMeshPeer: true
+    persistentVolume:
+      storageClass: gp2-encrypted
+  kubeStateMetrics:
+    enabled: false
+  nodeExporter:
+    enabled: true
+  pushgateway:
+    enabled: false
+  server:
+    enabled: true
+    replicaCount: 2
+    statefulSet:
+      enabled: true
+    persistentVolume:
+      storageClass: gp2-encrypted
+  serverFiles:
+    alerts:
+      service:
+        - alert: LowDataVolumeSpace
+          # used > 50%
+          expr: (kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes) < 0.5
+          for: 1m
+          labels:
+            project: ics
+            environment: dev
+            test: "this is just a test"
+            severity: page
+          annotations:
+            summary: "Service data volume usage above 50%"
+
+grafana:
+  replicas: 1
+  persistence:
+    enabled: true
+    type: statefulset
+    size: 8Gi
+    storageClassName: gp2-encrypted
+  admin:
+    existingSecret: grafana-admin-credentials
+  datasources: {}
+  testFramework:
+    enabled: false

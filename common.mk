@@ -1,7 +1,7 @@
 PROJECT=mars
 PROJECT_PATH=bitbucket.org/luthersystems/${PROJECT}
 
-VERSION=0.0.1-SNAPSHOT
+VERSION=0.1.0-SNAPSHOT
 
 AWS_REGION=eu-west-2
 ECR_HOST=967058059066.dkr.ecr.${AWS_REGION}.amazonaws.com
@@ -42,3 +42,7 @@ GIT_LS_FILES=$(shell git ls-files $(1))
 DOCKER_WIN_DIR=$(shell cygpath -wm $(realpath $(1)))
 DOCKER_NIX_DIR=$(realpath $(1))
 DOCKER_DIR=$(if $(IS_WINDOWS),$(call DOCKER_WIN_DIR, $(1)),$(call DOCKER_NIX_DIR, $(1)))
+
+.PHONY: echo/%
+echo/%:
+	@echo "$($*)"
