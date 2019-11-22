@@ -1,0 +1,24 @@
+---
+# defaults file for kubectl
+
+# NOTE:  kubectl_version must be set in a way that ensures it will be in sync
+# with the k8s cluster it operates on. Example:
+#   kubectl_version: v1.15.0
+kubectl_version: ""
+
+# NOTE:  There is no default value for kubectl_eks_cluster_name and the value
+# must be declared in either the inventory or playbook.
+kubectl_eks_cluster_name: ""
+
+kubectl_asset_root_path: /opt/k8s
+
+kubectl_config_path: "{{kubectl_asset_root_path}}/kubeconfig.yaml"
+
+kubectl_bin_url: "https://storage.googleapis.com/kubernetes-release/release/v{{kubectl_version}}/bin/linux/amd64/kubectl"
+
+kubectl_eks_region: "eu-west-2"
+
+kubectl_aws_access_key_id: "{{lookup('env', 'AWS_ACCESS_KEY_ID')}}"
+kubectl_aws_secret_access_key: "{{lookup('env', 'AWS_SECRET_ACCESS_KEY')}}"
+kubectl_aws_session_token: "{{lookup('env', 'AWS_SESSION_TOKEN')}}"
+kubectl_shell_prefix: "AWS_ACCESS_KEY_ID={{kubectl_aws_access_key_id|quote}} AWS_SECRET_ACCESS_KEY={{kubectl_aws_secret_access_key|quote}} AWS_SESSION_TOKEN={{kubectl_aws_session_token|quote}} KUBECONFIG={{kubectl_config_path|quote}}"

@@ -1,0 +1,51 @@
+---
+# tasks file for k8s_static_resources
+
+- name: Raw resource directories exists
+  file:
+    path: "{{k8s_static_resources_root_path}}/{{luther_env}}/k8s_resources/{{item.metadata.namespace | default('nonamespace')}}"
+    state: directory
+  loop: "{{k8s_static_resources}}"
+
+- name: Template raw resource definitions
+  template:
+    dest: "{{k8s_static_resources_root_path}}/{{luther_env}}/k8s_resources/{{item.metadata.namespace | default('nonamespace')}}/{{item.metadata.name}}.yaml"
+    src: yaml.j2
+  loop: "{{k8s_static_resources}}"
+
+- name: Raw k8s resource(s) exists
+  k8s:
+    src: "{{k8s_static_resources_root_path}}/{{luther_env}}/k8s_resources/{{item.metadata.namespace | default('nonamespace')}}/{{item.metadata.name}}.yaml"
+  environment:
+    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
+    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
+    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
+    KUBECONFIG: "{{kubectl_config_path}}"
+  loop: "{{k8s_static_resources}}"
+
+- name: S3 resource directories exist
+  file:
+    path: "{{k8s_static_resources_root_path}}{{item.object_key | dirname}}"
+    state: directory
+  loop: "{{k8s_static_resources_s3_objects}}"
+
+- name: Download S3 resource definitions
+  aws_s3:
+    mode: get
+    bucket: "{{item.s3_bucket}}"
+    object: "{{item.object_key}}"
+    dest: "{{k8s_static_resources_root_path}}{{item.object_key}}"
+    aws_access_key: "{{kubectl_aws_access_key_id}}"
+    aws_secret_key: "{{kubectl_aws_secret_access_key}}"
+    security_token: "{{kubectl_aws_session_token}}"
+  loop: "{{k8s_static_resources_s3_objects}}"
+
+- name: S3 k8s resource(s) exists
+  k8s:
+    src: "{{k8s_static_resources_root_path}}{{item.object_key}}"
+  environment:
+    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
+    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
+    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
+    KUBECONFIG: "{{kubectl_config_path}}"
+  loop: "{{k8s_static_resources_s3_objects}}"
