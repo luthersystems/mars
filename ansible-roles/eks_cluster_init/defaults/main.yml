@@ -1,0 +1,8 @@
+---
+# defaults file for eks_cluster_init
+
+# The role will loop through eks_cluster_init_nondefault_storageclasses and
+# ensure they are annotated such that
+# storageclass.kubernetes.io/is-default-class is false.
+eks_cluster_init_nondefault_storageclasses:
+  - gp2

@@ -1,0 +1,14 @@
+---
+# defaults file for k8s_static_resources
+
+k8s_static_resources_root_path: "/opt/k8s/static_resources"
+
+# k8s_static_resources contains resource definitions (yaml objects).  Any
+# resources to be installed into a namespace should explicitly declare their
+# namespace (even it were "default")
+k8s_static_resources: []
+
+# k8s_static_resources_s3_objects contains objects with the following schema:
+#   s3_bucket: string
+#   object_key: string
+k8s_static_resources_s3_objects: []

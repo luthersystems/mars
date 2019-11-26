@@ -20,31 +20,36 @@ class ALBUtils(object):
         project = project or os.environ.get('PROJECT_NAME')
         luther_env = self._luther_env()
         self._create_client(region=region)
+        match = {'Project': project, 'Environment': luther_env, 'Component': component, 'Organization': org}
 
-        names = {}
-        arns = []
+        found = 0
         marker = None
         while True:
-            args = {}
+            args = {'PageSize': 20}
             if marker is not None:
                 args['Marker'] = marker
-            albs = self.alb_client.describe_load_balancers(**args)
-            for alb in albs.get('LoadBalancers', []):
-                arn = alb.get('LoadBalancerArn')
-                arns.append(arn)
-                names[arn] = alb.get('DNSName')
-            marker = albs.get('Marker')
+            response = self.alb_client.describe_load_balancers(**args)
+            albs = response.get('LoadBalancers', [])
+            found += self._print_matching_albs(albs, match)
+            marker = response.get('NextMarker')
             if marker is None:
                 break
+        if found == 0:
+            sys.exit(1)
 
+    def _print_matching_albs(self, albs, match):
+        arns = [alb.get('LoadBalancerArn') for alb in albs]
+        names = {alb.get('LoadBalancerArn'): alb.get('DNSName') for alb in albs}
         alb_tags = self.alb_client.describe_tags(ResourceArns=arns)
+        found = 0
         for entry in alb_tags.get('TagDescriptions', []):
             tags = { item.get('Key'): item.get('Value') for item in entry.get('Tags', []) }
-            match = {'Project': project, 'Environment': luther_env, 'Component': component, 'Organization': org}
+            if self.verbose:
+                sys.stderr.write('{}\n'.format(tags))
             if self._matches_tags(tags, match):
-                if self.verbose:
-                    sys.stderr.write('{}\n'.format(tags))
+                found += 1
                 print(names[entry.get('ResourceArn')])
+        return found
 
     def _matches_tags(self, tags, match):
         for k, v in match.items():
@@ -66,12 +71,13 @@ class ALBUtils(object):
 
     def main(self):
         import argparse
+        commonparser = argparse.ArgumentParser(add_help=False)
+        commonparser.add_argument('--verbose', '-v', dest='verbosity', action='count', default=0)
+        commonparser.add_argument('--region', help="aws region containing albs")
         argparser = argparse.ArgumentParser()
         argparser.add_argument('env', help='The project environment to use')
-        argparser.add_argument('--verbose', '-v', dest='verbosity', action='count', default=0)
-        argparser.add_argument('--region', help="aws region containing albs")
         subparsers = argparser.add_subparsers()
-        dns_parser = subparsers.add_parser('alb-dns')
+        dns_parser = subparsers.add_parser('alb-dns', parents=[commonparser])
         dns_parser.add_argument('--project', help='Only print albs with a matching project tag')
         dns_parser.add_argument('--component', help='Only print albs with a matching component tag')
         dns_parser.add_argument('--org', help='Only print albs with a matching organization tag')
