@@ -14,11 +14,15 @@ grafana_google_client_secret: !!null
 grafana_frontend_url: http://localhost:9292/
 grafana_frontend_certificate_arn: arn:aws:acm:eu-central-1:967058059066:certificate/c37d5e83-3b1b-41bd-a109-81827d956b5e
 
-# maps filename (*.json) to dashboard objects
-grafana_default_dashboards: {}
+# grafana_custom_dashboards maps filename (*.json) to dashboard objects.
+grafana_custom_dashboards: {}
+grafana_default_dashboards: "{{lookup('grafana_dashboard_dir', '/opt/grafana-dashboards')}}"
+grafana_all_dashboards: "{{grafana_default_dashboards | combine(grafana_custom_dashboards)}}"
 
-# maps group names to array of rule objects
-prometheus_server_default_rule_groups: {}
+# prometheus_server_custom_rule_groups maps group names to array of rule
+# objects. See prometheus_server_default_rule_groups below.
+prometheus_server_custom_rule_groups: {}
+prometheus_server_all_rule_groups: "{{prometheus_server_default_rule_groups|combine(prometheus_server_custom_rule_groups)}}"
 
 prometheus_alertmanager_slack_api_url: !!null
 
@@ -80,8 +84,8 @@ prometheus_alertmanager_configmap_data:
 
 k8s_monitoring_chart_values:
   prometheus:
-    server:
-      alerts: "{{prometheus_server_default_rule_groups}}"
+    serverFiles:
+      alerts: "{{prometheus_server_all_rule_groups}}"
     alertmanager:
       configMapOverrideName: "{{prometheus_alertmanager_configmap_name}}"
   grafana:
@@ -131,5 +135,61 @@ k8s_monitoring_chart_values:
             url: "http://{{k8s_monitoring_helm_release}}-prometheus-server/"
             isDefault: true
             editable: false
+    dashboardProviders:
+      # dashboardproviders.yaml is a special name that must be used
+      dashboardproviders.yaml:
+        apiVersion: 1
+        providers:
+          - name: Defaults
+            folder: defaults
+            type: file
+            disableDeletion: true
+            editable: true
+            updateIntervalSeconds: 60
+            allowUiUpdates: true
+            options:
+              path: /var/lib/grafana/dashboards
     dashboardsConfigMaps:
       defaults: "{{grafana_dashboard_configmap_name}}"
+
+prometheus_server_default_rule_groups:
+  service:
+    - alert: LowDataVolumeSpace
+      # used > 80%
+      expr: (kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes) < 0.2
+      for: 5m
+      labels:
+        project: ics
+        environment: dev
+        severity: page
+      annotations:
+        summary: "Service data volume usage above 80%"
+    - alert: LowRootVolumeSpace
+      # used > 80%
+      expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) < 0.2
+      for: 1m
+      labels:
+        project: "{{luther_project_name}}"
+        environment: "{{luther_env}}"
+        severity: page
+      annotations:
+        summary: "Instance(s) root volume usage above 80%"
+    - alert: LowInstanceMemory
+      # used > 80%
+      expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) < 0.2
+      for: 1m
+      labels:
+        project: "{{luther_project_name}}"
+        environment: "{{luther_env}}"
+        severity: page
+      annotations:
+        summary: "Instance(s) memory usage above 80%"
+    - alert: ServiceDown
+      expr: up != 1
+      for: 2m
+      labels:
+        project: "{{luther_project_name}}"
+        environment: "{{luther_env}}"
+        severity: page
+      annotations:
+        summary: "Service(s) could not be scraped"

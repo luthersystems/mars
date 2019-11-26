@@ -25,6 +25,8 @@ STATIC_IMAGE_DUMMY=${call IMAGE_DUMMY,${STATIC_IMAGE}/${VERSION}}
 ECR_STATIC_IMAGE=${ECR_HOST}/${STATIC_IMAGE}
 
 ANSIBLE_ROLES=$(shell find ansible-roles)
+ANSIBLE_PLUGINS=$(shell find ansible-plugins)
+GRAFANA_DASHBOARDS=$(shell find grafana-dashboards)
 
 .PHONY: default
 default: docker-static
@@ -60,7 +62,7 @@ ${PACKER_ARCHIVE}:
 aws-ecr-login:
 	$(shell aws ecr get-login --region ${AWS_REGION} --no-include-email)
 
-${STATIC_IMAGE_DUMMY}: Dockerfile ${TFENV} ${PACKER} ${PYTHON_SOURCES} ${ANSIBLE_ROLES} run.sh ssh_config requirements.txt
+${STATIC_IMAGE_DUMMY}: Dockerfile ${TFENV} ${PACKER} ${PYTHON_SOURCES} ${ANSIBLE_ROLES} ${ANSIBLE_PLUGINS} ${GRAFANA_DASHBOARDS} run.sh ssh_config requirements.txt
 	${DOCKER} build \
 		-t ${STATIC_IMAGE}:latest \
 		-t ${STATIC_IMAGE}:${VERSION} \

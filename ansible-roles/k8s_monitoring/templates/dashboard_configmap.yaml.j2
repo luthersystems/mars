@@ -4,9 +4,12 @@ kind: ConfigMap
 metadata:
   namespace: {{k8s_monitoring_namespace}}
   name: {{grafana_dashboard_configmap_name}}
-data: {
-  {% for filename, object in grafana_default_dashboards %}
+data:
+{% if grafana_all_dashboards %}
+{% for filename, object in grafana_all_dashboards.items() %}
   {{ filename }}: |
-    {{ object | to_nice_yaml | indent(4)}}
-  {% endfor %}
-}
+    {{ object | to_nice_json | indent(4)}}
+{% endfor %}
+{% else %}
+  {}
+{% endif %}

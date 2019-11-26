@@ -41,6 +41,10 @@ ADD ssh_config /etc/ssh/ssh_config
 RUN ssh-keyscan -H bitbucket.org >> /etc/ssh/known_hosts
 
 ADD ansible-roles /opt/ansible/roles
+ADD ansible-plugins /opt/ansible/plugins
+ENV ANSIBLE_LOOKUP_PLUGINS=/opt/ansible/plugins/lookup
 ENV ANSIBLE_ROLES_PATH=/opt/ansible/roles
+
+ADD grafana-dashboards /opt/grafana-dashboards
 
 ENV EDITOR="vim -i NONE"
