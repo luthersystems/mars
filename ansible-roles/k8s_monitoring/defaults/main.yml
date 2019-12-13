@@ -11,6 +11,14 @@ grafana_admin_password: !!null
 grafana_google_client_id: !!null
 grafana_google_client_secret: !!null
 
+# grafana_custom_oauth_config is a dict with the auth.generic_oauth structure
+# specified in the grafana docs.  The client_id and client_secret will be
+# stored in an k8s secret resource.
+#
+#   https://grafana.com/docs/grafana/latest/auth/generic-oauth
+#
+grafana_custom_oauth_config: {}
+
 grafana_frontend_url: http://localhost:9292/
 grafana_frontend_certificate_arn: arn:aws:acm:eu-central-1:967058059066:certificate/c37d5e83-3b1b-41bd-a109-81827d956b5e
 
@@ -116,6 +124,7 @@ k8s_monitoring_chart_values:
         root_url: '{{grafana_frontend_url}}'
       auth.basic:
         enabled: false
+      auth.generic_oauth: "{{ {'enabled': False } | combine(grafana_custom_oauth_config) | dict_without_keys(['client_id','client_secret']) }}"
       auth.google:
         enabled: true
         scopes: https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email

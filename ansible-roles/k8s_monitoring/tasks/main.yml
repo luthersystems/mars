@@ -55,6 +55,8 @@
       data:
         GF_AUTH_GOOGLE_CLIENT_ID: "{{grafana_google_client_id | b64encode}}"
         GF_AUTH_GOOGLE_CLIENT_SECRET: "{{grafana_google_client_secret | b64encode}}"
+        GF_AUTH_GENERIC_OAUTH_CLIENT_ID: "{{grafana_custom_oauth_config.client_id | default('') | b64encode}}"
+        GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: "{{grafana_custom_oauth_config.client_secret | default ('') | b64encode}}"
     state: present
   environment:
     AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
