@@ -168,8 +168,8 @@ prometheus_server_default_rule_groups:
       expr: (kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes) < 0.2
       for: 5m
       labels:
-        project: ics
-        environment: dev
+        project: "{{luther_project_name}}"
+        environment: "{{luther_env}}"
         severity: page
       annotations:
         summary: "Service data volume usage above 80%"
