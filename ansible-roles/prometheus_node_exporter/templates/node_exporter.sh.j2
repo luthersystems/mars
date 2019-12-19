@@ -1,0 +1,18 @@
+#!/bin/bash
+
+set -e
+
+
+exec {{prometheus_node_exporter_bin}} \
+    --web.listen-address {{prometheus_node_exporter_web_listen_address}} \
+    --web.telemetry-path {{prometheus_node_exporter_web_telemetry_path}} \
+{% for collector_name in prometheus_node_exporter_enabled_collectors %}
+    --collector.{{collector_name}} \
+{% endfor %}
+{% if 'filesystem' not in prometheus_node_exporter_disabled_collectors %}
+    --collector.filesystem.ignored-mount-points "{{prometheus_node_exporter_filesystem_ignored_mount_points}}" \
+{% endif %}
+{% for collector_name in prometheus_node_exporter_disabled_collectors %}
+    --no-collector.{{collector_name}} \
+{% endfor %}
+    $@

@@ -1,0 +1,13 @@
+[Unit]
+Description=Authorized Key Synchronization
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Restart=always
+User=root
+ExecStart={{authorized_key_sync_executable_path}} service
+WorkingDir={{authorized_key_sync_root_path}}
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,21 @@
+---
+authorized_key_sync_version: 0.1.0
+authorized_key_sync_release_archive: "authorized_key_sync-{{authorized_key_sync_version}}-linux-amd64.tar.gz"
+authorized_key_sync_release_s3_region: eu-west-2
+authorized_key_sync_release_s3_bucket: luther-common-ln-common-static-s3-b5oc
+authorized_key_sync_release_s3_key: "authorized_key_sync/{{authorized_key_sync_release_archive}}"
+authorized_key_sync_executable_path: "/usr/bin/authorized_key_sync"
+
+authorized_key_sync_config_path: /etc/authorized_key_sync/config.yaml
+authorized_key_sync_root_path: /opt/authorized_key_sync
+
+# defaults file for authorized_key_sync
+authorized_key_sync_s3_region: eu-west-2
+authorized_key_sync_s3_bucket: luther-common-ln-common-ssh-s3-y1nc
+authorized_key_sync_s3_key_prefix: ''
+
+authorized_key_sync_system_user: 'ubuntu'
+authorized_key_sync_log_level: info
+authorized_key_sync_http_port: 9112
+
+authorized_key_sync_systemd_service: authorized_key_sync.service

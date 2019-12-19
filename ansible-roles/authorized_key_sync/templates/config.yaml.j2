@@ -1,0 +1,12 @@
+---
+users:
+  system-user: {{authorized_key_sync_system_user|to_json}}
+s3:
+  region: {{authorized_key_sync_s3_region|to_json}}
+  bucket: {{authorized_key_sync_s3_bucket|to_json}}
+  key_prefix: {{authorized_key_sync_s3_key_prefix|to_json}}
+log:
+  level: {{authorized_key_sync_log_level|to_json}}
+service:
+  http:
+    address: "0.0.0.0:{{authorized_key_sync_http_port}}"

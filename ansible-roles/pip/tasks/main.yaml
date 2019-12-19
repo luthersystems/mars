@@ -1,0 +1,3 @@
+---
+- name: Pip is installed
+  apt: name=python3-pip state=present
