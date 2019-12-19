@@ -1,0 +1,13 @@
+[Unit]
+Description=Prometheus Node Exporter
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Restart=always
+User=nobody
+ExecStart={{prometheus_node_exporter_runner}}
+WorkingDir={{prometheus_node_exporter_root_path}}
+
+[Install]
+WantedBy=default.target
