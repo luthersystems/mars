@@ -20,9 +20,7 @@ ADD requirements.txt /opt/mars/requirements.txt
 RUN pip3 install -r /opt/mars/requirements.txt
 RUN mkdir /opt/home/.ansible && chmod a+w /opt/home/.ansible
 
-RUN tfenv install 0.11.2 && \
-    tfenv install 0.11.3 && \
-    tfenv install 0.11.4
+RUN tfenv install 0.11.14
 
 ENTRYPOINT ["/opt/mars/run.sh"]
 
