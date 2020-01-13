@@ -7,4 +7,4 @@ k8s_fabric_cli_org_size: 1
 k8s_fabric_cli_domain_root: "{{k8s_fabric_network_domain_root}}"
 
 k8s_fabric_cli_namespace: fabric-{{k8s_fabric_cli_org}}
-k8s_fabric_cli_helm_chart_path: "{{kubectl_asset_root_path}}/helmcharts/fabric-cli"
+k8s_fabric_cli_helm_chart_path: "{{kubectl_asset_root_path}}/fabric-cli"

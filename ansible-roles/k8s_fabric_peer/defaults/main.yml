@@ -11,6 +11,6 @@ k8s_fabric_peer_docker_log_options:
   max-file: "5"
 k8s_fabric_peer_configmap_path: "{{kubectl_asset_root_path}}/static_resources/{{luther_env}}/{{k8s_fabric_peer_namespace}}/fabric-peer.yaml"
 k8s_fabric_peer_namespace: fabric-{{k8s_fabric_peer_org}}
-k8s_fabric_peer_helm_chart_path: "{{kubectl_asset_root_path}}/helmcharts/fabric-peer"
+k8s_fabric_peer_helm_chart_path: "{{kubectl_asset_root_path}}/fabric-peer"
 k8s_fabric_peer_image_repository: hyperledger/fabric-peer
 k8s_fabric_peer_start_service: true

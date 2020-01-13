@@ -13,6 +13,16 @@
     AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
     KUBECONFIG: "{{kubectl_config_path}}"
 
+- name: Helm chart exists
+  synchronize:
+    src: fabric-cli/
+    dest: "{{k8s_fabric_cli_helm_chart_path}}"
+    delete: yes
+    recursive: yes
+    owner: no
+    group: no
+    use_ssh_args: yes
+
 - name: Helm Chart is installed
   command:
     argv:
