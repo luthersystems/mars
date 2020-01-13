@@ -1,0 +1,9 @@
+---
+# defaults file for k8s_fabric_orderer
+
+k8s_fabric_orderer_namespace: fabric-orderer
+k8s_fabric_orderer_domain_root: "{{k8s_fabric_network_domain_root}}"
+k8s_fabric_orderer_cluster_size: 3
+k8s_fabric_orderer_helm_chart_path: "{{helm_charts_root_path}}/fabric-orderer"
+k8s_fabric_orderer_image_repository: hyperledger/fabric-orderer
+k8s_fabric_orderer_start_service: true

@@ -1,0 +1,36 @@
+---
+# tasks file for k8s_fabric_ca
+
+- name: K8s namespace exists
+  k8s:
+    name: "{{k8s_fabric_ca_namespace}}"
+    api_version: v1
+    kind: Namespace
+    state: present
+  environment:
+    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
+    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
+    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
+    KUBECONFIG: "{{kubectl_config_path}}"
+
+- name: Helm Chart is installed
+  command:
+    argv:
+      - helm
+      - upgrade
+      - --install
+      - --namespace={{k8s_fabric_ca_namespace}}
+      - --set=global.lutherEnv={{luther_env}}
+      - --set=dlt.organization={{k8s_fabric_ca_org}}
+      - --set=dlt.domain={{k8s_fabric_ca_domain_root}}
+      - --set=dlt.keyfile={{k8s_fabric_ca_keyfile}}
+      - --set=global.aws.region={{shiro_phylum_s3_region}}
+      - --set=global.aws.staticBucket={{shiro_phylum_s3_bucket}}
+      - --wait
+      - "{{k8s_fabric_ca_helm_release}}"
+      - "{{k8s_fabric_ca_helm_chart_path}}"
+  environment:
+    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
+    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
+    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
+    KUBECONFIG: "{{kubectl_config_path}}"

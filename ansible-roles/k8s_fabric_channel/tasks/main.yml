@@ -1,0 +1,75 @@
+---
+# tasks file for k8s_fabric_channel
+
+- name: jq is installed
+  apt:
+    name: jq
+    state: present
+
+- name: Script directory exists
+  file:
+    path: "{{k8s_fabric_channel_create_script_path | dirname}}"
+    state: directory
+
+- name: Scripts are uploaded
+  synchronize:
+    src: scripts/
+    dest: "{{k8s_fabric_channel_script_dir}}"
+    delete: yes
+    recursive: yes
+    owner: no
+    group: no
+    use_ssh_args: yes
+
+- name: The channel has been created
+  command:
+    argv:
+      - "{{k8s_fabric_channel_create_script_path}}"
+    chdir: "{{k8s_fabric_channel_workdir}}"
+  environment:
+    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
+    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
+    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
+    KUBECONFIG: "{{kubectl_config_path}}"
+
+- name: Every peer has joined the channel
+  command:
+    argv:
+      - "{{k8s_fabric_channel_sync_script_path}}"
+      - "{{item.name}}"
+    chdir: "{{k8s_fabric_channel_workdir}}"
+  environment:
+    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
+    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
+    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
+    KUBECONFIG: "{{kubectl_config_path}}"
+  loop: "{{k8s_fabric_channel_orgs}}"
+
+- name: Anchor peers are up-to-date
+  command:
+    argv:
+      - "{{k8s_fabric_channel_anchor_script_path}}"
+      - "{{item.name}}"
+      - "{{item.msp}}"
+    chdir: "{{k8s_fabric_channel_workdir}}"
+  environment:
+    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
+    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
+    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
+    KUBECONFIG: "{{kubectl_config_path}}"
+  loop: "{{k8s_fabric_channel_orgs}}"
+
+- name: Chaincode is installed on peers
+  command:
+    argv:
+      - "{{k8s_fabric_channel_install_script_path}}"
+      - "{{item[1].name}}"
+      - "{{item[0].name}}"
+      - "{{item[0].version}}"
+    chdir: "{{k8s_fabric_channel_workdir}}"
+  environment:
+    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
+    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
+    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
+    KUBECONFIG: "{{kubectl_config_path}}"
+  loop: "{{fabric_chaincodes | product(k8s_fabric_channel_orgs) | list}}"
