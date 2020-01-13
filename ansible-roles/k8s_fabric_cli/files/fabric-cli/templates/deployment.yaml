@@ -1,0 +1,137 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "fabric-cli.fullname" . }}
+  labels:
+    {{- include "fabric-cli.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: Recreate
+    rollingUpdate: !!null
+  selector:
+    matchLabels:
+      {{- include "fabric-cli.match-labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "fabric-cli.labels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: chaincode-archives
+          emptyDir: {}
+        - name: genesisblock
+          emptyDir: {}
+        - name: orderertls
+          emptyDir: {}
+        - name: msp
+          emptyDir: {}
+        - name: tls
+          emptyDir: {}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.arch }}-{{ .Values.global.hyperledger.fabricVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - /bin/bash
+            - -c
+            - while true; do sleep 10; done
+          env:
+            - name: FABRIC_LOGGING_SPEC
+              value: INFO
+            - name: CORE_PEER_ADDRESS
+              value: {{ list .Values.dlt.peerIndex . | include "fabric-cli.peer-fqdn" }}:{{ .Values.internal.container.gossipPort }}
+            - name: CORE_PEER_ID
+              value: cli
+            - name: CORE_PEER_LOCALMSPID
+              value: {{ .Values.dlt.mspID }}
+            - name: CORE_PEER_TLS_ENABLED
+              value: "true"
+            - name: CORE_PEER_TLS_CERT_FILE
+              value: /etc/hyperledger/fabric/tls/server.crt
+            - name: CORE_PEER_TLS_KEY_FILE
+              value: /etc/hyperledger/fabric/tls/server.key
+            - name: CORE_PEER_TLS_ROOTCERT_FILE
+              value: /etc/hyperledger/fabric/tls/ca.crt
+            - name: CORE_PEER_MSPCONFIGPATH
+              value: /etc/hyperledger/fabric/msp
+            - name: CORE_VM_ENDPOINT
+              value: http://localhost:2375
+          volumeMounts:
+            - name: genesisblock
+              mountPath: /opt/gopath/src/github.com/hyperledger/fabric/peer/channel-artifacts
+            - name: orderertls
+              mountPath: /etc/hyperledger/fabric/orderertls
+            - name: msp
+              mountPath: /etc/hyperledger/fabric/msp
+            - name: tls
+              mountPath: /etc/hyperledger/fabric/tls
+            - name: chaincode-archives
+              mountPath: /opt/gopath/src/github.com/hyperledger/fabric/examples/chaincode/go
+          workingDir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      initContainers:
+        # TODO:  Consider turning chaincode-archive-bootstrap into a sidecar
+        # that periodically syncs chaincode cds archives into a volume that is
+        # shared between it and the fabric-cli container.  Without continuous
+        # sync the peer needs to restart in order to install/initialize a new
+        # version of substrate (not the end of the world because substrate
+        # upgrades still require downtime).
+        - name: chaincode-archive-bootstrap
+          image: 967058059066.dkr.ecr.eu-west-2.amazonaws.com/luthersystems/awscli:0.1.0
+          env:
+            - name: AWS_REGION
+              value: {{ .Values.substrate.s3.region }}
+            - name: S3_BUCKET
+              value: {{ .Values.substrate.s3.bucket }}
+          args:
+            - sh
+            - -c
+            - |
+              set -xe;
+              aws s3 cp "s3://{{ .Values.substrate.s3.bucket }}/chaincodes/com_luthersystems_chaincode_substrate01-{{ .Values.substrate.version }}.cds" /chaincodes/com_luthersystems_chaincode_substrate01-{{ .Values.substrate.version }}.cds
+          volumeMounts:
+            - name: chaincode-archives
+              mountPath: /chaincodes
+        - name: config-fetch
+          image: 967058059066.dkr.ecr.eu-west-2.amazonaws.com/luthersystems/awscli:0.1.0
+          env:
+            - name: AWS_REGION
+              value: {{ .Values.global.aws.region }}
+            - name: S3_BUCKET
+              value: {{ .Values.global.aws.staticBucket }}
+          args:
+            - sh
+            - -c
+            - |
+              set -xe;
+              aws s3 cp --recursive "s3://{{ .Values.global.aws.staticBucket }}/{{ .Values.global.lutherEnv }}/fabric-artifacts/channel-artifacts/" /channel-artifacts
+              aws s3 cp --recursive "s3://{{ .Values.global.aws.staticBucket }}/{{ .Values.global.lutherEnv }}/fabric-artifacts/crypto-config/ordererOrganizations/luther.systems/orderers/orderer0.luther.systems/msp/tlscacerts/" /orderertls
+              aws s3 cp --recursive "s3://{{ .Values.global.aws.staticBucket }}/{{ .Values.global.lutherEnv }}/fabric-artifacts/crypto-config/peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/users/Admin@{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/msp/" /msp
+              aws s3 cp --recursive "s3://{{ .Values.global.aws.staticBucket }}/{{ .Values.global.lutherEnv }}/fabric-artifacts/crypto-config/peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ list .Values.dlt.peerIndex . | include "fabric-cli.peer-fqdn" }}/tls/" /tls
+          volumeMounts:
+            - name: genesisblock
+              mountPath: /channel-artifacts
+            - name: orderertls
+              mountPath: /orderertls
+            - name: msp
+              mountPath: /msp
+            - name: tls
+              mountPath: /tls
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

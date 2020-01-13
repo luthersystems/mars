@@ -1,0 +1,20 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ list "storage" . | include "fabric-orderer.pvc" }}
+  labels:
+    {{ include "fabric-orderer.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: {{ .Values.dlt.component }}
+      type: storage
+      fabric/organization: {{ .Values.dlt.organization }}
+      replica-index: {{ .Values.dlt.organizationIndex | print | toJson }}
+  storageClassName: {{ .Values.persistentVolume.storageClassName }}
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi

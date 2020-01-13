@@ -1,0 +1,155 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "fabric-orderer.fullname" . }}
+  labels:
+    {{ include "fabric-orderer.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: Recreate
+    rollingUpdate: !!null
+  selector:
+    matchLabels:
+      {{ include "fabric-orderer.match-labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{ include "fabric-orderer.labels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: {{ list "storage" . | include "fabric-orderer.pvc" }}
+        - name: genesisblock
+          emptyDir: {}
+        - name: msp
+          emptyDir: {}
+        - name: tls
+          emptyDir: {}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.arch }}-{{ .Values.global.hyperledger.fabricVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.startService }}
+          args:
+            - orderer
+          {{- else }}
+          command:
+            - /bin/bash
+            - -c
+            - while true; do sleep 10; done
+          {{- end }}
+          workingDir: /opt/gopath/src/github.com/hyperledger/fabric
+          env:
+            - name: FABRIC_LOGGING_SPEC
+              value: INFO
+            - name: ORDERER_OPERATIONS_LISTENADDRESS
+              value: 0.0.0.0:{{ .Values.internal.container.operationsPort }}
+            - name: ORDERER_METRICS_PROVIDER
+              value: prometheus
+            - name: ORDERER_GENERAL_GENESISFILE
+              value: /var/hyperledger/orderer/artifacts/genesis.block
+            - name: ORDERER_GENERAL_GENESISMETHOD
+              value: file
+            - name: ORDERER_GENERAL_LISTENADDRESS
+              value: 0.0.0.0
+            - name: ORDERER_GENERAL_LISTENPORT
+              value: {{ .Values.internal.container.servicePort | print | toJson }}
+            - name: ORDERER_GENERAL_LOCALMSPDIR
+              value: /var/hyperledger/orderer/msp
+            - name: ORDERER_GENERAL_LOCALMSPID
+              value: OrdererMSP
+            - name: ORDERER_GENERAL_TLS_ENABLED
+              value: "true"
+            - name: ORDERER_GENERAL_TLS_CERTIFICATE
+              value: /var/hyperledger/orderer/tls/server.crt
+            - name: ORDERER_GENERAL_TLS_PRIVATEKEY
+              value: /var/hyperledger/orderer/tls/server.key
+            - name: ORDERER_GENERAL_TLS_ROOTCAS
+              value: '[/var/hyperledger/orderer/tls/ca.crt]'
+            - name: ORDERER_GENERAL_CLUSTER_CLIENTCERTIFICATE
+              value: /var/hyperledger/orderer/tls/server.crt
+            - name: ORDERER_GENERAL_CLUSTER_CLIENTPRIVATEKEY
+              value: /var/hyperledger/orderer/tls/server.key
+            - name: ORDERER_GENERAL_CLUSTER_ROOTCAS
+              value: '[/var/hyperledger/orderer/tls/ca.crt]'
+            - name: ORDERER_GENERAL_CLUSTER_SENDBUFFERSIZE
+              value: "50"
+            # NOTE General.Cluster.ListenPort, General.Cluster.ListenAddress,
+            # General.Cluster.ServerCertificate, and General.Cluster.ServerPrivateKey
+            # are inherited from the orderer's General.TLS configuration.  None
+            # should be set.
+            - name: ORDERER_CONSENSUS_WALDIR
+              value: /var/hyperledger/production/orderer/etcdraft/wal
+            - name: ORDERER_CONSENSUS_SNAPDIR
+              value: /var/hyperledger/production/orderer/etcdraft/snapshot
+          ports:
+            - name: grpc
+              containerPort: {{ .Values.internal.container.servicePort }}
+              protocol: TCP
+            - name: op-http
+              containerPort: {{ .Values.internal.container.operationsPort }}
+              protocol: TCP
+          {{- if .Values.startService }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: op-http
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: op-http
+          {{- end }}
+          volumeMounts:
+            - name: storage
+              mountPath: /var/hyperledger/production
+            - name: genesisblock
+              mountPath: /var/hyperledger/orderer/artifacts
+            - name: msp
+              mountPath: /var/hyperledger/orderer/msp
+            - name: tls
+              mountPath: /var/hyperledger/orderer/tls
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      initContainers:
+        - name: config-fetch
+          image: 967058059066.dkr.ecr.eu-west-2.amazonaws.com/luthersystems/awscli:0.1.0
+          env:
+            - name: AWS_REGION
+              value: {{ .Values.global.aws.region }}
+            - name: S3_BUCKET
+              value: {{ .Values.global.aws.staticBucket }}
+            - name: LUTHER_ENV
+              value: {{ .Values.global.lutherEnv }}
+          args:
+            - sh
+            - -c
+            - |
+              set -xe;
+              aws s3 cp --recursive s3://$S3_BUCKET/$LUTHER_ENV/fabric-artifacts/channel-artifacts/ /channel-artifacts
+              aws s3 cp --recursive s3://$S3_BUCKET/$LUTHER_ENV/fabric-artifacts/crypto-config/ordererOrganizations/{{ .Values.dlt.domain }}/orderers/orderer{{ .Values.dlt.organizationIndex }}.{{ .Values.dlt.domain }}/msp/ /msp
+              aws s3 cp --recursive s3://$S3_BUCKET/$LUTHER_ENV/fabric-artifacts/crypto-config/ordererOrganizations/{{ .Values.dlt.domain }}/orderers/orderer{{ .Values.dlt.organizationIndex }}.{{ .Values.dlt.domain }}/tls/ /tls
+          volumeMounts:
+            - name: genesisblock
+              mountPath: /channel-artifacts
+            - name: msp
+              mountPath: /msp
+            - name: tls
+              mountPath: /tls
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

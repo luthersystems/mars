@@ -1,0 +1,105 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "fabric-ca.fullname" . }}
+  labels:
+    {{- include "fabric-ca.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: Recreate
+    rollingUpdate: !!null
+  selector:
+    matchLabels:
+      {{- include "fabric-ca.match-labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "fabric-ca.labels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: crypto
+          emptyDir: {}
+        - name: storage
+          persistentVolumeClaim:
+            claimName: {{ list "storage" . | include "fabric-ca.pvc" }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.arch }}-{{ .Values.global.hyperledger.fabricVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: https
+              containerPort: {{ .Values.internal.container.servicePort }}
+              protocol: TCP
+            - name: op-http
+              containerPort: {{ .Values.internal.container.operationsPort }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: op-http
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: op-http
+          env:
+            - name: FABRIC_CA_HOME
+              value: /etc/hyperledger/fabric-ca-server
+            - name: FABRIC_CA_SERVER_NAME
+              value: ca-{{ .Values.dlt.organization }}
+            - name: FABRIC_CA_SERVER_TLS_ENABLED
+              value: "true"
+            - name: FABRIC_CA_SERVER_TLS_CERTFILE
+              value: /etc/hyperledger/fabric-ca-server-config/ca.{{ .Values.dlt.domain }}-cert.pem
+            - name: FABRIC_CA_SERVER_TLS_KEYFILE
+              value: /etc/hyperledger/fabric-ca-server-config/{{ .Values.dlt.keyfile }}
+            - name: FABRIC_CA_SERVER_OPERATIONS_LISTENADDRESS
+              value: 0.0.0.0:{{ .Values.internal.container.operationsPort }}
+            - name: FABRIC_CA_SERVER_METRICS_PROVIDER
+              value: prometheus
+            - name: FABRIC_CA_SERVER_OPERATIONS_TLS_ENABLED
+              value: "false"  # TODO
+          volumeMounts:
+            - name: crypto
+              mountPath: /etc/hyperledger/fabric-ca-server-config
+              readOnly: true
+            - name: storage
+              mountPath: /etc/hyperledger/fabric-ca-server
+              readOnly: false
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      initContainers:
+        - name: config-fetch
+          image: 967058059066.dkr.ecr.eu-west-2.amazonaws.com/luthersystems/awscli:0.1.0
+          env:
+            - name: AWS_REGION
+              value: {{ .Values.global.aws.region }}
+            - name: S3_BUCKET
+              value: {{ .Values.global.aws.staticBucket }}
+            - name: LUTHER_ENV
+              value: {{ .Values.global.lutherEnv }}
+          args:
+            - sh
+            - -c
+            - |
+              set -xe;
+              aws s3 cp --recursive s3://$S3_BUCKET/$LUTHER_ENV/fabric-artifacts/crypto-config/peerOrganizations/{{ .Values.dlt.domain }}/ca/ /crypto
+          volumeMounts:
+            - name: crypto
+              mountPath: /crypto
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}

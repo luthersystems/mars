@@ -1,0 +1,215 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "fabric-peer.fullname" . }}
+  labels:
+    {{- include "fabric-peer.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: Recreate
+    rollingUpdate: !!null
+  selector:
+    matchLabels:
+      {{- include "fabric-peer.match-labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "fabric-peer.labels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: docker-tls
+          emptyDir: {}
+        - name: chaincode-archives
+          emptyDir: {}
+        - name: genesisblock
+          emptyDir: {}
+        - name: orderertls
+          emptyDir: {}
+        - name: msp
+          emptyDir: {}
+        - name: tls
+          emptyDir: {}
+        - name: config
+          configMap:
+            name: {{ .Values.coreConfigMap }}
+        - name: storage
+          persistentVolumeClaim:
+            claimName: {{ list "storage" . | include "fabric-peer.pvc" }}
+        - name: docker-storage
+          persistentVolumeClaim:
+            claimName: {{ list "dockerstorage" . | include "fabric-peer.pvc" }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.arch }}-{{ .Values.global.hyperledger.fabricVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.startService }}
+          args:
+            - peer
+            - node
+            - start
+          {{- else }}
+          command:
+            - /bin/bash
+            - -c
+            - while true; do sleep 10; done
+          {{- end }}
+          env:
+            - name: FABRIC_LOGGING_SPEC
+              value: INFO
+            - name: CORE_PEER_ADDRESS
+              value: {{ include "fabric-peer.self-fqdn" . }}:{{ .Values.internal.container.gossipPort }}
+            - name: CORE_PEER_GOSSIP_EXTERNALENDPOINT
+              value: {{ include "fabric-peer.self-fqdn" . }}:{{ .Values.internal.container.gossipPort }}
+            - name: CORE_PEER_GOSSIP_BOOTSTRAP
+              value: {{ list 0 . | include "fabric-peer.fqdn" }}:{{ .Values.internal.container.gossipPort }}
+            - name: CORE_PEER_CHAINCODELISTENADDRESS
+              value: localhost:{{ .Values.internal.container.chaincodePort }}
+            - name: CORE_PEER_GOSSIP_USELEADERELECTION
+              value: "true"
+            - name: CORE_PEER_ID
+              value: {{ include "fabric-peer.self-fqdn" . }}
+            - name: CORE_PEER_LOCALMSPID
+              value: {{ .Values.dlt.mspID }}
+            - name: CORE_PEER_PROFILE_ENABLED
+              value: "true"
+            - name: CORE_PEER_TLS_ENABLED
+              value: "true"
+            - name: CORE_PEER_TLS_CERT_FILE
+              value: /etc/hyperledger/fabric/tls/server.crt
+            - name: CORE_PEER_TLS_KEY_FILE
+              value: /etc/hyperledger/fabric/tls/server.key
+            - name: CORE_PEER_TLS_ROOTCERT_FILE
+              value: /etc/hyperledger/fabric/tls/ca.crt
+            - name: CORE_VM_ENDPOINT
+              value: http://localhost:2376
+            - name: CORE_VM_DOCKER_TLS_ENABLED
+              value: "true"
+            - name: CORE_VM_DOCKER_TLS_CA_FILE
+              value: /docker-tls/client/ca.pem
+            - name: CORE_VM_DOCKER_TLS_CERT_FILE
+              value: /docker-tls/client/cert.pem
+            - name: CORE_VM_DOCKER_TLS_KEY_FILE
+              value: /docker-tls/client/key.pem
+            - name: CORE_OPERATIONS_LISTENADDRESS
+              value: 0.0.0.0:{{ .Values.internal.container.operationsPort }}
+            - name: CORE_METRICS_PROVIDER
+              value: prometheus
+          ports:
+            - name: grpc-svc
+              containerPort: {{ .Values.internal.container.servicePort }}
+              protocol: TCP
+            - name: grpc-cc
+              containerPort: {{ .Values.internal.container.chaincodePort }}
+              protocol: TCP
+            - name: grpc-gossip
+              containerPort: {{ .Values.internal.container.gossipPort }}
+              protocol: TCP
+            - name: http-op
+              containerPort: {{ .Values.internal.container.operationsPort }}
+              protocol: TCP
+          {{- if .Values.startService }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http-op
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http-op
+          {{- end }}
+          volumeMounts:
+            - name: docker-tls
+              mountPath: /docker-tls
+            - name: genesisblock
+              mountPath: /opt/gopath/src/github.com/hyperledger/fabric/peer/channel-artifacts
+            - name: orderertls
+              mountPath: /opt/gopath/src/github.com/hyperledger/fabric/peer/orderertls
+            - name: config
+              subPath: core.yaml
+              mountPath: /etc/hyperledger/fabric/core.yaml
+            - name: msp
+              mountPath: /etc/hyperledger/fabric/msp
+            - name: tls
+              mountPath: /etc/hyperledger/fabric/tls
+            - name: storage
+              mountPath: /var/hyperledger/production
+            - name: chaincode-archives
+              mountPath: /opt/gopath/src/github.com/hyperledger/fabric/examples/chaincode/go
+          workingDir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+        - name: docker-chaincodes
+          image: docker:stable-dind
+          imagePullPolicy: Always
+          env:
+            - name: DOCKER_TLS_CERTDIR
+              value: /docker-tls
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: docker-storage
+              mountPath: /var/lib/docker
+            - name: docker-tls
+              mountPath: /docker-tls
+      initContainers:
+        # TODO:  Consider turning chaincode-archive-bootstrap into a sidecar
+        # that periodically syncs chaincode cds archives into a volume that is
+        # shared between it and the fabric-peer container.  Without continuous
+        # sync the peer needs to restart in order to install/initialize a new
+        # version of substrate (not the end of the world because substrate
+        # upgrades still require downtime).
+        - name: chaincode-archive-bootstrap
+          image: 967058059066.dkr.ecr.eu-west-2.amazonaws.com/luthersystems/awscli:0.1.0
+          env:
+            - name: AWS_REGION
+              value: {{ .Values.substrate.s3.region }}
+            - name: S3_BUCKET
+              value: {{ .Values.substrate.s3.bucket }}
+          args:
+            - sh
+            - -c
+            - |
+              set -xe;
+              aws s3 cp "s3://{{ .Values.substrate.s3.bucket }}/chaincodes/com_luthersystems_chaincode_substrate01-{{ .Values.substrate.version }}.cds" /chaincodes/com_luthersystems_chaincode_substrate01-{{ .Values.substrate.version }}.cds
+          volumeMounts:
+            - name: chaincode-archives
+              mountPath: /chaincodes
+        - name: config-fetch
+          image: 967058059066.dkr.ecr.eu-west-2.amazonaws.com/luthersystems/awscli:0.1.0
+          env:
+            - name: AWS_REGION
+              value: {{ .Values.global.aws.region }}
+            - name: S3_BUCKET
+              value: {{ .Values.global.aws.staticBucket }}
+          args:
+            - sh
+            - -c
+            - |
+              set -xe;
+              aws s3 cp --recursive "s3://{{ .Values.global.aws.staticBucket }}/{{ .Values.global.lutherEnv }}/fabric-artifacts/crypto-config/ordererOrganizations/luther.systems/orderers/orderer0.luther.systems/msp/tlscacerts/" /orderertls
+              aws s3 cp --recursive "s3://{{ .Values.global.aws.staticBucket }}/{{ .Values.global.lutherEnv }}/fabric-artifacts/crypto-config/peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ include "fabric-peer.self-fqdn" . }}/msp/" /msp
+              aws s3 cp --recursive "s3://{{ .Values.global.aws.staticBucket }}/{{ .Values.global.lutherEnv }}/fabric-artifacts/crypto-config/peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ include "fabric-peer.self-fqdn" . }}/tls/" /tls
+          volumeMounts:
+            - name: orderertls
+              mountPath: /orderertls
+            - name: msp
+              mountPath: /msp
+            - name: tls
+              mountPath: /tls
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
