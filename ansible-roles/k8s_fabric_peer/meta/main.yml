@@ -1,0 +1,7 @@
+# The role is evaluated once fabric-peer organization
+allow_duplicates: true
+
+dependencies:
+  - kubectl
+  - helm_charts
+  - shiro_phylum_base

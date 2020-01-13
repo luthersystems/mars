@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "fabric-ca.fullname" . }}
+  labels:
+{{ include "fabric-ca.labels" . | indent 4 }}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: {{ .Values.internal.container.operationsPort | quote }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: https
+      protocol: TCP
+      name: https
+    - port: {{ .Values.internal.container.operationsPort }}
+      targetPort: op-http
+      protocol: TCP
+      name: op-http
+  selector:
+    app.kubernetes.io/name: {{ include "fabric-ca.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}

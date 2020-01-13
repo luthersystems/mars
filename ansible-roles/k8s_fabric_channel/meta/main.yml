@@ -1,0 +1,4 @@
+dependencies:
+  - apt
+  - kubectl
+  - shiro_phylum_base

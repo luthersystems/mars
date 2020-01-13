@@ -1,0 +1,8 @@
+# The role is evaluated once per fabric-ca-server
+allow_duplicates: true
+
+dependencies:
+  - kubectl
+  - helm_charts
+  # dependency on shiro_phylum_base for shiro_phylum_s3_* vars
+  - shiro_phylum_base
