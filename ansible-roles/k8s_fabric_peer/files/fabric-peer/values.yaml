@@ -45,13 +45,14 @@ internal:
     chaincodePort: 7052
     gossipPort: 7051
     operationsPort: 9443
+    invokeTimeout: 30s
+
+persistentVolume:
+  storageClassName: gp2
 
 service:
   type: ClusterIP
   port: 7053
-
-persistentVolume:
-  storageClassName: gp2
 
 ingress:
   enabled: false

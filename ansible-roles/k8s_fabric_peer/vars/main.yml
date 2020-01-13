@@ -1,2 +1,3 @@
 ---
 # vars file for k8s_fabric_peer
+k8s_fabric_peer_chaincode_invoke_timeout: 5s

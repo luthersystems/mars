@@ -49,6 +49,7 @@
       - --set=global.aws.staticBucket={{shiro_phylum_s3_bucket}}
       - --set=image.repository={{k8s_fabric_peer_image_repository}}
       - --set=startService={{k8s_fabric_peer_start_service}}
+      - --set=internal.container.invokeTimeout={{k8s_fabric_peer_chaincode_invoke_timeout}}
       - --wait
       - "fabric-peer{{item}}-{{k8s_fabric_peer_org}}"
       - "{{k8s_fabric_peer_helm_chart_path}}"

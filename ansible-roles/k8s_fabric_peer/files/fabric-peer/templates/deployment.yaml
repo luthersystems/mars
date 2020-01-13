@@ -99,6 +99,10 @@ spec:
               value: 0.0.0.0:{{ .Values.internal.container.operationsPort }}
             - name: CORE_METRICS_PROVIDER
               value: prometheus
+            - name: CORE_CHAINCODE_EXECUTETIMEOUT
+              value: {{ .Values.internal.container.invokeTimeout }}
+            - name: CORE_PEER_GOSSIP_PVTDATA_PUSHACKTIMEOUT
+              value: {{ .Values.internal.container.invokeTimeout }}
           ports:
             - name: grpc-svc
               containerPort: {{ .Values.internal.container.servicePort }}
