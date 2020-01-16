@@ -59,7 +59,8 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum by (grpc_service,grpc_method) (rate(grpc_client_handled_total{grpc_code=\"OK\",job!=\"kubernetes-apiservers\"}[2m])) * 60",
+          "expr": "sum by (grpc_service,grpc_method) (increase(grpc_client_handled_total{grpc_code=\"OK\",job!=\"kubernetes-apiservers\"}[1m]))",
+          "interval": "1m",
           "legendFormat": "{{grpc_service}}/{{grpc_method}}",
           "refId": "A"
         }
@@ -85,7 +86,7 @@
       "yaxes": [
         {
           "format": "short",
-          "label": "Calls/Minute over 2m",
+          "label": "Calls/Minute",
           "logBase": 1,
           "max": null,
           "min": "0",
@@ -146,7 +147,8 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum by (grpc_service,grpc_method,grpc_code) (rate(grpc_client_handled_total{grpc_code!=\"OK\",job!=\"kubernetes-apiservers\"}[2m])) * 60",
+          "expr": "sum by (grpc_service,grpc_method,grpc_code) (increase(grpc_client_handled_total{grpc_code!=\"OK\",job!=\"kubernetes-apiservers\"}[1m]))",
+          "interval": "1m",
           "legendFormat": "{{grpc_service}}/{{grpc_method}}/{{grpc_code}}",
           "refId": "A"
         }
@@ -407,7 +409,8 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum by (app_kubernetes_io_component,message) (rate(log_statements_message{level=\"error\"}[2m])) * 60",
+          "expr": "sum by (app_kubernetes_io_component,message) (increase(log_statements_message{level=\"error\"}[1m]))",
+          "interval": "1m",
           "legendFormat": "{{app_kubernetes_io_component}}/{{message}}",
           "refId": "A"
         }
@@ -434,7 +437,7 @@
         {
           "decimals": null,
           "format": "short",
-          "label": "Entries/Minute over 2m",
+          "label": "Entries/Minute",
           "logBase": 1,
           "max": null,
           "min": "0",
@@ -657,5 +660,5 @@
   "timezone": "",
   "title": "Application",
   "uid": "Q290jfxWk",
-  "version": 3
+  "version": 4
 }
