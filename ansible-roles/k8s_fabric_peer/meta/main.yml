@@ -5,3 +5,5 @@ dependencies:
   - kubectl
   - helm_charts
   - shiro_phylum_base
+  - k8s_fabric_scripts
+

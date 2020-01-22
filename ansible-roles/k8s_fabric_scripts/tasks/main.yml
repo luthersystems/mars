@@ -1,0 +1,18 @@
+---
+# tasks file for k8s_fabric_scripts
+
+- name: Scripts directory exists
+  file:
+    path: "{{k8s_fabric_channel_workdir}}/scripts"
+    state: directory
+    recurse: yes
+
+- name: Scripts are uploaded
+  synchronize:
+    src: scripts/
+    dest: "{{k8s_fabric_channel_workdir}}/scripts"
+    delete: yes
+    recursive: yes
+    owner: no
+    group: no
+    use_ssh_args: yes
