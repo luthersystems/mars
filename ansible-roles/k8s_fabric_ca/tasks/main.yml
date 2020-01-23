@@ -31,6 +31,7 @@
       - --install
       - --namespace={{k8s_fabric_ca_namespace}}
       - --set=global.lutherEnv={{luther_env}}
+      - --set=global.hyperledger.fabricVersion={{k8s_fabric_version}}
       - --set=dlt.organization={{k8s_fabric_ca_org}}
       - --set=dlt.domain={{k8s_fabric_ca_domain_root}}
       - --set=dlt.keyfile={{k8s_fabric_ca_keyfile}}
