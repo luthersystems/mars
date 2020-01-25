@@ -39,6 +39,7 @@ internal:
 
 persistentVolume:
   storageClassName: gp2
+  storageSize: 10Gi
 
 ingress:
   enabled: false
