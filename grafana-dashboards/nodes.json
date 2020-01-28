@@ -575,7 +575,7 @@
       "1d"
     ]
   },
-  "timezone": "",
+  "timezone": "utc",
   "title": "K8s Workers",
   "uid": "8eigLpxWk",
   "version": 5

@@ -914,7 +914,7 @@
       "1d"
     ]
   },
-  "timezone": "",
+  "timezone": "utc",
   "title": "Shiro Gateway",
   "uid": "xp_N95yWk",
   "version": 11
