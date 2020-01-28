@@ -37,4 +37,4 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: {{ .Values.persistentVolume.storageSize }}
+      storage: {{ .Values.persistentVolume.dockerStorageSize }}
