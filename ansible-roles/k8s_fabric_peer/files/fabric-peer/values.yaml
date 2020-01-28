@@ -50,6 +50,7 @@ internal:
 persistentVolume:
   storageClassName: gp2
   storageSize: 10Gi
+  dockerStorageSize: 10Gi
 
 service:
   type: ClusterIP
