@@ -37,6 +37,7 @@
       - --set=dlt.keyfile={{k8s_fabric_ca_keyfile}}
       - --set=global.aws.region={{shiro_phylum_s3_region}}
       - --set=global.aws.staticBucket={{shiro_phylum_s3_bucket}}
+      - --set=persistentVolume.storageSize={{k8s_fabric_ca_storage_size}}
       - --wait
       - "{{k8s_fabric_ca_helm_release}}"
       - "{{k8s_fabric_ca_helm_chart_path}}"

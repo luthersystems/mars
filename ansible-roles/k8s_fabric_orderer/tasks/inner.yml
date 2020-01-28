@@ -17,6 +17,7 @@
       - --set=global.aws.staticBucket={{shiro_phylum_s3_bucket}}
       - --set=image.repository={{k8s_fabric_orderer_image_repository}}
       - --set=startService={{k8s_fabric_orderer_start_service}}
+      - --set=persistentVolume.storageSize={{k8s_fabric_orderer_storage_size}}
       - "fabric-orderer{{item}}"
       - "{{k8s_fabric_orderer_helm_chart_path}}"
   environment:

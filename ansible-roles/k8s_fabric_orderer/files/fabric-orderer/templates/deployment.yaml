@@ -16,6 +16,8 @@ spec:
     metadata:
       labels:
         {{ include "fabric-orderer.labels" . | nindent 8 }}
+      annotations:
+        storageSize: {{ .Values.persistentVolume.storageSize }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:

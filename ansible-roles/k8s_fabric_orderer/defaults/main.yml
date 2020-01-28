@@ -7,3 +7,4 @@ k8s_fabric_orderer_cluster_size: 3
 k8s_fabric_orderer_helm_chart_path: "{{kubectl_asset_root_path}}/fabric-orderer"
 k8s_fabric_orderer_image_repository: hyperledger/fabric-orderer
 k8s_fabric_orderer_start_service: true
+k8s_fabric_orderer_storage_size: 10Gi
