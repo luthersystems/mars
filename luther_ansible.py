@@ -49,6 +49,7 @@ class Ansible(object):
         playbook_parser.add_argument('--tags')
         playbook_parser.add_argument('--limit')
         playbook_parser.add_argument('--check', action="store_true")
+        playbook_parser.add_argument('--start-at-task')
         playbook_parser.set_defaults(parser_func=self.playbook)
 
         vault_edit_parser = subparsers.add_parser('ansible-vault-edit')
@@ -83,7 +84,7 @@ class Ansible(object):
         kwargs = {k: v for k, v in vars(args).items() if k not in args_ignore}
         args.parser_func(**kwargs)
 
-    def playbook(self, path=None, tags=None, limit=None, check=False, debug=False):
+    def playbook(self, path=None, tags=None, limit=None, check=False, debug=False, start_at_task=None):
         if not path:
             path = self.playbook_default
 
@@ -104,6 +105,9 @@ class Ansible(object):
         if limit:
             extra_args.append('--limit')
             extra_args.append(limit)
+        if start_at_task:
+            extra_args.append('--start-at-task')
+            extra_args.append(start_at_task)
         cmd = itertools.chain(
             base_cmd,
             vault_args,
