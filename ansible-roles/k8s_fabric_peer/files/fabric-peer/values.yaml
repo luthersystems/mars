@@ -30,10 +30,10 @@ image:
   pullPolicy: IfNotPresent
 
 substrate:
-  version: 2.50.0
+  version: 2.96.0
   s3:
     region: eu-west-2
-    bucket: luther-common-ln-common-static-s3-b5oc
+    bucket: luther-common-ln-common-external-s3-44lp
 
 imagePullSecrets: []
 nameOverride: ""
