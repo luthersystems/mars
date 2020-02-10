@@ -36,7 +36,7 @@ ADD run.sh /opt/mars/run.sh
 RUN chmod a+x /opt/mars/run.sh
 ADD ssh_config /etc/ssh/ssh_config
 # Grab bitbucket.org keys and place in known_hosts
-RUN ssh-keyscan -H bitbucket.org >> /etc/ssh/known_hosts
+RUN ssh-keyscan -H bitbucket.org >> /etc/ssh/known_hosts && test -n "$(cat /etc/ssh/known_hosts)"
 
 ADD ansible-roles /opt/ansible/roles
 ADD ansible-plugins /opt/ansible/plugins
