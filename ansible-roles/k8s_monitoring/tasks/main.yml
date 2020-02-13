@@ -108,7 +108,10 @@
 - name: Helm chart is installed
   command:
     argv:
-      - helm
+      - "{{k8s_monitoring_chart_path}}/scripts/helm-wrapper.sh"
+      - "{{k8s_fabric_peer_org_names|join(' ')}}"
+      - "{{k8s_fabric_peer_org_size}}"
+      - "{{k8s_fabric_network_domain_root}}"
       - upgrade
       - --install
       - --wait
