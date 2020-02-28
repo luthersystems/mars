@@ -114,8 +114,10 @@
       - --wait
       - --values={{k8s_monitoring_chart_values_path}}
       - --namespace={{k8s_monitoring_namespace}}
-      - '{{k8s_monitoring_helm_release}}'
-      - '{{k8s_monitoring_chart_path}}'
+      - --set
+      - "prometheus.extraScrapeConfigs={{lookup('template', 'extra_scrape_configs.yaml.j2')}}"
+      - "{{k8s_monitoring_helm_release}}"
+      - "{{k8s_monitoring_chart_path}}"
   environment:
     AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
     AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
