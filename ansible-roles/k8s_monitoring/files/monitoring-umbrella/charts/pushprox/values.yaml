@@ -6,7 +6,7 @@ replicaCount: 1
 
 image:
   repository: 967058059066.dkr.ecr.eu-west-2.amazonaws.com/luthersystems/pushprox
-  tag: 2.102.0
+  tag: 2.104.0
   pullPolicy: Always
 
 imagePullSecrets: []
@@ -33,7 +33,7 @@ securityContext: {}
 
 service:
   type: ClusterIP
-  port: 8080
+  port: 80
 
 ingress:
   enabled: false
