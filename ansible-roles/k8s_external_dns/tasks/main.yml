@@ -11,6 +11,20 @@
     dest: "{{k8s_external_dns_chart_values_path}}"
     src: values.yaml.j2
 
+- name: Update helm repositories
+  command:
+    argv:
+      - helm
+      - repo
+      - update
+  # Only update when the chart is not an absolute file path
+  when: k8s_external_dns_chart is not match("/")
+  environment:
+    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
+    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
+    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
+    KUBECONFIG: "{{kubectl_config_path}}"
+
 - name: Chart has been installed
   command:
     argv:
