@@ -132,8 +132,8 @@ spec:
             - |
               set -xe;
               aws s3 cp --recursive s3://$S3_BUCKET/$LUTHER_ENV/fabric-artifacts/channel-artifacts/ /channel-artifacts
-              aws s3 cp --recursive s3://$S3_BUCKET/$LUTHER_ENV/fabric-artifacts/crypto-config/ordererOrganizations/{{ .Values.dlt.domain }}/orderers/orderer{{ .Values.dlt.organizationIndex }}.{{ .Values.dlt.domain }}/msp/ /msp
-              aws s3 cp --recursive s3://$S3_BUCKET/$LUTHER_ENV/fabric-artifacts/crypto-config/ordererOrganizations/{{ .Values.dlt.domain }}/orderers/orderer{{ .Values.dlt.organizationIndex }}.{{ .Values.dlt.domain }}/tls/ /tls
+              aws s3 cp --recursive s3://$S3_BUCKET/$LUTHER_ENV/fabric-artifacts/crypto-config/ordererOrganizations/{{ .Values.dlt.domain }}/orderers/{{ include "fabric-orderer.self-fqdn" . }}/msp/ /msp
+              aws s3 cp --recursive s3://$S3_BUCKET/$LUTHER_ENV/fabric-artifacts/crypto-config/ordererOrganizations/{{ .Values.dlt.domain }}/orderers/{{ include "fabric-orderer.self-fqdn" . }}/tls/ /tls
           volumeMounts:
             - name: genesisblock
               mountPath: /channel-artifacts

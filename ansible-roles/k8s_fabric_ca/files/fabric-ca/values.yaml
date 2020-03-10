@@ -29,8 +29,10 @@ nameOverride: ""
 fullnameOverride: ""
 
 service:
-  type: ClusterIP
+  type: LoadBalancer
   port: 443
+  loadBalancerSourceRanges:
+    - 10.0.0.0/8
 
 internal:
   container:

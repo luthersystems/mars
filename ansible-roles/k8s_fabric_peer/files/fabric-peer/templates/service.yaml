@@ -7,17 +7,24 @@ metadata:
   annotations:
     prometheus.io/scrape: "true"
     prometheus.io/port: {{ .Values.internal.container.operationsPort | quote }}
+    service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+    external-dns.alpha.kubernetes.io/hostname: {{ include "fabric-peer.self-fqdn" . }}
 spec:
   type: {{ .Values.service.type }}
+  {{- if eq .Values.service.type "LoadBalancer" }}
+  loadBalancerSourceRanges:
+    {{- toYaml .Values.service.loadBalancerSourceRanges | nindent 4 }}
+  {{- end }}
   ports:
-    - port: {{ .Values.service.port }}
-      targetPort: grpc-svc
-      protocol: TCP
-      name: grpc-svc
     - port: {{ .Values.internal.container.gossipPort }}
       targetPort: grpc-gossip
       protocol: TCP
       name: grpc-gossip
+    - port: {{ .Values.service.port }}
+      targetPort: grpc-svc
+      protocol: TCP
+      name: grpc-svc
     - port: {{ .Values.internal.container.operationsPort }}
       targetPort: http-op
       protocol: TCP

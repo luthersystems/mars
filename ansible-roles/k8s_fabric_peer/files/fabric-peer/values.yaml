@@ -53,8 +53,10 @@ persistentVolume:
   dockerStorageSize: 10Gi
 
 service:
-  type: ClusterIP
+  type: LoadBalancer
   port: 7053
+  loadBalancerSourceRanges:
+    - 10.0.0.0/8
 
 ingress:
   enabled: false

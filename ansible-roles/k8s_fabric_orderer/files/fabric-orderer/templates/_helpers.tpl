@@ -64,3 +64,10 @@ app.kubernetes.io/name: {{ include "fabric-orderer.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 fabric/organization-index: {{ .Values.dlt.organizationIndex | print | toJson }}
 {{- end -}}
+
+{{/*
+The internal domain name of the orderer node.
+*/}}
+{{- define "fabric-orderer.self-fqdn" -}}
+orderer{{ .Values.dlt.organizationIndex }}.{{ .Values.dlt.domain }}
+{{- end -}}
