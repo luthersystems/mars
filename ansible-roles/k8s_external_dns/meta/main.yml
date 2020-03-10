@@ -1,0 +1,3 @@
+dependencies:
+  - kubectl
+  - helm_charts

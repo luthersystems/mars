@@ -1,0 +1,30 @@
+---
+# tasks file for k8s_external_dns
+
+- name: Chart values directory exists
+  file:
+    path: "{{k8s_external_dns_chart_values_path | dirname}}"
+    state: directory
+
+- name: Chart values have been rendered
+  template:
+    dest: "{{k8s_external_dns_chart_values_path}}"
+    src: values.yaml.j2
+
+- name: Chart has been installed
+  command:
+    argv:
+      - helm
+      - upgrade
+      - --install
+      - --wait
+      - --values={{k8s_external_dns_chart_values_path}}
+      - --version={{k8s_external_dns_chart_version}}
+      - --namespace={{k8s_external_dns_namespace}}
+      - "{{k8s_external_dns_helm_release}}"
+      - "{{k8s_external_dns_chart}}"
+  environment:
+    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
+    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
+    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
+    KUBECONFIG: "{{kubectl_config_path}}"

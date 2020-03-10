@@ -38,8 +38,10 @@ persistentVolume:
   storageSize: 10Gi
 
 service:
-  type: ClusterIP
+  type: LoadBalancer
   port: 7050
+  loadBalancerSourceRanges:
+    - 10.0.0.0/8
 
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious

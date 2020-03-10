@@ -61,3 +61,10 @@ A subset of uniquely defining labels for selector.matchLabels
 app.kubernetes.io/name: {{ include "fabric-ca.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
+
+{{/*
+The internal domain name of the ca service.
+*/}}
+{{- define "fabric-ca.service-fqdn" -}}
+ca.{{ .Values.dlt.domain }}
+{{- end -}}

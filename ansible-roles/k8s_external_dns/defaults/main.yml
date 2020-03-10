@@ -1,0 +1,22 @@
+---
+# defaults file for k8s_external_dns
+
+k8s_external_dns_service_account_iam_role_arn: "{{ansible_local.externaldns.service_account_iam_role_arn}}"
+
+k8s_external_dns_namespace: external-dns
+
+k8s_external_dns_helm_release: external-dns
+
+k8s_external_dns_chart: stable/external-dns
+k8s_external_dns_chart_version: 2.19.1
+
+k8s_external_dns_chart_values_path: "{{kubectl_asset_root_path}}/external-dns/values.yaml"
+
+k8s_external_dns_chart_values:
+  policy: sync
+  provider: aws
+  rbac:
+    create: true
+    serviceAccountAnnotations:
+      eks.amazonaws.com/role-arn: "{{k8s_external_dns_service_account_iam_role_arn}}"
+    pspEnabled: true
