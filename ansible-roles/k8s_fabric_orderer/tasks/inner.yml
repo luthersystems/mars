@@ -9,6 +9,7 @@
       - --install
       - --wait
       - --namespace={{k8s_fabric_orderer_namespace}}
+      - --set=global.lutherProjectID={{luther_project_id}}
       - --set=global.lutherEnv={{luther_env}}
       - --set=global.hyperledger.fabricVersion={{k8s_fabric_version}}
       - --set=dlt.organizationIndex={{item}}

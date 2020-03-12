@@ -8,6 +8,7 @@
       - upgrade
       - --install
       - --namespace={{k8s_fabric_peer_namespace}}
+      - --set=global.lutherProjectID={{luther_project_id}}
       - --set=global.lutherEnv={{luther_env}}
       - --set=global.hyperledger.fabricVersion={{k8s_fabric_version}}
       - --set=dlt.organization={{k8s_fabric_peer_org}}

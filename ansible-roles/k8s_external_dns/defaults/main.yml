@@ -1,22 +1,46 @@
 ---
 # defaults file for k8s_external_dns
 
-k8s_external_dns_service_account_iam_role_arn: "{{ansible_local.externaldns.service_account_iam_role_arn}}"
+k8s_external_dns_public_service_account_iam_role_arn: "{{ansible_local.externaldns.public_service_account_iam_role_arn}}"
+k8s_external_dns_private_service_account_iam_role_arn: "{{ansible_local.externaldns.private_service_account_iam_role_arn}}"
 
 k8s_external_dns_namespace: external-dns
 
-k8s_external_dns_helm_release: external-dns
+k8s_external_dns_public_helm_release: external-dns-public
+k8s_external_dns_private_helm_release: external-dns-private
 
 k8s_external_dns_chart: stable/external-dns
 k8s_external_dns_chart_version: 2.19.1
 
-k8s_external_dns_chart_values_path: "{{kubectl_asset_root_path}}/external-dns/values.yaml"
+k8s_external_dns_chart_public_values_path: "{{kubectl_asset_root_path}}/external-dns/values-public.yaml"
 
-k8s_external_dns_chart_values:
+k8s_external_dns_chart_private_values_path: "{{kubectl_asset_root_path}}/external-dns/values-private.yaml"
+
+k8s_external_dns_public_chart_values:
+  txtOwnerId: "{{luther_project_id}}-{{luther_env}}-public"
   policy: sync
   provider: aws
+  aws:
+    zoneType: public
   rbac:
     create: true
     serviceAccountAnnotations:
-      eks.amazonaws.com/role-arn: "{{k8s_external_dns_service_account_iam_role_arn}}"
+      eks.amazonaws.com/role-arn: "{{k8s_external_dns_public_service_account_iam_role_arn}}"
+    pspEnabled: true
+
+# external-dns managing private hosted zones needs to filter by tag to handle
+# private zones with the same name existing in different environments/vpcs.
+k8s_external_dns_private_chart_values:
+  txtOwnerId: "{{luther_project_id}}-{{luther_env}}-private"
+  policy: sync
+  provider: aws
+  aws:
+    zoneType: private
+    zoneTags:
+      - Project={{luther_project_id}}
+      - Environment={{luther_env}}
+  rbac:
+    create: true
+    serviceAccountAnnotations:
+      eks.amazonaws.com/role-arn: "{{k8s_external_dns_private_service_account_iam_role_arn}}"
     pspEnabled: true
