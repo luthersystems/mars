@@ -3,6 +3,7 @@
 # Declare variables to be passed into your templates.
 
 global:
+  lutherProjectID: !!null
   lutherEnv: dev
   partOf: fabric
   hyperledger:
