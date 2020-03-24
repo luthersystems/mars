@@ -1,3 +1,5 @@
+export KUBECONFIG=/opt/k8s/kubeconfig.yaml
+
 KUBECTL_NAMESPACE=default
 
 setkns() {
