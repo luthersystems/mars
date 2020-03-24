@@ -25,7 +25,7 @@
       - openshift
     state: present
 
-- name: Install kns bash function
+- name: Install kubectl shell helpers
   copy:
-    src: kns.sh
-    dest: /etc/profile.d/kns.sh
+    src: kubectl.sh
+    dest: /etc/profile.d/kubectl.sh
