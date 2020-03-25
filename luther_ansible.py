@@ -312,6 +312,7 @@ class Ansible(object):
 
     def _exec_cmd(self, *cmdargs, **kwargs):
         sys.stderr.write(self._shell_command(*cmdargs) + '\n')
+        sys.stderr.flush()
         return subprocess.call(list(cmdargs), env=kwargs.get('env'))
 
     def _shell_script(self, *cmds):

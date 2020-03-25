@@ -1,6 +1,10 @@
 #!/bin/bash
 
-set -exo pipefail
+set -eo pipefail
+
+if [[ "$MARS_DEBUG" == "true" ]]; then
+    set -x
+fi
 
 fullpath() {
     cd "$1" && pwd
@@ -63,11 +67,11 @@ if [ -z "$(docker ps | grep pinata-sshd)" ]; then
 fi
 
 DOCKER_TERM_VARS=-i
-if [ -t 1 ]; then
+if [ -t 1 -a ! -p /dev/stdin ]; then
     DOCKER_TERM_VARS=-it
 fi
 
-docker volume create "$ANSIBLE_INVENTORY_CACHE_VOL" 1>&2
+docker volume create "$ANSIBLE_INVENTORY_CACHE_VOL" >/dev/null
 
 mkdir -p $TFENV_CACHE_PATH
 mkdir -p $TF_PLUGIN_CACHE_DIR
