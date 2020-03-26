@@ -40,6 +40,8 @@
   file: path={{authorized_key_sync_executable_path}} state=link src={{authorized_key_sync_release_executable_path}}
   tags:
     - authorized_key_sync
+  notify:
+    - authorized_key_sync restart
 
 - name: Config directory exists
   file: path={{authorized_key_sync_config_path|dirname}} state=directory
@@ -51,24 +53,23 @@
   tags:
     - authorized_key_sync
   notify:
-      - authorized_key_sync enable
-      - authorized_key_sync restart
+    - authorized_key_sync restart
 
 - name: Systemd unit file exists
   template: dest={{authorized_key_sync_systemd_unit_path}} src=authorized_key_sync.service.j2
   tags:
     - authorized_key_sync
   notify:
-      - authorized_key_sync enable
-      - authorized_key_sync restart
+    - authorized_key_sync enable
+    - authorized_key_sync restart
 
 - name: Service is started
   command: /bin/true
   tags:
     - authorized_key_sync
   notify:
-      - authorized_key_sync enable
-      - authorized_key_sync start
+    - authorized_key_sync enable
+    - authorized_key_sync start
 
 - name: Process handlers
   meta: flush_handlers
