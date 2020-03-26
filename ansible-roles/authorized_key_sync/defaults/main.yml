@@ -1,5 +1,5 @@
 ---
-authorized_key_sync_version: 0.1.0
+authorized_key_sync_version: 0.1.1
 authorized_key_sync_release_archive: "authorized_key_sync-{{authorized_key_sync_version}}-linux-amd64.tar.gz"
 authorized_key_sync_release_s3_region: eu-west-2
 authorized_key_sync_release_s3_bucket: luther-common-ln-common-static-s3-b5oc
