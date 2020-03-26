@@ -7,7 +7,7 @@ Wants=network-online.target
 Restart=always
 User=nobody
 ExecStart={{prometheus_node_exporter_runner}}
-WorkingDir={{prometheus_node_exporter_root_path}}
+WorkingDirectory={{prometheus_node_exporter_root_path}}
 
 [Install]
 WantedBy=default.target
