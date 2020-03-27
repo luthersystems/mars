@@ -1,0 +1,12 @@
+---
+# defaults file for roles/jmeter
+
+jmeter_version: "5.0"
+jmeter_root_path: /opt/jmeter
+jmeter_release_archive_path: "{{jmeter_root_path}}/apache-jmeter-{{jmeter_version}}.tgz"
+jmeter_release_archive_s3_region: eu-west-2
+jmeter_release_archive_s3_bucket: luther-common-ln-common-static-s3-b5oc
+jmeter_release_archive_s3_key: /jmeter/apache-jmeter-{{jmeter_version}}.tgz
+
+jmeter_install_path: /usr/local/bin/jmeter
+jmeter_bin_path: "{{jmeter_root_path}}/apache-jmeter-{{jmeter_version}}/bin/jmeter"

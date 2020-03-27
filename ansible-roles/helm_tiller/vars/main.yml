@@ -1,0 +1,8 @@
+---
+# vars file for helm_tiller
+
+# NOTE:  These resources are found under files/tiller/ and will be applied in
+# the specified order.
+helm_tiller_k8s_resources:
+  - service-account.yaml
+  - cluster-role.yaml

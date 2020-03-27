@@ -1,0 +1,66 @@
+---
+- name: Check kubectl_eks_cluster_name
+  fail:
+    msg: "A value must be provided for kubectl_eks_cluster_name"
+  when: not kubectl_eks_cluster_name
+
+- name: Print desired kubectl version
+  debug:
+    var: kubectl_version
+
+- name: Update the APT cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 36400
+
+- name: jq is installed
+  apt:
+    name: jq
+    state: present
+
+- name: Pip is installed
+  apt:
+    name: python3-pip
+    state: present
+
+- name: Ensure the awscli module is insalled
+  pip:
+    name: awscli
+    state: present
+
+- name: Python library boto is installed
+  pip:
+    name: boto
+    state: present
+
+- name: Python library boto3 is installed
+  pip:
+    name: boto3
+    state: present
+
+- name: Python library botocore is installed
+  pip:
+    name: botocore
+    state: present
+
+- name: Install the kubectl snap package
+  snap:
+    name: kubectl
+    channel: "{{kubectl_version}}/stable"
+    classic: yes
+    state: present
+
+- name: Configure kubectl for EKS
+  shell: "{{kubectl_shell_prefix}} aws --region {{kubectl_eks_region|quote}} eks update-kubeconfig --name {{kubectl_eks_cluster_name|quote}}"
+
+- name: Install pip modules for k8s management with ansible
+  pip:
+    name:
+      - kubernetes
+      - openshift
+    state: present
+
+- name: Install kubectl shell helpers
+  copy:
+    src: kubectl.sh
+    dest: /etc/profile.d/kubectl.sh

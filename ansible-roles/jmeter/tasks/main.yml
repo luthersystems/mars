@@ -1,0 +1,26 @@
+---
+# tasks file for roles/jmeter
+- name: JRE is installed
+  apt: name=default-jre state=present
+
+- name: Root directory exists
+  file: path={{jmeter_root_path}} state=directory recurse=yes
+
+
+- name: Release exists
+  aws_s3:
+    mode: get
+    region: "{{jmeter_release_archive_s3_region}}"
+    bucket: "{{jmeter_release_archive_s3_bucket}}"
+    object: "{{jmeter_release_archive_s3_key}}"
+    dest: "{{jmeter_release_archive_path}}"
+    ignore_nonexistent_bucket: yes
+  tags:
+    - authorized_key_sync
+
+- name: Release archive has been extracted
+  unarchive: remote_src=yes src={{jmeter_release_archive_path}} dest={{jmeter_root_path}}
+
+- name: Executable symlink exists
+  file: path={{jmeter_install_path}} src={{jmeter_bin_path}} state=link
+

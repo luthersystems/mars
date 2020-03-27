@@ -1,6 +1,5 @@
 allow_duplicates: true
 
 dependencies:
-  - helm_charts
   - kubectl
   - shiro_phylum_base

@@ -1,31 +1,7 @@
 ---
 # tasks file for kubectl
 
-- name: Check kubectl_version override
-  fail: msg="A value must be provided for kubectl_version"
+- name: Check kubectl_version
+  fail:
+    msg: "A value must be provided for kubectl_version"
   when: not kubectl_version
-
-- name: Check kubectl_eks_cluster_name override
-  fail: msg="A value must be provided for kubectl_eks_cluster_name"
-  when: not kubectl_eks_cluster_name
-
-- name: Print desired kubectl version
-  debug: var=kubectl_version
-
-- name: Install the kubectl snap package
-  snap: name=kubectl channel={{kubectl_version}}/stable classic=yes state=present
-
-- name: Configure kubectl for EKS
-  shell: "{{kubectl_shell_prefix}} aws --region {{kubectl_eks_region|quote}} eks update-kubeconfig --name {{kubectl_eks_cluster_name|quote}}"
-
-- name: Install pip modules for k8s management with ansible
-  pip:
-    name:
-      - kubernetes
-      - openshift
-    state: present
-
-- name: Install kubectl shell helpers
-  copy:
-    src: kubectl.sh
-    dest: /etc/profile.d/kubectl.sh

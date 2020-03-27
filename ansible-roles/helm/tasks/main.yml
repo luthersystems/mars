@@ -1,0 +1,9 @@
+---
+# tasks file for helm
+
+- name: Install helm
+  snap:
+    name: helm
+    classic: yes
+    state: present
+    channel: "{{helm_version}}/stable"

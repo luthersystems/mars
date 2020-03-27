@@ -1,5 +1,0 @@
----
-- name: Update the APT cache
-  apt:
-    update_cache: yes
-    cache_valid_time: 36400
