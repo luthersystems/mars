@@ -1,11 +1,6 @@
 ---
 # tasks file for k8s_fabric_channel
 
-- name: jq is installed
-  apt:
-    name: jq
-    state: present
-
 - name: Script directory exists
   file:
     path: "{{k8s_fabric_channel_create_script_path | dirname}}"

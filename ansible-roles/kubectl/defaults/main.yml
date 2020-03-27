@@ -6,10 +6,6 @@
 #   kubectl_version: v1.15.0
 kubectl_version: ""
 
-# NOTE:  There is no default value for kubectl_eks_cluster_name and the value
-# must be declared in either the inventory or playbook.
-kubectl_eks_cluster_name: ""
-
 kubectl_asset_root_path: /opt/k8s
 
 kubectl_config_path: "{{kubectl_asset_root_path}}/kubeconfig.yaml"
