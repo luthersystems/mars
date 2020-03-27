@@ -1,0 +1,10 @@
+---
+- name: Set the timezone to UTC
+  command: timedatectl set-timezone UTC
+- name: Synchronize timedatectl with NTP
+  command: timedatectl set-ntp true
+
+# It's not clear exactly why this restart is required -- possible that
+# synchronization will just be delayed without it.
+- name: Restart the NTP service to synchronize time
+  service: name=ntp state=restarted

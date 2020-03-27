@@ -1,0 +1,7 @@
+---
+journald_rate_limit_interval: "10s"
+journald_rate_limit_burst: 1000
+journald_system_max_use: "1G"
+
+journald_config_path: "/etc/systemd/journald.conf"
+journald_systemd_service: "systemd-journald"

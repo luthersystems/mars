@@ -1,0 +1,14 @@
+---
+- name: Configuration exists
+  template: dest={{journald_config_path}} src=journald.conf.j2 owner=root group=root
+  notify:
+      - journald restart
+  tags:
+      - journald
+      - logs
+
+- name: Process handlers
+  meta: flush_handlers
+  tags:
+      - journald
+      - logs
