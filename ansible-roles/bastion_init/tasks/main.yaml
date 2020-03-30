@@ -64,3 +64,27 @@
   copy:
     src: kubectl.sh
     dest: /etc/profile.d/kubectl.sh
+
+- name: Install luther_vars.sh
+  template:
+    src: luther_vars.sh.j2
+    dest: /etc/luther_vars.sh
+    mode: 0644
+
+- name: Install .bashrc
+  copy:
+    src: bashrc
+    dest: "{{ item.dir }}/.bashrc"
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: 0644
+  loop:
+    - dir: '/etc/skel'
+      owner: root
+      group: root
+    - dir: '/home/ubuntu'
+      owner: ubuntu
+      group: ubuntu
+    - dir: '/root'
+      owner: root
+      group: root

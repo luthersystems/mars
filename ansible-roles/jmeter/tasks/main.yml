@@ -15,8 +15,6 @@
     object: "{{jmeter_release_archive_s3_key}}"
     dest: "{{jmeter_release_archive_path}}"
     ignore_nonexistent_bucket: yes
-  tags:
-    - authorized_key_sync
 
 - name: Release archive has been extracted
   unarchive: remote_src=yes src={{jmeter_release_archive_path}} dest={{jmeter_root_path}}
