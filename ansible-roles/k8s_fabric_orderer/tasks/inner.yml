@@ -19,6 +19,7 @@
       - --set=image.repository={{k8s_fabric_orderer_image_repository}}
       - --set=startService={{k8s_fabric_orderer_start_service}}
       - --set=persistentVolume.storageSize={{k8s_fabric_orderer_storage_size}}
+      - --set=logLevel={{k8s_fabric_orderer_log_level}}
       - "fabric-orderer{{item}}"
       - "{{k8s_fabric_orderer_helm_chart_path}}"
   environment:
