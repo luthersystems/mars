@@ -34,6 +34,10 @@ prometheus_server_all_rule_groups: "{{prometheus_server_default_rule_groups|comb
 prometheus_server_global_scrape_interval: 30s
 prometheus_server_global_scrape_timeout: 10s
 
+prometheus_server_external_hostname: prometheus.luther.systems
+prometheus_server_load_balancer_source_ranges:
+  - "10.0.0.0/8"
+
 prometheus_alertmanager_slack_api_url: !!null
 
 prometheus_alertmanager_configmap_data:
@@ -98,6 +102,14 @@ k8s_monitoring_chart_values:
       global:
         scrape_interval: "{{prometheus_server_global_scrape_interval}}"
         scrape_timeout: "{{prometheus_server_global_scrape_timeout}}"
+      service:
+        type: LoadBalancer
+        loadBalancerSourceRanges: "{{prometheus_server_load_balancer_source_ranges}}"
+        annotations:
+          service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
+          service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+          service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: Project={{luther_project_id}},Environment={{luther_env}},Organization={{org_name}},Component=mon,Resource=alb,Subcomponent=prom
+          external-dns.alpha.kubernetes.io/hostname: "{{prometheus_server_external_hostname}}"
     serverFiles:
       alerts: "{{prometheus_server_all_rule_groups}}"
     alertmanager:
