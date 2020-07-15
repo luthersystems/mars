@@ -1,0 +1,4 @@
+---
+# defaults file for shiro_phylum_init
+
+shiro_phylum_init_script: "{{shiro_phylum_script_dir}}/init_phylum.sh"
