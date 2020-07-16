@@ -10,20 +10,20 @@ UPDATE_JSON_PATH=$(echo "$UPDATE_PB_PATH" | sed 's/.pb$//' | sed 's/$/.json/')
 
 NAMESPACE=fabric-org1
 
-source "${BASH_SOURCE%/*}/channel-config.sh"
+source "${BASH_SOURCE%/*}/channel-utils.sh"
 
-pod_select org1 0
+pod="$(select_first_pod org1 0)"
 
 WORKDIR=/tmp/compute-org-update-${RANDOM}
 echo "WORKDIR=$WORKDIR"
 
-pod_exec mkdir -p $WORKDIR
+pod_exec "$pod" mkdir -p $WORKDIR
 
-kubectl -n "$NAMESPACE" cp "$ORG_JSON_PATH" "$POD:$WORKDIR/$ORG_JSON_NAME"
+kubectl -n "$NAMESPACE" cp "$ORG_JSON_PATH" "$pod:$WORKDIR/$ORG_JSON_NAME"
 
-pod_exec peer channel fetch config "$WORKDIR/config_block.pb" -o "$ORDERER" -c "$CHANNEL" --tls --cafile "$ORDERER_CA"
+pod_exec "$pod" peer channel fetch config "$WORKDIR/config_block.pb" -o "$ORDERER" -c "$CHANNEL" --tls --cafile "$ORDERER_CA"
 
-pod_exec sh -c "configtxlator proto_decode --input '$WORKDIR/config_block.pb' --type common.Block | jq .data.data[0].payload.data.config > '$WORKDIR/config.json'"
+pod_exec "$pod" sh -c "configtxlator proto_decode --input '$WORKDIR/config_block.pb' --type common.Block | jq .data.data[0].payload.data.config > '$WORKDIR/config.json'"
 
 set +e
 read -r -d '' JQ_MERGE <<EOF
@@ -41,17 +41,17 @@ read -r -d '' JQ_MERGE <<EOF
 EOF
 set -e
 
-pod_exec sh -c "jq -s '$JQ_MERGE' '$WORKDIR/config.json' '$WORKDIR/$ORG_JSON_NAME' > '$WORKDIR/modified_config.json'"
+pod_exec "$pod" sh -c "jq -s '$JQ_MERGE' '$WORKDIR/config.json' '$WORKDIR/$ORG_JSON_NAME' > '$WORKDIR/modified_config.json'"
 
-pod_exec configtxlator proto_encode --input "$WORKDIR/config.json" --type common.Config --output "$WORKDIR/config.pb"
+pod_exec "$pod" configtxlator proto_encode --input "$WORKDIR/config.json" --type common.Config --output "$WORKDIR/config.pb"
 
-pod_exec configtxlator proto_encode --input "$WORKDIR/modified_config.json" --type common.Config --output "$WORKDIR/modified_config.pb"
+pod_exec "$pod" configtxlator proto_encode --input "$WORKDIR/modified_config.json" --type common.Config --output "$WORKDIR/modified_config.pb"
 
-pod_exec configtxlator compute_update --channel_id "$CHANNEL" --original "$WORKDIR/config.pb" --updated "$WORKDIR/modified_config.pb" --output "$WORKDIR/update.pb"
+pod_exec "$pod" configtxlator compute_update --channel_id "$CHANNEL" --original "$WORKDIR/config.pb" --updated "$WORKDIR/modified_config.pb" --output "$WORKDIR/update.pb"
 
-pod_exec sh -c "configtxlator proto_decode --input '$WORKDIR/update.pb' --type common.ConfigUpdate | jq . > '$WORKDIR/update.json'"
+pod_exec "$pod" sh -c "configtxlator proto_decode --input '$WORKDIR/update.pb' --type common.ConfigUpdate | jq . > '$WORKDIR/update.json'"
 
-kubectl -n "$NAMESPACE" cp "$POD:$WORKDIR/update.json" "$UPDATE_JSON_PATH"
+kubectl -n "$NAMESPACE" cp "$pod:$WORKDIR/update.json" "$UPDATE_JSON_PATH"
 
 set +e
 read -r -d '' UPDATE_IN_ENVELOPE <<EOF
@@ -71,8 +71,8 @@ read -r -d '' UPDATE_IN_ENVELOPE <<EOF
 EOF
 set -e
 
-pod_exec sh -c "echo '$UPDATE_IN_ENVELOPE' | jq . > '$WORKDIR/update_in_envelope.json'"
+pod_exec "$pod" sh -c "echo '$UPDATE_IN_ENVELOPE' | jq . > '$WORKDIR/update_in_envelope.json'"
 
-pod_exec configtxlator proto_encode --input "$WORKDIR/update_in_envelope.json" --type common.Envelope --output "$WORKDIR/update_in_envelope.pb"
+pod_exec "$pod" configtxlator proto_encode --input "$WORKDIR/update_in_envelope.json" --type common.Envelope --output "$WORKDIR/update_in_envelope.pb"
 
-kubectl -n "$NAMESPACE" cp "$POD:$WORKDIR/update_in_envelope.pb" "$UPDATE_PB_PATH"
+kubectl -n "$NAMESPACE" cp "$pod:$WORKDIR/update_in_envelope.pb" "$UPDATE_PB_PATH"

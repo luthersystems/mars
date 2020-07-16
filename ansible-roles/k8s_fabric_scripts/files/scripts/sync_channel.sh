@@ -4,7 +4,8 @@ set -x
 
 ORG=$1
 NAMESPACE="fabric-$ORG"
-CHANNEL=luther
+
+source "${BASH_SOURCE%/*}/channel-utils.sh"
 CHANNELBLOCK="$CHANNEL.block"
 
 if [ ! -f "$CHANNELBLOCK" ]; then
@@ -12,24 +13,22 @@ if [ ! -f "$CHANNELBLOCK" ]; then
     exit 1
 fi
 
-POD_SELECTOR=app.kubernetes.io/component=bccli
+pods="$(select_pods "$ORG")"
 
-PODS=$(kubectl -n "$NAMESPACE" get pods -l "$POD_SELECTOR" -o name | sed 's!^pod/!!')
-
-for POD in $PODS; do
-    kubectl cp "$CHANNELBLOCK" "$NAMESPACE"/"$POD":"$CHANNELBLOCK"
+for pod in $pods; do
+    kubectl cp "$CHANNELBLOCK" "$NAMESPACE"/"$pod":"$CHANNELBLOCK"
     if [ $? -ne 0 ]; then
-        echo "Unable to synchronize $CHANNELBLOCK to pod: $NAMESPACE/$POD" >&2
+        echo "Unable to synchronize $CHANNELBLOCK to pod: $NAMESPACE/$pod" >&2
         exit 1
     fi
 done
 
-for POD in $PODS; do
-    kubectl -n "$NAMESPACE" exec "$POD" -- \
+for pod in $pods; do
+    pod_exec "$pod" \
         peer channel fetch newest -c "$CHANNEL"
 
     if [[ $? -ne 0 ]]; then
-        kubectl -n "$NAMESPACE" exec "$POD" -- \
+        pod_exec "$pod" \
             peer channel join -b "$CHANNELBLOCK"
         if [[ $? -ne 0 ]]; then
             echo "Unable to join channel" >&2

@@ -11,17 +11,16 @@ UPDATE_PB_NAME=$(basename "$UPDATE_PB_PATH")
 
 NAMESPACE="fabric-$ORG_NAME"
 
-source "${BASH_SOURCE%/*}/channel-config.sh"
+source "${BASH_SOURCE%/*}/channel-utils.sh"
 
-pod_select "$ORG_NAME" 0
+pod="$(select_first_pod "$ORG_NAME" 0)"
 
 WORKDIR=/tmp/apply-update-${RANDOM}
 echo "WORKDIR=$WORKDIR"
+pod_exec "$pod" mkdir -p $WORKDIR
 
-pod_exec mkdir -p $WORKDIR
+kubectl -n "$NAMESPACE" cp "$UPDATE_PB_PATH" "$pod:$WORKDIR/$UPDATE_PB_NAME"
 
-kubectl -n "$NAMESPACE" cp "$UPDATE_PB_PATH" "$POD:$WORKDIR/$UPDATE_PB_NAME"
+pod_exec "$pod" peer channel signconfigtx -f "$WORKDIR/$UPDATE_PB_NAME"
 
-pod_exec peer channel signconfigtx -f "$WORKDIR/$UPDATE_PB_NAME"
-
-kubectl -n "$NAMESPACE" cp "$POD:$WORKDIR/$UPDATE_PB_NAME" "$UPDATE_PB_PATH"
+kubectl -n "$NAMESPACE" cp "$pod:$WORKDIR/$UPDATE_PB_NAME" "$UPDATE_PB_PATH"
