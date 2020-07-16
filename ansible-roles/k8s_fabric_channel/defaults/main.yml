@@ -1,13 +1,10 @@
 ---
 # defaults file for k8s_fabric_channel
 
-k8s_fabric_channel_workdir: /opt/hyperledger/fabric
-k8s_fabric_channel_script_dir: "{{k8s_fabric_channel_workdir}}/scripts"
-
-k8s_fabric_channel_create_script_path: "{{k8s_fabric_channel_script_dir}}/create_channel.sh"
-k8s_fabric_channel_sync_script_path: "{{k8s_fabric_channel_script_dir}}/sync_channel.sh"
-k8s_fabric_channel_anchor_script_path: "{{k8s_fabric_channel_script_dir}}/anchor_peers.sh"
-k8s_fabric_channel_install_script_path: "{{k8s_fabric_channel_script_dir}}/install_chaincode.sh"
+k8s_fabric_channel_create_script_path: "{{k8s_fabric_scripts_dir}}/create_channel.sh"
+k8s_fabric_channel_sync_script_path: "{{k8s_fabric_scripts_dir}}/sync_channel.sh"
+k8s_fabric_channel_anchor_script_path: "{{k8s_fabric_scripts_dir}}/anchor_peers.sh"
+k8s_fabric_channel_install_script_path: "{{k8s_fabric_scripts_dir}}/install_chaincode.sh"
 k8s_fabric_channel_orgs:
   - name: org1
     msp: Org1MSP

@@ -1,26 +1,11 @@
 ---
 # tasks file for k8s_fabric_channel
 
-- name: Script directory exists
-  file:
-    path: "{{k8s_fabric_channel_create_script_path | dirname}}"
-    state: directory
-
-- name: Scripts are uploaded
-  synchronize:
-    src: scripts/
-    dest: "{{k8s_fabric_channel_script_dir}}"
-    delete: yes
-    recursive: yes
-    owner: no
-    group: no
-    use_ssh_args: yes
-
 - name: The channel has been created
   command:
     argv:
       - "{{k8s_fabric_channel_create_script_path}}"
-    chdir: "{{k8s_fabric_channel_workdir}}"
+    chdir: "{{k8s_fabric_scripts_workdir}}"
   environment:
     AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
     AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
@@ -32,7 +17,7 @@
     argv:
       - "{{k8s_fabric_channel_sync_script_path}}"
       - "{{item.name}}"
-    chdir: "{{k8s_fabric_channel_workdir}}"
+    chdir: "{{k8s_fabric_scripts_workdir}}"
   environment:
     AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
     AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
@@ -46,7 +31,7 @@
       - "{{k8s_fabric_channel_anchor_script_path}}"
       - "{{item.name}}"
       - "{{item.msp}}"
-    chdir: "{{k8s_fabric_channel_workdir}}"
+    chdir: "{{k8s_fabric_scripts_workdir}}"
   environment:
     AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
     AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
@@ -61,7 +46,7 @@
       - "{{item[1].name}}"
       - "{{item[0].name}}"
       - "{{item[0].version}}"
-    chdir: "{{k8s_fabric_channel_workdir}}"
+    chdir: "{{k8s_fabric_scripts_workdir}}"
   environment:
     AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
     AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"

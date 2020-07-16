@@ -3,14 +3,14 @@
 
 - name: Scripts directory exists
   file:
-    path: "{{k8s_fabric_channel_workdir}}/scripts"
+    path: "{{k8s_fabric_scripts_dir}}"
     state: directory
     recurse: yes
 
 - name: Scripts are uploaded
   synchronize:
     src: scripts/
-    dest: "{{k8s_fabric_channel_workdir}}/scripts"
+    dest: "{{k8s_fabric_scripts_dir}}"
     delete: yes
     recursive: yes
     owner: no

@@ -31,9 +31,8 @@
   when: is_fabric_upgrade | bool
   command:
     argv:
-    - ./upgrade-pauser.sh
-  args:
-    chdir: "{{k8s_fabric_channel_workdir}}/scripts"
+    - "{{k8s_fabric_scripts_dir}}/upgrade-pauser.sh"
+    chdir: "{{k8s_fabric_scripts_workdir}}"
   environment:
     PAUSING_AT: "orderer"
     WHICH: "{{item}}"
