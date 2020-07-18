@@ -15,3 +15,5 @@
     KUBECONFIG: "{{kubectl_config_path}}"
     SHIRO_TX_COMMIT_TIMEOUT: "{{k8s_fabric_peer_chaincode_invoke_timeout}}"
     SHIRO_TX_TIMEOUT: "{{k8s_fabric_peer_chaincode_invoke_timeout}}"
+  register: init_result
+  changed_when: '"Phylum version is initialized and in service" not in init_result.stderr'

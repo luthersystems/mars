@@ -1,55 +1,28 @@
 ---
 # tasks file for k8s_fabric_channel
 
-- name: The channel has been created
+- name: Create channel
   command:
     argv:
       - "{{k8s_fabric_channel_create_script_path}}"
     chdir: "{{k8s_fabric_scripts_workdir}}"
-  environment:
-    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
-    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
-    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
-    KUBECONFIG: "{{kubectl_config_path}}"
+  environment: "{{kubectl_env}}"
 
-- name: Every peer has joined the channel
+- name: Join channel
   command:
     argv:
       - "{{k8s_fabric_channel_sync_script_path}}"
       - "{{item.name}}"
     chdir: "{{k8s_fabric_scripts_workdir}}"
-  environment:
-    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
-    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
-    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
-    KUBECONFIG: "{{kubectl_config_path}}"
+  environment: "{{kubectl_env}}"
   loop: "{{k8s_fabric_channel_orgs}}"
 
-- name: Anchor peers are up-to-date
+- name: Update Anchor peers
   command:
     argv:
       - "{{k8s_fabric_channel_anchor_script_path}}"
       - "{{item.name}}"
       - "{{item.msp}}"
     chdir: "{{k8s_fabric_scripts_workdir}}"
-  environment:
-    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
-    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
-    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
-    KUBECONFIG: "{{kubectl_config_path}}"
+  environment: "{{kubectl_env}}"
   loop: "{{k8s_fabric_channel_orgs}}"
-
-- name: Chaincode is installed on peers
-  command:
-    argv:
-      - "{{k8s_fabric_channel_install_script_path}}"
-      - "{{item[1].name}}"
-      - "{{item[0].name}}"
-      - "{{item[0].version}}"
-    chdir: "{{k8s_fabric_scripts_workdir}}"
-  environment:
-    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
-    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
-    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
-    KUBECONFIG: "{{kubectl_config_path}}"
-  loop: "{{fabric_chaincodes | product(k8s_fabric_channel_orgs) | list}}"
