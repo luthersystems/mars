@@ -30,6 +30,10 @@ image:
   arch: amd64
   pullPolicy: IfNotPresent
 
+buildImage:
+  repository: hyperledger/fabric-ccenv
+  arch: amd64
+
 substrate:
   version: 2.96.0
   s3:

@@ -103,6 +103,8 @@ spec:
               value: {{ .Values.internal.container.invokeTimeout }}
             - name: CORE_PEER_GOSSIP_PVTDATA_PUSHACKTIMEOUT
               value: {{ .Values.internal.container.invokeTimeout }}
+            - name: CORE_CHAINCODE_BUILDER
+              value: "{{ .Values.buildImage.repository }}:{{ .Values.buildImage.arch }}-{{ .Values.global.hyperledger.fabricVersion }}"
           ports:
             - name: grpc-svc
               containerPort: {{ .Values.internal.container.servicePort }}
