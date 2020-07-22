@@ -46,6 +46,7 @@ class Ansible(object):
         playbook_parser = subparsers.add_parser('ansible-playbook')
         playbook_parser.add_argument('path')
         playbook_parser.add_argument('--debug', action='store_true')
+        playbook_parser.add_argument('--verbose', '-v', action='count', default=0)
         playbook_parser.add_argument('--tags')
         playbook_parser.add_argument('--limit')
         playbook_parser.add_argument('--check', action="store_true")
@@ -84,13 +85,15 @@ class Ansible(object):
         kwargs = {k: v for k, v in vars(args).items() if k not in args_ignore}
         args.parser_func(**kwargs)
 
-    def playbook(self, path=None, tags=None, limit=None, check=False, debug=False, start_at_task=None):
+    def playbook(self, path=None, tags=None, limit=None, check=False, debug=False, verbose=0, start_at_task=None):
         if not path:
             path = self.playbook_default
 
         base_cmd = ['ansible-playbook']
         if debug:
-            base_cmd.append('-vvvv') # only support the best debugging flag
+            base_cmd.append('-vvvv')
+        elif verbose > 0:
+            base_cmd.append('-' + 'v'*verbose)
         base_cmd.append(path)
         vault_args = self._ansible_vault_credentials()
         inv_args = self._inventory_args()
