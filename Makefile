@@ -1,7 +1,7 @@
 include common.mk
 STATIC_IMAGE=luthersystems/${PROJECT}
 
-PYTHON_SOURCES=$(shell find . -name '*.py')
+SCRIPTS=$(shell find scripts -type f)
 
 # NOTE: There is a bug with PACKER_VERSION=1.4.0 that prevents running in debug mode
 PACKER_VERSION=1.3.5
@@ -62,7 +62,7 @@ ${PACKER_ARCHIVE}:
 aws-ecr-login:
 	$(shell aws ecr get-login --region ${AWS_REGION} --no-include-email)
 
-${STATIC_IMAGE_DUMMY}: Dockerfile ${TFENV} ${PACKER} ${PYTHON_SOURCES} ${ANSIBLE_ROLES} ${ANSIBLE_PLUGINS} ${GRAFANA_DASHBOARDS} run.sh ssh_config requirements.txt
+${STATIC_IMAGE_DUMMY}: Dockerfile ${TFENV} ${PACKER} ${ANSIBLE_ROLES} ${ANSIBLE_PLUGINS} ${GRAFANA_DASHBOARDS} ${SCRIPTS} ssh_config requirements.txt
 	${DOCKER} build \
 		-t ${STATIC_IMAGE}:latest \
 		-t ${STATIC_IMAGE}:${VERSION} \
