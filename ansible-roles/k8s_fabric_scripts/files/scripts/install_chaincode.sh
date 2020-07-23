@@ -6,29 +6,23 @@ ORG=$1
 CHAINCODE=$2
 VERSION=$3
 NAMESPACE="fabric-$ORG"
-CHANNEL=luther
+
+source "${BASH_SOURCE%/*}/channel-utils.sh"
 
 CHAINCODEPATH=/opt/gopath/src/github.com/hyperledger/fabric/examples/chaincode/go/$CHAINCODE-$VERSION.cds
 
-POD_SELECTOR=app.kubernetes.io/component=bccli
+pods="$(select_pods "$ORG")"
 
-PODS=$(kubectl -n "$NAMESPACE" get pods -l "$POD_SELECTOR" -o name | sed 's!^pod/!!')
-
-if [[ -z "$PODS" ]]; then
-    echo "No pods found in namespace $NAMESPACE: $POD_SELECTOR"
-    exit 1
-fi
-
-for POD in $PODS; do
+for pod in $pods; do
     # Determine if the exact version of the specified chaincode is installed
-    kubectl -n "$NAMESPACE" exec "$POD" -- \
+    pod_exec "$pod" \
         peer chaincode list --installed \
         | egrep "\\b$CHAINCODE\\b" \
         | sed 's/^.*[Vv]ersion:[[:space:]]*\([^[:space:],]*\).*$/\1/' \
         | grep -Fx "$VERSION"
 
     if [[ $? -ne 0 ]]; then
-        kubectl -n "$NAMESPACE" exec "$POD" -- \
+        pod_exec "$pod" \
             peer chaincode install -n "$CHAINCODE" -v "$VERSION" -l golang "$CHAINCODEPATH"
         if [[ $? -ne 0 ]]; then
             echo "Unable to install chaincode" >&2

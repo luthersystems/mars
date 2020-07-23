@@ -2,6 +2,14 @@
 
 set -eo pipefail
 
+DEV_MOUNTS=''
+if [[ "$MARS_DEV" == "true" ]]; then
+    MARS_DEV_ROOT="${BASH_SOURCE%/*}"
+    DEV_MOUNTS="-v ${MARS_DEV_ROOT}/scripts:/opt/mars:ro \
+                -v ${MARS_DEV_ROOT}/ansible-roles:/opt/ansible/roles:ro \
+                -v ${MARS_DEV_ROOT}/ansible-plugins:/opt/ansible/plugins:ro"
+fi
+
 if [[ "$MARS_DEBUG" == "true" ]]; then
     set -x
 fi
@@ -81,7 +89,8 @@ docker run --rm $DOCKER_TERM_VARS \
     -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY \
     -e AWS_SECURITY_TOKEN -e AWS_SESSION_TOKEN \
     -e TF_PLUGIN_CACHE_DIR=/opt/tf-plugin-cache-dir \
-    ${ENV_VARS} \
+    $ENV_VARS \
+    $DEV_MOUNTS \
     -v "$ANSIBLE_INVENTORY_CACHE_VOL:$ANSIBLE_INVENTORY_CACHE_MOUNT" \
     -v "$TFENV_CACHE_PATH:/opt/tfenv/versions" \
     -v "$TF_PLUGIN_CACHE_DIR:/opt/tf-plugin-cache-dir" \

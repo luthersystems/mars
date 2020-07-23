@@ -30,16 +30,10 @@ RUN tfenv install 0.12.23
 
 ENTRYPOINT ["/opt/mars/run.sh"]
 
-ADD mars.py /opt/mars/mars.py
-ADD command.py /opt/mars/command.py
-ADD packer.py /opt/mars/packer.py
-ADD luther_ansible.py /opt/mars/luther_ansible.py
-ADD terraform.py /opt/mars/terraform.py
-ADD alb.py /opt/mars/alb.py
-ADD run.py /opt/mars/run.py
-RUN chmod a+x /opt/mars/terraform.py
-ADD run.sh /opt/mars/run.sh
+ADD scripts /opt/mars/
 RUN chmod a+x /opt/mars/run.sh
+RUN chmod a+x /opt/mars/terraform.py
+
 ADD ssh_config /etc/ssh/ssh_config
 # Grab bitbucket.org keys and place in known_hosts
 RUN ssh-keyscan -H bitbucket.org >> /etc/ssh/known_hosts && test -n "$(cat /etc/ssh/known_hosts)"

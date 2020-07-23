@@ -1,0 +1,5 @@
+---
+# defaults file for k8s_fabric_scripts
+
+k8s_fabric_scripts_workdir: /opt/hyperledger/fabric
+k8s_fabric_scripts_dir: "{{k8s_fabric_scripts_workdir}}/scripts"

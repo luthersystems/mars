@@ -5,30 +5,23 @@ set -x
 ORG=$1
 MSP=$2
 NAMESPACE="fabric-$ORG"
-POD_SELECTOR=app.kubernetes.io/component=bccli,fabric/organization-index=0
 
-ORDERER=orderer0.luther.systems:7050
-CHANNEL=luther
+source "${BASH_SOURCE%/*}/channel-utils.sh"
+
 CHANNELBLOCK=luther.block
 ANCHORTX=./channel-artifacts/${MSP}anchors.tx
-CACERT=orderertls/tlsca.luther.systems-cert.pem
 
-POD=$(kubectl -n "$NAMESPACE" get pods -l "$POD_SELECTOR" -o name | sed 's!^pod/!!')
+pod="$(select_first_pod "$ORG" 0)"
 
-if [ -z "$POD" ]; then
-    echo "Unable to locate pod in namespace $NAMESPACE: $POD_SELECTOR" >&2
-    exit 1
-fi
-
-kubectl -n "$NAMESPACE" exec "$POD" -- \
+pod_exec "$pod" \
     peer channel fetch oldest "$CHANNELBLOCK" -c "$CHANNEL"
 
-if [ -z "$POD" ]; then
+if [[ $? -ne 0 ]]; then
     echo "Unable to retrieve latest channel block" >&2
     exit 1
 fi
 
-kubectl -n "$NAMESPACE" exec "$POD" -- \
+pod_exec "$pod" \
     configtxlator proto_decode --type common.Block --input "$CHANNELBLOCK" --output "$CHANNELBLOCK.json"
 
 if [[ $? -ne 0 ]]; then
@@ -39,7 +32,7 @@ fi
 # FIXME:  This jq query does not correctly detect anchor peers for $MSP. It
 # only works directly after anchor peers have been added.
 #
-#kubectl -n "$NAMESPACE" exec "$POD" -- \
+#pod_exec "$pod" \
 #    jq -r ".data.data[0].payload.data.config.channel_group.groups.Application.groups.$MSP.values.AnchorPeers.value.anchor_peers[].host" "$CHANNELBLOCK.json"
 #
 #if [[ $? -eq 0 ]]; then
@@ -47,8 +40,8 @@ fi
 #    exit 0
 #fi
 
-kubectl -n "$NAMESPACE" exec "$POD" -- \
-    peer channel update -o "$ORDERER" -c "$CHANNEL" -f "$ANCHORTX" --tls true --cafile "$CACERT"
+pod_exec "$pod" \
+    peer channel update -o "$ORDERER" -c "$CHANNEL" -f "$ANCHORTX" --tls true --cafile "$ORDERER_CA"
 
 
 echo

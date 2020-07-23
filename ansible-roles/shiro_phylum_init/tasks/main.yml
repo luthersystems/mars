@@ -1,0 +1,17 @@
+---
+# tasks file for shiro_phylum_init
+
+- name: Phylum is initialized
+  command:
+    argv:
+      - "{{shiro_phylum_init_script}}"
+      - "{{shiro_phylum_substrate_version}}"
+      - "{{shiro_phylum_version}}"
+      - "{{shiro_phylum_version_old}}"
+  environment:
+    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
+    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
+    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
+    KUBECONFIG: "{{kubectl_config_path}}"
+    SHIRO_TX_COMMIT_TIMEOUT: "{{k8s_fabric_peer_chaincode_invoke_timeout}}"
+    SHIRO_TX_TIMEOUT: "{{k8s_fabric_peer_chaincode_invoke_timeout}}"
