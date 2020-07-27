@@ -135,6 +135,7 @@ k8s_monitoring_chart_values:
         alb.ingress.kubernetes.io/certificate-arn: '{{grafana_frontend_certificate_arn}}'
         alb.ingress.kubernetes.io/scheme: internet-facing
         alb.ingress.kubernetes.io/target-type: ip
+        alb.ingress.kubernetes.io/ssl-policy: "ELBSecurityPolicy-TLS-1-2-2017-01"
         kubernetes.io/ingress.class: alb
         alb.ingress.kubernetes.io/tags: Project={{luther_project_id}},Environment={{luther_env}},Organization={{org_name}},Component=mon,Resource=alb
     grafana.ini:
