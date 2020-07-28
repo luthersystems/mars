@@ -164,7 +164,7 @@ spec:
               mountPath: /docker-tls
       initContainers:
         # TODO:  Consider turning chaincode-archive-bootstrap into a sidecar
-        # that periodically syncs chaincode cds archives into a volume that is
+        # that periodically syncs chaincode archives into a volume that is
         # shared between it and the fabric-peer container.  Without continuous
         # sync the peer needs to restart in order to install/initialize a new
         # version of substrate (not the end of the world because substrate
@@ -181,7 +181,7 @@ spec:
             - -c
             - |
               set -xe;
-              aws s3 cp "s3://{{ .Values.substrate.s3.bucket }}/chaincodes/com_luthersystems_chaincode_substrate01-{{ .Values.substrate.version }}.cds" /chaincodes/com_luthersystems_chaincode_substrate01-{{ .Values.substrate.version }}.cds
+              aws s3 cp "s3://{{ .Values.substrate.s3.bucket }}/chaincodes/com_luthersystems_chaincode_substrate01-{{ .Values.substrate.version }}.tar.gz" /chaincodes/com_luthersystems_chaincode_substrate01-{{ .Values.substrate.version }}.tar.gz
           volumeMounts:
             - name: chaincode-archives
               mountPath: /chaincodes

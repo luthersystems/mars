@@ -1,4 +1,4 @@
 ---
 # defaults file for shiro_phylum_init
 
-shiro_phylum_init_script: "{{k8s_fabric_scripts_dir}}/init_phylum.sh"
+shiro_phylum_init_script: "{{k8s_fabric_scripts_dir}}/init-phylum.sh"

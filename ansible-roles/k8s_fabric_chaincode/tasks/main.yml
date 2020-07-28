@@ -1,0 +1,107 @@
+---
+# tasks file for k8s_fabric_chaincode
+
+- name: Check committed chaincode
+  command:
+    argv:
+      - scripts/query-committed.sh
+      - "{{ k8s_fabric_chaincode_orgs.0.name }}"
+      - "{{ k8s_fabric_chaincode_name }}"
+      - "{{ k8s_fabric_chaincode_version }}"
+    chdir: "{{ k8s_fabric_scripts_workdir }}"
+  environment: "{{ kubectl_env }}"
+  register: query_committed
+  changed_when: false
+  failed_when: false
+
+- name: Store committed facts
+  set_fact:
+    committed: "{{ committed }}"
+    next_sequence: "{{ (sequence | int) + 1 | default(1) }}"
+  vars:
+    committed: "{{ query_committed.rc == 0 }}"
+    committed_json: "{{ query_committed.stdout | from_json }}"
+    sequence: "{{ committed_json | json_query('sequence') }}"
+
+- name: Install chaincode on peers
+  command:
+    argv:
+      - scripts/install-chaincode.sh
+      - "{{ item.name }}"
+      - "{{ k8s_fabric_chaincode_name }}"
+      - "{{ k8s_fabric_chaincode_version }}"
+    chdir: "{{ k8s_fabric_scripts_workdir }}"
+  environment: "{{ kubectl_env }}"
+  when: not committed
+  loop: "{{ k8s_fabric_chaincode_orgs }}"
+  register: install_result
+  changed_when: '"peers have installed the chaincode" in install_result.stderr'
+
+- name: Approve chaincode on each org
+  command:
+    argv:
+      - scripts/approve-chaincode.sh
+      - "{{ item.name }}"
+      - "{{ item.msp }}"
+      - "{{ k8s_fabric_chaincode_name }}"
+      - "{{ k8s_fabric_chaincode_version }}"
+      - "{{ k8s_fabric_chaincode_endorsement_policy }}"
+      - "{{ next_sequence }}"
+    chdir: "{{ k8s_fabric_scripts_workdir }}"
+  environment: "{{ kubectl_env }}"
+  when: not committed
+  loop: "{{ k8s_fabric_chaincode_orgs }}"
+  register: approve_result
+  changed_when: '"has approved the chaincode" in approve_result.stderr'
+
+- name: Wait for chaincode approvals
+  command:
+    argv:
+      - scripts/commit-readiness.sh
+      - "{{ item.name }}"
+      - "{{ k8s_fabric_chaincode_name }}"
+      - "{{ k8s_fabric_chaincode_version }}"
+      - "{{ k8s_fabric_chaincode_endorsement_policy }}"
+      - "{{ next_sequence }}"
+    chdir: "{{ k8s_fabric_scripts_workdir }}"
+  environment: "{{ kubectl_env }}"
+  when: not committed and approve_result.changed
+  loop: "{{ k8s_fabric_chaincode_orgs }}"
+  register: readiness_result
+  until: readiness_result is succeeded
+  retries: 5
+  delay: 3
+  changed_when: false
+
+- name: Commit chaincode
+  command:
+    argv: "{{ base_args + org_names }}"
+    chdir: "{{ k8s_fabric_scripts_workdir }}"
+  vars:
+    base_args:
+      - scripts/commit-chaincode.sh
+      - "{{ k8s_fabric_chaincode_name }}"
+      - "{{ k8s_fabric_chaincode_version }}"
+      - "{{ k8s_fabric_chaincode_endorsement_policy }}"
+      - "{{ next_sequence }}"
+      - "{{ k8s_fabric_network_domain_root }}"
+    org_names: "{{ k8s_fabric_chaincode_orgs | json_query('[*].name') }}"
+  environment: "{{ kubectl_env }}"
+  when: not committed
+  register: commit_result
+
+- name: Wait for chaincode commit
+  command:
+    argv:
+      - scripts/query-committed.sh
+      - "{{ k8s_fabric_chaincode_orgs.0.name }}"
+      - "{{ k8s_fabric_chaincode_name }}"
+      - "{{ k8s_fabric_chaincode_version }}"
+    chdir: "{{ k8s_fabric_scripts_workdir }}"
+  environment: "{{ kubectl_env }}"
+  when: not committed
+  register: query_result
+  until: query_result is succeeded
+  retries: 5
+  delay: 3
+  changed_when: false

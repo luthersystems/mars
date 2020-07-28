@@ -32,6 +32,8 @@ spec:
           emptyDir: {}
         - name: tls
           emptyDir: {}
+        - name: collections-config
+          emptyDir: {}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.arch }}-{{ .Values.global.hyperledger.fabricVersion }}"
@@ -72,12 +74,14 @@ spec:
               mountPath: /etc/hyperledger/fabric/tls
             - name: chaincode-archives
               mountPath: /opt/gopath/src/github.com/hyperledger/fabric/examples/chaincode/go
+            - name: collections-config
+              mountPath: /etc/hyperledger/fabric/collections-config
           workingDir: /opt/gopath/src/github.com/hyperledger/fabric/peer
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       initContainers:
         # TODO:  Consider turning chaincode-archive-bootstrap into a sidecar
-        # that periodically syncs chaincode cds archives into a volume that is
+        # that periodically syncs chaincode archives into a volume that is
         # shared between it and the fabric-cli container.  Without continuous
         # sync the peer needs to restart in order to install/initialize a new
         # version of substrate (not the end of the world because substrate
@@ -94,7 +98,7 @@ spec:
             - -c
             - |
               set -xe;
-              aws s3 cp "s3://{{ .Values.substrate.s3.bucket }}/chaincodes/com_luthersystems_chaincode_substrate01-{{ .Values.substrate.version }}.cds" /chaincodes/com_luthersystems_chaincode_substrate01-{{ .Values.substrate.version }}.cds
+              aws s3 cp "s3://{{ .Values.substrate.s3.bucket }}/chaincodes/com_luthersystems_chaincode_substrate01-{{ .Values.substrate.version }}.tar.gz" /chaincodes/com_luthersystems_chaincode_substrate01-{{ .Values.substrate.version }}.tar.gz
           volumeMounts:
             - name: chaincode-archives
               mountPath: /chaincodes
@@ -109,11 +113,14 @@ spec:
             - sh
             - -c
             - |
-              set -xe;
-              aws s3 cp --recursive "s3://{{ .Values.global.aws.staticBucket }}/{{ .Values.global.lutherEnv }}/fabric-artifacts/channel-artifacts/" /channel-artifacts
-              aws s3 cp --recursive "s3://{{ .Values.global.aws.staticBucket }}/{{ .Values.global.lutherEnv }}/fabric-artifacts/crypto-config/ordererOrganizations/luther.systems/orderers/orderer0.luther.systems/msp/tlscacerts/" /orderertls
-              aws s3 cp --recursive "s3://{{ .Values.global.aws.staticBucket }}/{{ .Values.global.lutherEnv }}/fabric-artifacts/crypto-config/peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/users/Admin@{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/msp/" /msp
-              aws s3 cp --recursive "s3://{{ .Values.global.aws.staticBucket }}/{{ .Values.global.lutherEnv }}/fabric-artifacts/crypto-config/peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ list .Values.dlt.peerIndex . | include "fabric-cli.peer-fqdn" }}/tls/" /tls
+              set -euxo pipefail;
+              ARTIFACT_ROOT=s3://{{ .Values.global.aws.staticBucket }}/{{ .Values.global.lutherEnv }}/fabric-artifacts
+              aws s3 cp --recursive "${ARTIFACT_ROOT}/channel-artifacts/" /channel-artifacts
+              aws s3 cp --recursive "${ARTIFACT_ROOT}/crypto-config/ordererOrganizations/luther.systems/orderers/orderer0.luther.systems/msp/tlscacerts/" /orderertls
+              aws s3 cp --recursive "${ARTIFACT_ROOT}/crypto-config/peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/users/Admin@{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/msp/" /msp
+              aws s3 cp --recursive "${ARTIFACT_ROOT}/crypto-config/peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ list .Values.dlt.peerIndex . | include "fabric-cli.peer-fqdn" }}/tls/" /tls
+              aws s3 cp --recursive "${ARTIFACT_ROOT}/crypto-config/peerOrganizations" /tls/all-cas/ --exclude "*" --include "*/peers/*/ca.crt"
+              aws s3 cp "${ARTIFACT_ROOT}/collections.json" /collections-config/
           volumeMounts:
             - name: genesisblock
               mountPath: /channel-artifacts
@@ -123,6 +130,8 @@ spec:
               mountPath: /msp
             - name: tls
               mountPath: /tls
+            - name: collections-config
+              mountPath: /collections-config
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
