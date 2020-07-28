@@ -4,7 +4,7 @@ set -eo pipefail
 
 DEV_MOUNTS=''
 if [[ "$MARS_DEV" == "true" ]]; then
-    MARS_DEV_ROOT="${BASH_SOURCE%/*}"
+    MARS_DEV_ROOT="$(dirname $(greadlink -f $0))"
     DEV_MOUNTS="-v ${MARS_DEV_ROOT}/scripts:/opt/mars:ro \
                 -v ${MARS_DEV_ROOT}/ansible-roles:/opt/ansible/roles:ro \
                 -v ${MARS_DEV_ROOT}/ansible-plugins:/opt/ansible/plugins:ro"

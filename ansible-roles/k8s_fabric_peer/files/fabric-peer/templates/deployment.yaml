@@ -70,7 +70,7 @@ spec:
             - name: CORE_PEER_CHAINCODELISTENADDRESS
               value: localhost:{{ .Values.internal.container.chaincodePort }}
             - name: CORE_PEER_GOSSIP_USELEADERELECTION
-              value: "true"
+              value: "false"
             - name: CORE_PEER_ID
               value: {{ include "fabric-peer.self-fqdn" . }}
             - name: CORE_PEER_LOCALMSPID
