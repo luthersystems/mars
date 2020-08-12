@@ -63,3 +63,5 @@ tolerations: []
 affinity: {}
 
 startService: true
+
+logLevel: INFO
