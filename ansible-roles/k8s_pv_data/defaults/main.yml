@@ -1,0 +1,6 @@
+---
+# defaults file for k8s_pv_data
+
+# list of label=value strings
+k8s_pv_data_selectors: []
+k8s_pv_data_zone_label: failure-domain.beta.kubernetes.io/zone

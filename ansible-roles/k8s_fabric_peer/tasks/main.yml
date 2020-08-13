@@ -32,6 +32,13 @@
     AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
     KUBECONFIG: "{{kubectl_config_path}}"
 
+- name: retrieve peer PV data
+  include_role:
+    name: k8s_pv_data
+  vars:
+    org_selector: "fabric/organization={{k8s_fabric_peer_org}}"
+    k8s_pv_data_selectors: "{{k8s_fabric_peer_pv_selectors + [org_selector]}}"
+
 - name: Helm chart exists
   synchronize:
     src: fabric-peer/
