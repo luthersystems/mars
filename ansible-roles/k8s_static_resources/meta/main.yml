@@ -1,2 +1,3 @@
 dependencies:
   - kubectl
+  - eks_cluster_init
