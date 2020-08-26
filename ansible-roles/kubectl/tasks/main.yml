@@ -1,7 +1,6 @@
 ---
 # tasks file for kubectl
 
-- name: Check kubectl_version
-  fail:
-    msg: "A value must be provided for kubectl_version"
-  when: not kubectl_version
+- name: kubectl setup
+  include_tasks: setup.yml
+  when: not kubectl_setup or kubectl_upgrade

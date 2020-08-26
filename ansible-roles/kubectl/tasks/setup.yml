@@ -1,0 +1,35 @@
+---
+- name: Check kubectl_version
+  fail:
+    msg: "A value must be provided for kubectl_version"
+  when: not kubectl_version
+
+- name: Check installed kubectl version
+  command:
+    argv:
+      - kubectl
+      - version
+      - -o
+      - json
+  environment: "{{ kubectl_env }}"
+  register: kubectl_version_result
+  failed_when: kubectl_version_result.rc not in [0, 127]
+  changed_when: no
+  when: kubectl_upgrade | bool
+
+- name: Install the kubectl snap package
+  snap:
+    name: kubectl
+    channel: "{{kubectl_version}}/stable"
+    classic: yes
+    state: present
+  when:
+    - kubectl_upgrade | bool
+    - installed_version != kubectl_version
+  vars:
+    client_ver: "{{ (kubectl_version_result.stdout | from_json).clientVersion }}"
+    installed_version: "{{ client_ver.major }}.{{ client_ver.minor }}"
+
+- name: Complete kubectl setup
+  set_fact:
+    kubectl_setup: yes
