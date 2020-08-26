@@ -19,7 +19,7 @@ fi
 
 aws sts get-caller-identity
 
-git checkout master
+git checkout fabric2
 git pull
 
 VERSION="$(cat ./common.mk | egrep '^VERSION=')"
