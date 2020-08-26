@@ -91,10 +91,8 @@ spec:
           volumeMounts:
             - name: crypto
               mountPath: /crypto
-      {{- with .Values.nodeSelector }}
       nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+        failure-domain.beta.kubernetes.io/zone: {{ .Values.availabilityZone }}
     {{- with .Values.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}

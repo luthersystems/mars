@@ -23,6 +23,8 @@
       - --set=internal.container.invokeTimeout={{k8s_fabric_peer_chaincode_invoke_timeout}}
       - --set=persistentVolume.storageSize={{k8s_fabric_peer_storage_size}}
       - --set=persistentVolume.dockerStorageSize={{k8s_fabric_peer_dockerstorage_size}}
+      - --set=logLevel={{k8s_fabric_peer_log_level}}
+      - --set=availabilityZone={{k8s_pv_data_replica_azs[item]}}
       - --wait
       - "fabric-peer{{item}}-{{k8s_fabric_peer_org}}"
       - "{{k8s_fabric_peer_helm_chart_path}}"

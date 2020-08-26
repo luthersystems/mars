@@ -6,3 +6,7 @@
 # storageclass.kubernetes.io/is-default-class is false.
 eks_cluster_init_nondefault_storageclasses:
   - gp2
+
+# The sole will update the supplied classes to set allowVolumeExpansion to true
+eks_cluster_init_enable_resize_storageclasses:
+  - gp2

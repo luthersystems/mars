@@ -17,3 +17,7 @@ k8s_fabric_peer_start_service: true
 k8s_fabric_peer_chaincode_invoke_timeout: 5s
 k8s_fabric_peer_storage_size: 10Gi
 k8s_fabric_peer_dockerstorage_size: 10Gi
+k8s_fabric_peer_log_level: INFO
+k8s_fabric_peer_pv_selectors:
+  - app.kubernetes.io/component=bcpeer
+  - type=storage

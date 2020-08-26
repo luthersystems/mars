@@ -8,3 +8,8 @@ k8s_fabric_orderer_helm_chart_path: "{{kubectl_asset_root_path}}/fabric-orderer"
 k8s_fabric_orderer_image_repository: hyperledger/fabric-orderer
 k8s_fabric_orderer_start_service: true
 k8s_fabric_orderer_storage_size: 10Gi
+k8s_fabric_orderer_log_level: INFO
+k8s_fabric_orderer_pv_selectors:
+  - app.kubernetes.io/component=bcord
+  - type=storage
+k8s_fabric_orderer_org: orderer

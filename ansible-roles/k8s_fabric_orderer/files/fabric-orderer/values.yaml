@@ -56,10 +56,12 @@ resources: {}
   #   cpu: 100m
   #   memory: 128Mi
 
-nodeSelector: {}
-
 tolerations: []
 
 affinity: {}
 
 startService: true
+
+logLevel: INFO
+
+availabilityZone: ""
