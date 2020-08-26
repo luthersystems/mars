@@ -17,6 +17,22 @@
   changed_when: no
   when: kubectl_upgrade | bool
 
+- name: Check whether upgrade is required
+  set_fact:
+    kubectl_needs_upgrade: "{{ installed_version != kubectl_version }}"
+  vars:
+    client_ver: "{{ (kubectl_version_result.stdout | from_json).clientVersion }}"
+    installed_version: "{{ client_ver.major }}.{{ client_ver.minor }}"
+
+- name: Uninstall old version of kubectl snap package
+  snap:
+    name: kubectl
+    classic: yes
+    state: absent
+  when:
+    - kubectl_upgrade | bool
+    - kubectl_needs_upgrade | bool
+
 - name: Install the kubectl snap package
   snap:
     name: kubectl
@@ -25,10 +41,7 @@
     state: present
   when:
     - kubectl_upgrade | bool
-    - installed_version != kubectl_version
-  vars:
-    client_ver: "{{ (kubectl_version_result.stdout | from_json).clientVersion }}"
-    installed_version: "{{ client_ver.major }}.{{ client_ver.minor }}"
+    - kubectl_needs_upgrade | bool
 
 - name: Complete kubectl setup
   set_fact:
