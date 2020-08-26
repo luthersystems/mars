@@ -43,13 +43,6 @@
     name: botocore
     state: present
 
-- name: Install the kubectl snap package
-  snap:
-    name: kubectl
-    channel: "{{kubectl_version}}/stable"
-    classic: yes
-    state: present
-
 - name: Configure kubectl for EKS
   shell: "{{kubectl_shell_prefix}} aws --region {{kubectl_eks_region|quote}} eks update-kubeconfig --name {{kubectl_eks_cluster_name|quote}}"
 
