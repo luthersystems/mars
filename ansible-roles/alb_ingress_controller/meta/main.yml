@@ -1,0 +1,5 @@
+# NOTE: tiller has to be installed but it isn't listed as a dependency to avoid
+# attempting to initialize the cluster muiltple times.
+dependencies:
+  - role: kubectl
+  - role: helm_charts
