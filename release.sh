@@ -24,7 +24,7 @@ git pull
 
 VERSION="$(cat ./common.mk | egrep '^VERSION=')"
 # check that the version is formatted as we expect
-echo "$VERSION" | egrep '^VERSION=[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$'
+echo "$VERSION" | egrep '^VERSION=[0-9]+\.[0-9]+\.[0-9]+-fabric2-SNAPSHOT$'
 VERSION="$(echo "$VERSION" | gcut -d "=" -f 2)"
 VERSION="$(echo "$VERSION" | gcut -d "-" -f 1)"
 VERSION_MAJOR="$(echo "$VERSION" | gcut -d "." -f 1)"
@@ -41,8 +41,8 @@ then
   exit 1
 fi
 
-VERSION_THIS="$VERSION_MAJOR"."$VERSION_MINOR"."$VERSION_PATCH"
-VERSION_NEXT="$VERSION_MAJOR"."$(( (VERSION_MINOR + 1) ))".0-SNAPSHOT
+VERSION_THIS="$VERSION_MAJOR"."$VERSION_MINOR"."$VERSION_PATCH-fabric2"
+VERSION_NEXT="$VERSION_MAJOR"."$(( (VERSION_MINOR + 1) ))".0-fabric2-SNAPSHOT
 
 git checkout -b                releases/mars/"$VERSION_THIS"
 git push --set-upstream origin releases/mars/"$VERSION_THIS"
