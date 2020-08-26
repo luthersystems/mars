@@ -49,7 +49,6 @@ git push --set-upstream origin releases/mars/"$VERSION_THIS"
 
 set_version "$VERSION_THIS"
 
-make clean
 make
 
 git commit -a -m 'Create release version '"$VERSION_THIS"
