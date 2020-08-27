@@ -23,6 +23,7 @@
   vars:
     client_ver: "{{ (kubectl_version_result.stdout | from_json).clientVersion }}"
     installed_version: "{{ client_ver.major }}.{{ client_ver.minor }}"
+  when: kubectl_upgrade | bool
 
 - name: Uninstall old version of kubectl snap package
   snap:
