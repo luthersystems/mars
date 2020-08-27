@@ -1,0 +1,4 @@
+---
+# defaults file for alb-ingress-controller
+alb_ingress_controller_helm_chart_path: "{{kubectl_asset_root_path}}/fabric-peer"
+alb_ingress_controller_tag: v1.1.9
