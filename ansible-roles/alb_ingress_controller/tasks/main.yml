@@ -4,7 +4,7 @@
 - name: Helm chart exists
   synchronize:
     src: alb-ingress-controller/
-    dest: "{{k8s_fabric_peer_helm_chart_path}}"
+    dest: "{{alb_ingress_controller_helm_chart_path}}"
     delete: yes
     recursive: yes
     owner: no
@@ -21,7 +21,7 @@
       - --set=clusterName={{kubectl_eks_cluster_name}}
       - --set=image.tag={{alb_ingress_controller_tag}}
       - ingress-controller
-      - "{{helm_charts_root_path}}/alb-ingress-controller"
+      - "{{alb_ingress_controller_helm_chart_path}}"
   environment:
     AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
     AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
