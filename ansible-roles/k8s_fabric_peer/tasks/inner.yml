@@ -15,6 +15,7 @@
       - --set=dlt.mspID={{k8s_fabric_peer_msp}}
       - --set=dlt.domain={{k8s_fabric_peer_domain_root}}
       - --set=dlt.peerIndex={{item}}
+      - --set=dlt.hcs={{k8s_fabric_peer_hcs}}
       - --set=substrate.version={{shiro_phylum_substrate_version}}
       - --set=global.aws.region={{shiro_phylum_s3_region}}
       - --set=global.aws.staticBucket={{shiro_phylum_s3_bucket}}

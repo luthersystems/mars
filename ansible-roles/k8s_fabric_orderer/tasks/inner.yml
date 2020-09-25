@@ -15,6 +15,9 @@
       - --set=dlt.organization={{k8s_fabric_orderer_org}}
       - --set=dlt.organizationIndex={{item}}
       - --set=dlt.domain={{k8s_fabric_orderer_domain_root}}
+      - --set=dlt.hcs={{k8s_fabric_orderer_hcs}}
+      - --set=dlt.hcsOperatorId={{k8s_fabric_orderer_hcs_operator_id}}
+      - --set=dlt.hcsOperatorPrivateKey={{k8s_fabric_orderer_hcs_operator_private_key}}
       - --set=global.aws.region={{shiro_phylum_s3_region}}
       - --set=global.aws.staticBucket={{shiro_phylum_s3_bucket}}
       - --set=image.repository={{k8s_fabric_orderer_image_repository}}

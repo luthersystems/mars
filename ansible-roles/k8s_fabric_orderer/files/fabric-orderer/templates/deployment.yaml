@@ -31,9 +31,13 @@ spec:
           emptyDir: {}
         - name: tls
           emptyDir: {}
+        {{- if .Values.dlt.hcs }}
+        - name: hcs
+          emptyDir: {}
+        {{- end }}
       containers:
         - name: {{ .Chart.Name }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.arch }}-{{ .Values.global.hyperledger.fabricVersion }}"
+          image: "{{ .Values.image.repository }}:{{ .Values.image.arch }}-{{ .Values.global.hyperledger.fabricVersion }}{{- if .Values.dlt.hcs }}-hcs{{- end }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- if .Values.startService }}
           args:
@@ -88,6 +92,18 @@ spec:
               value: /var/hyperledger/production/orderer/etcdraft/wal
             - name: ORDERER_CONSENSUS_SNAPDIR
               value: /var/hyperledger/production/orderer/etcdraft/snapshot
+            {{- if .Values.dlt.hcs }}
+            - name: ORDERER_HCS_OPERATOR_ID
+              value: {{ .Values.dlt.hcsOperatorId }}
+            - name: ORDERER_HCS_OPERATOR_PRIVATEKEY_TYPE
+              value: ed25519
+            - name: ORDERER_HCS_OPERATOR_PRIVATEKEY_KEY
+              value: {{ .Values.dlt.hcsOperatorPrivateKey }}
+            - name: ORDERER_HCS_BLOCKCIPHER_TYPE
+              value: aes-256-gcm
+            - name: ORDERER_HCS_BLOCKCIPHER_KEY_FILE
+              value: /var/hyperledger/orderer/hcs/aes.key
+            {{- end }}
           ports:
             - name: grpc
               containerPort: {{ .Values.internal.container.servicePort }}
@@ -114,6 +130,10 @@ spec:
               mountPath: /var/hyperledger/orderer/msp
             - name: tls
               mountPath: /var/hyperledger/orderer/tls
+            {{- if .Values.dlt.hcs }}
+            - name: hcs
+              mountPath: /var/hyperledger/orderer/hcs
+            {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       initContainers:
@@ -134,6 +154,9 @@ spec:
               aws s3 cp --recursive s3://$S3_BUCKET/$LUTHER_ENV/fabric-artifacts/channel-artifacts/ /channel-artifacts
               aws s3 cp --recursive s3://$S3_BUCKET/$LUTHER_ENV/fabric-artifacts/crypto-config/ordererOrganizations/{{ .Values.dlt.domain }}/orderers/{{ include "fabric-orderer.self-fqdn" . }}/msp/ /msp
               aws s3 cp --recursive s3://$S3_BUCKET/$LUTHER_ENV/fabric-artifacts/crypto-config/ordererOrganizations/{{ .Values.dlt.domain }}/orderers/{{ include "fabric-orderer.self-fqdn" . }}/tls/ /tls
+              {{- if .Values.dlt.hcs }}
+              aws s3 cp s3://$S3_BUCKET/$LUTHER_ENV/fabric-artifacts/crypto-config/aes.key /hcs/
+              {{- end }}
           volumeMounts:
             - name: genesisblock
               mountPath: /channel-artifacts
@@ -141,6 +164,10 @@ spec:
               mountPath: /msp
             - name: tls
               mountPath: /tls
+            {{- if .Values.dlt.hcs }}
+            - name: hcs
+              mountPath: /hcs
+            {{- end }}
       nodeSelector:
         failure-domain.beta.kubernetes.io/zone: {{ .Values.availabilityZone }}
       {{- with .Values.affinity }}
