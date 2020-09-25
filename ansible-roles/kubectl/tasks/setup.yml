@@ -13,7 +13,7 @@
       - json
   environment: "{{ kubectl_env }}"
   register: kubectl_version_result
-  failed_when: kubectl_version_result.rc not in [0, 127]
+  failed_when: kubectl_version_result.rc not in [0, 2]
   changed_when: no
   when: kubectl_upgrade | bool
 
@@ -21,7 +21,10 @@
   set_fact:
     kubectl_needs_upgrade: "{{ installed_version != kubectl_version }}"
   vars:
-    client_ver: "{{ (kubectl_version_result.stdout | from_json).clientVersion }}"
+    uninstalled:
+      major: 0
+      minor: 0
+    client_ver: "{{ (kubectl_version_result.stdout | default('\"\"') | from_json).clientVersion | default(uninstalled) }}"
     installed_version: "{{ client_ver.major }}.{{ client_ver.minor }}"
   when: kubectl_upgrade | bool
 
