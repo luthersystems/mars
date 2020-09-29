@@ -57,6 +57,10 @@ spec:
               value: /etc/hyperledger/fabric-ca-server-config/ca.{{ .Values.dlt.domain }}-cert.pem
             - name: FABRIC_CA_SERVER_TLS_KEYFILE
               value: /etc/hyperledger/fabric-ca-server-config/{{ .Values.dlt.keyfile }}
+            - name: FABRIC_CA_SERVER_CA_CERTFILE
+              value: /etc/hyperledger/fabric-ca-server-config/ca.{{ .Values.dlt.domain }}-cert.pem
+            - name: FABRIC_CA_SERVER_CA_KEYFILE
+              value: /etc/hyperledger/fabric-ca-server-config/{{ .Values.dlt.keyfile }}
             - name: FABRIC_CA_SERVER_OPERATIONS_LISTENADDRESS
               value: 0.0.0.0:{{ .Values.internal.container.operationsPort }}
             - name: FABRIC_CA_SERVER_METRICS_PROVIDER

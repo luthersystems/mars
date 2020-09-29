@@ -24,6 +24,7 @@ dlt:
   mspID: Org1MSP
   peerIndex: 0
   domain: luther.systems
+  hcs: false
 
 image:
   repository: hyperledger/fabric-peer

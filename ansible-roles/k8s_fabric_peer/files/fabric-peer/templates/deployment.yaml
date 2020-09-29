@@ -69,8 +69,15 @@ spec:
               value: {{ list 0 . | include "fabric-peer.fqdn" }}:{{ .Values.internal.container.gossipPort }}
             - name: CORE_PEER_CHAINCODELISTENADDRESS
               value: localhost:{{ .Values.internal.container.chaincodePort }}
+            {{- if .Values.dlt.hcs }}
+            - name: CORE_PEER_GOSSIP_USELEADERELECTION
+              value: "true"
+            - name: CORE_PEER_GOSSIP_ORGLEADER
+              value: "false"
+            {{- else }}
             - name: CORE_PEER_GOSSIP_USELEADERELECTION
               value: "false"
+            {{- end }}
             - name: CORE_PEER_ID
               value: {{ include "fabric-peer.self-fqdn" . }}
             - name: CORE_PEER_LOCALMSPID
@@ -105,6 +112,8 @@ spec:
               value: {{ .Values.internal.container.invokeTimeout }}
             - name: CORE_CHAINCODE_BUILDER
               value: "{{ .Values.buildImage.repository }}:{{ .Values.buildImage.arch }}-{{ .Values.global.hyperledger.fabricVersion }}"
+            - name: CORE_CHAINCODE_STARTUPTIMEOUT
+              value: 500s
           ports:
             - name: grpc-svc
               containerPort: {{ .Values.internal.container.servicePort }}
