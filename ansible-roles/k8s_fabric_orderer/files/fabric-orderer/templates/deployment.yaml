@@ -116,10 +116,12 @@ spec:
             httpGet:
               path: /healthz
               port: op-http
+            initialDelaySeconds: 30
           readinessProbe:
             httpGet:
               path: /healthz
               port: op-http
+            initialDelaySeconds: 30
           {{- end }}
           volumeMounts:
             - name: storage
