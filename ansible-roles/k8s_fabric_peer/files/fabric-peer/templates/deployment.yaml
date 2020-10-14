@@ -54,7 +54,7 @@ spec:
             - start
           {{- else }}
           command:
-            - /bin/bash
+            - /bin/sh
             - -c
             - while true; do sleep 10; done
           {{- end }}
