@@ -1,4 +1,5 @@
-CHANNEL=luther
+# CHANNEL may be overridden if it is already defined
+CHANNEL="${CHANNEL:-luther}"
 ORDERER=orderer0.luther.systems:7050
 ORDERER_CA=/etc/hyperledger/fabric/orderertls/tlsca.luther.systems-cert.pem
 COLLECTIONS_PATH=/etc/hyperledger/fabric/collections-config/collections.json
