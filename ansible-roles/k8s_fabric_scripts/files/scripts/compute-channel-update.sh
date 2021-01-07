@@ -1,8 +1,9 @@
 #!/bin/bash
 
-# Takes to channel config json files and computes an "update" which will modify
-# the first config to match the second.  The update proposal is written out so
-# that it can be distributed for signatures or submitted with update-channel.sh.
+# Takes two channel config json files and computes an "update" which will
+# modify the first config to match the second.  The update proposal is written
+# out so that it can be distributed for signatures or submitted with
+# apply-update.sh.
 
 set -xeuo pipefail
 

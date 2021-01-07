@@ -2,8 +2,8 @@
 
 # Prints the signatures contained in a signed config update proposal
 # (common.Envelope protobuf) so that the signer certificate can be validated.
-# Useful for checking updates before using update-channel.sh or debugging
-# policy issues when update-channel.sh fails.
+# Useful for checking updates before using apply-update.sh or debugging
+# policy issues when apply-update.sh fails.
 
 set -xeuo pipefail
 
