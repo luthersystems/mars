@@ -47,6 +47,6 @@ if ! pod_exec "$pod" peer lifecycle chaincode commit \
      --signature-policy "$ENDORSEMENT_POLICY" \
      --sequence "$SEQ_NO"
 then
-    echo "Failed to approve chaincode" >&2
+    echo "Failed to commit chaincode lifecycle" >&2
     exit 1
 fi
