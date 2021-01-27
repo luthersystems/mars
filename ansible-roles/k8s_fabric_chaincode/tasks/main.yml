@@ -75,7 +75,7 @@
 
 - name: Commit chaincode
   command:
-    argv: "{{ base_args + org_names }}"
+    argv: "{{ base_args + luther_orgs + external_orgs }}"
     chdir: "{{ k8s_fabric_scripts_workdir }}"
   vars:
     base_args:
@@ -84,8 +84,9 @@
       - "{{ k8s_fabric_chaincode_version }}"
       - "{{ k8s_fabric_chaincode_endorsement_policy }}"
       - "{{ next_sequence }}"
-      - "{{ k8s_fabric_network_domain_root }}"
-    org_names: "{{ k8s_fabric_chaincode_orgs | json_query('[*].name') }}"
+      - "{{ k8s_fabric_chaincode_orgs[0].name }}"
+    luther_orgs: "{{ k8s_fabric_chaincode_orgs | map('luther_fabric_org_domain', k8s_fabric_network_domain_root) | list }}"
+    external_orgs: "{{ k8s_fabric_chaincode_external_orgs | json_query('[*].domain') | list }}"
   environment: "{{ kubectl_env }}"
   when: not committed
   register: commit_result

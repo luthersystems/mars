@@ -1,2 +1,9 @@
 ---
 # defaults file for k8s_fabric_chaincode
+
+# Orgs not managed by luther.  The TLS CA certs for the org should be in the
+# cli's crypto-config/peerOrganizations/{{domain}}/ tree.
+k8s_fabric_chaincode_external_orgs: []
+# - name: example
+#   msp: ExampleMSP
+#   domain: example.com
