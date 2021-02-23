@@ -6,6 +6,7 @@
     path: "{{k8s_fabric_scripts_dir}}"
     state: directory
     recurse: yes
+  tags: fabric_scripts
 
 - name: Scripts are uploaded
   synchronize:
@@ -16,3 +17,4 @@
     owner: no
     group: no
     use_ssh_args: yes
+  tags: fabric_scripts

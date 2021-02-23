@@ -13,6 +13,8 @@
   register: query_committed
   changed_when: false
   failed_when: false
+  tags:
+  - prepare_chaincode_upgrade
 
 - name: Store committed facts
   set_fact:
@@ -22,6 +24,8 @@
     committed: "{{ query_committed.rc == 0 }}"
     committed_json: "{{ query_committed.stdout | from_json }}"
     sequence: "{{ committed_json | json_query('sequence') }}"
+  tags:
+  - prepare_chaincode_upgrade
 
 - name: Install chaincode on peers
   command:
@@ -36,6 +40,8 @@
   loop: "{{ k8s_fabric_chaincode_orgs }}"
   register: install_result
   changed_when: '"peers have installed the chaincode" in install_result.stderr'
+  tags:
+  - prepare_chaincode_upgrade
 
 - name: Approve chaincode on each org
   command:
@@ -53,12 +59,58 @@
   loop: "{{ k8s_fabric_chaincode_orgs }}"
   register: approve_result
   changed_when: '"has approved the chaincode" in approve_result.stderr'
+  tags:
+  - prepare_chaincode_upgrade
+
+- name: Generate approval script
+  command:
+    argv:
+      - scripts/generate-approval-script.sh
+      - "{{ k8s_fabric_chaincode_orgs.0.name }}"
+      - "{{ k8s_fabric_chaincode_name }}"
+      - "{{ k8s_fabric_chaincode_version }}"
+      - "{{ k8s_fabric_chaincode_endorsement_policy }}"
+      - "{{ next_sequence }}"
+    chdir: "{{ k8s_fabric_scripts_workdir }}"
+  environment: "{{ kubectl_env }}"
+  when: not committed
+  register: approval_script
+  tags:
+  - prepare_chaincode_upgrade
+
+- name: Check chaincode approvals
+  command:
+    argv:
+      - scripts/commit-readiness-report.sh
+      - "{{ k8s_fabric_chaincode_orgs.0.name }}"
+      - "{{ k8s_fabric_chaincode_name }}"
+      - "{{ k8s_fabric_chaincode_version }}"
+      - "{{ k8s_fabric_chaincode_endorsement_policy }}"
+      - "{{ next_sequence }}"
+    chdir: "{{ k8s_fabric_scripts_workdir }}"
+  environment: "{{ kubectl_env }}"
+  when: not committed
+  ignore_errors: true
+  register: readiness_report
+  changed_when: false
+  tags:
+  - prepare_chaincode_upgrade
+
+- name: Display approval information
+  debug:
+    msg:
+    - "{{readiness_report.stdout}}"
+    - "{{approval_script.stdout}}"
+  when: not committed
+  loop: "{{ k8s_fabric_chaincode_orgs }}"
+  tags:
+  - prepare_chaincode_upgrade
 
 - name: Wait for chaincode approvals
   command:
     argv:
       - scripts/commit-readiness.sh
-      - "{{ item.name }}"
+      - "{{ k8s_fabric_chaincode_orgs.0.name }}"
       - "{{ k8s_fabric_chaincode_name }}"
       - "{{ k8s_fabric_chaincode_version }}"
       - "{{ k8s_fabric_chaincode_endorsement_policy }}"
@@ -66,7 +118,6 @@
     chdir: "{{ k8s_fabric_scripts_workdir }}"
   environment: "{{ kubectl_env }}"
   when: not committed and approve_result.changed
-  loop: "{{ k8s_fabric_chaincode_orgs }}"
   register: readiness_result
   until: readiness_result is succeeded
   retries: 5
