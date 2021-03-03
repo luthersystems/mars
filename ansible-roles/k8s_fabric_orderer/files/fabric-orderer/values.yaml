@@ -36,6 +36,7 @@ internal:
   container:
     servicePort: 7050
     operationsPort: 8443
+    keepaliveMinInterval: 30s
 
 persistentVolume:
   storageClassName: gp2

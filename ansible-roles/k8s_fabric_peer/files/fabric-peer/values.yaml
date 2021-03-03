@@ -51,6 +51,7 @@ internal:
     chaincodePort: 7052
     gossipPort: 7051
     operationsPort: 9443
+    keepaliveMinInterval: 30s
     invokeTimeout: 30s
 
 persistentVolume:
