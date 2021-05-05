@@ -26,7 +26,10 @@ class Ansible(object):
                 '-oStrictHostKeyChecking=no',
                 '-oUserKnownHostsFile=/dev/null',
             ],
-            'script': 'ec2.py',
+            # "script" is an misnomer from when the inventory was a python
+            # script.  The inventory source can be any file format/plugin
+            # supported by ansible.
+            'script': 'aws_ec2.yml',
         }
         self.vault_password_file = None
         self.playbook_default = 'site.yaml'
