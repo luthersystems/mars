@@ -9,6 +9,11 @@ PACKER_ARCHIVE=build/packer_${PACKER_VERSION}_linux_amd64.zip
 PACKER=build/packer
 PACKER_URL=https://releases.hashicorp.com/packer/${PACKER_VERSION}/$(notdir ${PACKER_ARCHIVE})
 
+# awscli install docs: https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html
+AWSCLI_VERSION=2.0.30
+AWSCLI_ARCHIVE=build/awscli/awscli-${AWSCLI_VERSION}.zip
+AWSCLI_URL=https://awscli.amazonaws.com/awscli-exe-linux-x86_64-${AWSCLI_VERSION}.zip
+
 # The tfenv project is checked out using a git repository to avoid issues
 # because a user didn't set up SSH keys with github.
 # Use a luther clone of this repo for reproducibility.
@@ -58,11 +63,20 @@ ${PACKER}: ${PACKER_ARCHIVE}
 ${PACKER_ARCHIVE}:
 	wget -O $@ ${PACKER_URL}
 
+.PHONY: awscli
+awscli: ${AWSCLI_ARCHIVE}
+	cd $(dir $<) && unzip -o $(notdir $<)
+	touch $(dir $<)/aws
+
+${AWSCLI_ARCHIVE}:
+	mkdir -p $(dir $@)
+	wget -O $@ ${AWSCLI_URL}
+
 .PHONY: aws-ecr-login
 aws-ecr-login:
 	$(shell aws ecr get-login --region ${AWS_REGION} --no-include-email)
 
-${STATIC_IMAGE_DUMMY}: Dockerfile ${TFENV} ${PACKER} ${ANSIBLE_ROLES} ${ANSIBLE_PLUGINS} ${GRAFANA_DASHBOARDS} ${SCRIPTS} ssh_config requirements.txt
+${STATIC_IMAGE_DUMMY}: Dockerfile ${TFENV} ${PACKER} awscli ${ANSIBLE_ROLES} ${ANSIBLE_PLUGINS} ${GRAFANA_DASHBOARDS} ${SCRIPTS} ssh_config requirements.txt
 	${DOCKER} build \
 		-t ${STATIC_IMAGE}:latest \
 		-t ${STATIC_IMAGE}:${VERSION} \

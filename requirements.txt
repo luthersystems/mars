@@ -4,3 +4,4 @@ botocore==1.12.173
 boto==2.45.0
 PyYAML==3.13
 python-dotenv==0.10.3
+requests==2.25.1

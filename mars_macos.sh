@@ -81,6 +81,11 @@ fi
 
 docker volume create "$ANSIBLE_INVENTORY_CACHE_VOL" >/dev/null
 
+SHELL_OPTS=
+if [[ "$MARS_SHELL" == "true" ]]; then
+    SHELL_OPTS="--entrypoint /bin/bash"
+fi
+
 mkdir -p $TFENV_CACHE_PATH
 mkdir -p $TF_PLUGIN_CACHE_DIR
 docker run --rm $DOCKER_TERM_VARS \
@@ -100,5 +105,6 @@ docker run --rm $DOCKER_TERM_VARS \
     -w "$DOCKER_WORK_DIR" \
     -e ANSIBLE_LOAD_CALLBACK_PLUGINS=yes \
     -e ANSIBLE_STDOUT_CALLBACK=yaml \
+    $SHELL_OPTS \
     $(pinata-ssh-mount) \
     "$DOCKER_IMAGE:$MARS_VERSION" "$@"

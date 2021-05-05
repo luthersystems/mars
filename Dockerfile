@@ -30,6 +30,9 @@ RUN mkdir /opt/home/.ansible && chmod a+w /opt/home/.ansible
 
 RUN tfenv install 0.12.23
 
+ADD build/awscli/aws /tmp/aws
+RUN /tmp/aws/install
+
 ENTRYPOINT ["/opt/mars/run.sh"]
 
 ADD scripts /opt/mars/
