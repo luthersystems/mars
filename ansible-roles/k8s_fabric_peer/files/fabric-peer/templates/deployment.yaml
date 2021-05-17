@@ -104,6 +104,10 @@ spec:
               value: /docker-tls/client/cert.pem
             - name: CORE_VM_DOCKER_TLS_KEY_FILE
               value: /docker-tls/client/key.pem
+            {{- if .Values.chaincode.resourceLimits.memory }}
+            - name: CORE_VM_DOCKER_HOSTCONFIG_MEMORY
+              value: {{ .Values.chaincode.resourceLimits.memory | int64 | toString | quote }}
+            {{- end }}
             - name: CORE_OPERATIONS_LISTENADDRESS
               value: 0.0.0.0:{{ .Values.internal.container.operationsPort }}
             - name: CORE_METRICS_PROVIDER
