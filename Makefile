@@ -33,6 +33,8 @@ ANSIBLE_ROLES=$(shell find ansible-roles)
 ANSIBLE_PLUGINS=$(shell find ansible-plugins)
 GRAFANA_DASHBOARDS=$(shell find grafana-dashboards)
 
+ECR_LOGIN=bash get-ecr-token.sh ${ECR_HOST}
+
 .PHONY: default
 default: docker-static
 	@
@@ -74,7 +76,7 @@ ${AWSCLI_ARCHIVE}:
 
 .PHONY: aws-ecr-login
 aws-ecr-login:
-	$(shell aws ecr get-login --region ${AWS_REGION} --no-include-email)
+	${ECR_LOGIN}
 
 ${STATIC_IMAGE_DUMMY}: Dockerfile ${TFENV} ${PACKER} awscli ${ANSIBLE_ROLES} ${ANSIBLE_PLUGINS} ${GRAFANA_DASHBOARDS} ${SCRIPTS} ssh_config requirements.txt
 	${DOCKER} build \
