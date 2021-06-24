@@ -21,14 +21,11 @@ RUN pip3 install --upgrade pip
 ADD requirements.txt /opt/mars/requirements.txt
 RUN pip3 install -r /opt/mars/requirements.txt
 
-RUN curl -sL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor | tee /etc/apt/trusted.gpg.d/microsoft.gpg > /dev/null
-RUN echo "deb [arch=amd64] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/azure-cli.list
-RUN apt-get update
-RUN apt-get install azure-cli=2.9.1-1~bionic
+RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash
 
 RUN mkdir /opt/home/.ansible && chmod a+w /opt/home/.ansible
 
-RUN tfenv install 0.12.23
+RUN tfenv install 0.12.31
 
 ADD build/awscli/aws /tmp/aws
 RUN /tmp/aws/install
