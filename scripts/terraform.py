@@ -28,11 +28,13 @@ class Terraform(object):
         plan_parser = subparsers.add_parser('plan')
         plan_parser.add_argument('--destroy', action='store_true')
         plan_parser.add_argument('--out')
+        plan_parser.add_argument('--target')
         plan_parser.add_argument('--apply', dest='apply_plan', action='store_true')
         plan_parser.set_defaults(parser_func=self.plan)
 
         apply_parser = subparsers.add_parser('apply')
         apply_parser.add_argument("--plan")
+        apply_parser.add_argument("--target")
         apply_parser.set_defaults(parser_func=self.apply)
 
         destroy_parser = subparsers.add_parser('destroy')
@@ -116,7 +118,7 @@ class Terraform(object):
         if rc != 0:
             exit(rc)
 
-    def plan(self, destroy=False, out=None, apply_plan=False):
+    def plan(self, destroy=False, out=None, apply_plan=False, target=None):
         self._tfenv_init()
         self._check_env()
         self._prompt_env_switch()
@@ -139,6 +141,8 @@ class Terraform(object):
         if plan_path is not None:
             arg = '-out={}'.format(plan_path)
             extra_args.append(arg)
+        if target is not None:
+            extra_args.extend(['-target', target])
         args = itertools.chain(base_args, var_file_args, extra_args)
         rc = self._script(
             self._tf_workspace_select(),
@@ -165,7 +169,7 @@ class Terraform(object):
             self.apply(plan=plan_path)
         exit(rc)
 
-    def apply(self, plan=None):
+    def apply(self, plan=None, target=None):
         self._tfenv_init()
         self._check_env()
         self._prompt_env_switch()
@@ -173,7 +177,9 @@ class Terraform(object):
         if plan:
             args = [plan]
         else:
-            args = self._var_file_args()
+            args = list(self._var_file_args())
+        if target is not None:
+            args.extend(['-target', target])
         rc = self._script(
             self._tf_workspace_select(),
             ['terraform', 'apply'] + list(args))

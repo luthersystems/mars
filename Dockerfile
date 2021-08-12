@@ -11,6 +11,11 @@ ENV HOME="/opt/home"
 
 WORKDIR /marsproject
 
+# https://githubmemory.com/repo/pypa/pip/issues/10219
+# Because this is an ubuntu container and not centos C.UTF-8 is the correct fix
+# and not en_us.UTF-8
+ENV LANG=C.UTF-8 LC_ALL=C.UTF-8 PYTHONIOENCODING=UTF-8
+
 # Update apt cache and install prerequisites before running tfenv for the first
 # time.
 #   https://github.com/kamatama41/tfenv/blob/c859abc80bcab1cdb3b166df358e82ff7c1e1d36/README.md#usage
