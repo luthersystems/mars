@@ -2,7 +2,7 @@
 # tasks file for eks_cluster_init
 
 - name: Annotate non-default StorageClass objects
-  k8s:
+  kubernetes.core.k8s:
     kind: StorageClass
     name: "{{item}}"
     resource_definition:
@@ -13,7 +13,7 @@
   environment: "{{ kubectl_env }}"
 
 - name: Enable volume resizing on StorageClass objects
-  k8s:
+  kubernetes.core.k8s:
     kind: StorageClass
     name: "{{item}}"
     resource_definition:

@@ -2,7 +2,7 @@
 # tasks file for eks_upgrade
 
 - name: check kube-proxy version
-  k8s_facts:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: DaemonSet
     name: kube-proxy
@@ -11,7 +11,7 @@
   register: kube_proxy
 
 - name: check coredns version
-  k8s_facts:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: Deployment
     name: coredns
@@ -20,7 +20,7 @@
   register: coredns
 
 - name: check CNI version
-  k8s_facts:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: DaemonSet
     name: aws-node
@@ -65,14 +65,14 @@
   when: coredns_installed_ver != eks_upgrade_coredns_version
 
 - name: upgrade CNI version
-  k8s:
+  kubernetes.core.k8s:
     namespace: kube-system
     definition: "{{ lookup('template', eks_upgrade_cni_template) }}"
   environment: "{{ kubectl_env }}"
   when: cni_installed_ver != eks_upgrade_cni_version
 
 - name: wait for kube-proxy to update
-  k8s_facts:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: DaemonSet
     name: kube-proxy
@@ -89,7 +89,7 @@
   when: kube_proxy_installed_ver != eks_upgrade_kube_proxy_version
 
 - name: wait for coredns to update
-  k8s_facts:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: Deployment
     name: coredns
@@ -104,7 +104,7 @@
   when: coredns_installed_ver != eks_upgrade_coredns_version
 
 - name: wait for CNI to update
-  k8s_facts:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: DaemonSet
     name: aws-node

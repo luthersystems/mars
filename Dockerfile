@@ -1,4 +1,4 @@
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 
 ADD build/packer /opt/bin/packer
 
@@ -28,7 +28,8 @@ RUN pip3 install -r /opt/mars/requirements.txt
 
 RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash
 
-RUN mkdir /opt/home/.ansible && chmod a+w /opt/home/.ansible
+ADD ansible-reqs.yml /opt/mars/ansible-reqs.yml
+RUN ansible-galaxy install -r /opt/mars/ansible-reqs.yml
 
 RUN tfenv install 0.12.31
 
