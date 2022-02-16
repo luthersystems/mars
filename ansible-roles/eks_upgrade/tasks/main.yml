@@ -51,26 +51,6 @@
   environment: "{{ kubectl_env }}"
   when: kube_proxy_installed_ver != eks_upgrade_kube_proxy_version
 
-- name: update coredns
-  command:
-    argv:
-      - kubectl
-      - set
-      - image
-      - deployment.apps/coredns
-      - -n
-      - kube-system
-      - "coredns={{ eks_upgrade_coredns_image }}"
-  environment: "{{ kubectl_env }}"
-  when: coredns_installed_ver != eks_upgrade_coredns_version
-
-- name: upgrade CNI version
-  kubernetes.core.k8s:
-    namespace: kube-system
-    definition: "{{ lookup('template', eks_upgrade_cni_template) }}"
-  environment: "{{ kubectl_env }}"
-  when: cni_installed_ver != eks_upgrade_cni_version
-
 - name: wait for kube-proxy to update
   kubernetes.core.k8s_info:
     api_version: v1
@@ -88,6 +68,19 @@
     - status.numberReady == status.desiredNumberScheduled
   when: kube_proxy_installed_ver != eks_upgrade_kube_proxy_version
 
+- name: update coredns
+  command:
+    argv:
+      - kubectl
+      - set
+      - image
+      - deployment.apps/coredns
+      - -n
+      - kube-system
+      - "coredns={{ eks_upgrade_coredns_image }}"
+  environment: "{{ kubectl_env }}"
+  when: coredns_installed_ver != eks_upgrade_coredns_version
+
 - name: wait for coredns to update
   kubernetes.core.k8s_info:
     api_version: v1
@@ -103,19 +96,12 @@
   until: (status.updatedReplicas | default(0)) == status.replicas
   when: coredns_installed_ver != eks_upgrade_coredns_version
 
-- name: wait for CNI to update
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: DaemonSet
-    name: aws-node
-    namespace: kube-system
-  environment: "{{ kubectl_env }}"
-  register: cni
-  vars:
-    status: "{{ cni.resources.0.status }}"
-  retries: 30
-  delay: 10
-  until:
-    - (status.updatedNumberScheduled | default(0)) == status.desiredNumberScheduled
-    - status.numberReady == status.desiredNumberScheduled
+- name: incrementally upgrade CNI
+  include_tasks: upgrade-cni.yml
+  loop: "{{ incr_cni_versions }}"
+  loop_control:
+    loop_var: incr_cni_version
   when: cni_installed_ver != eks_upgrade_cni_version
+  vars:
+    newer_cni_vers: "{{ eks_upgrade_cni_versions | select('version', cni_installed_ver, '>') }}"
+    incr_cni_versions: "{{ newer_cni_vers | select('version', eks_upgrade_cni_version, '<=') }}"

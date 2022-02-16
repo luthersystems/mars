@@ -3,6 +3,12 @@
 
 eks_upgrade_cluster_version: "{{ kubectl_version }}"
 
+eks_upgrade_cni_versions:
+  - v1.6.3
+  - v1.7.10
+  - v1.8.0
+  - v1.9.3
+  - v1.10.2
 
 eks_upgrade_version_map:
   "1.14":
@@ -45,4 +51,3 @@ eks_upgrade_coredns_version: "{{ eks_upgrade_version_map[eks_upgrade_cluster_ver
 eks_upgrade_coredns_image: "602401143452.dkr.ecr.{{ kubectl_eks_region }}.amazonaws.com/eks/coredns:{{ eks_upgrade_coredns_version }}"
 
 eks_upgrade_cni_version: "{{ eks_upgrade_version_map[eks_upgrade_cluster_version].cni }}"
-eks_upgrade_cni_template: "aws-k8s-cni.yaml.{{ eks_upgrade_cni_version }}.j2"

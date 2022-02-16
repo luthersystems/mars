@@ -1,0 +1,23 @@
+- name: upgrade CNI version
+  kubernetes.core.k8s:
+    namespace: kube-system
+    definition: "{{ lookup('template', eks_upgrade_cni_template) }}"
+  environment: "{{ kubectl_env }}"
+  vars:
+    eks_upgrade_cni_template: "aws-k8s-cni.yaml.{{ incr_cni_version }}.j2"
+
+- name: wait for CNI to update
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: DaemonSet
+    name: aws-node
+    namespace: kube-system
+  environment: "{{ kubectl_env }}"
+  register: cni
+  vars:
+    status: "{{ cni.resources.0.status }}"
+  retries: 30
+  delay: 10
+  until:
+    - (status.updatedNumberScheduled | default(0)) == status.desiredNumberScheduled
+    - status.numberReady == status.desiredNumberScheduled

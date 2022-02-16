@@ -15,6 +15,7 @@
   register: kubectl_version_result
   failed_when: kubectl_version_result.rc not in [0, 2]
   changed_when: no
+  check_mode: no
   when: kubectl_upgrade | bool
 
 - name: Check whether upgrade is required
