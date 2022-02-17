@@ -68,6 +68,39 @@
     - status.numberReady == status.desiredNumberScheduled
   when: kube_proxy_installed_ver != eks_upgrade_kube_proxy_version
 
+- name: update coredns cluster role
+  kubernetes.core.k8s:
+    name: "system:coredns"
+    kind: ClusterRole
+    namespace: kube-system
+    resource_definition:
+      rules:
+        - apiGroups:
+          - ""
+          resources:
+          - endpoints
+          - services
+          - pods
+          - namespaces
+          verbs:
+          - list
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - nodes
+          verbs:
+          - get
+        - apiGroups:
+          - discovery.k8s.io
+          resources:
+          - endpointslices
+          verbs:
+          - list
+          - watch
+  environment: "{{ kubectl_env }}"
+  when: eks_upgrade_coredns_version is version('v1.8.3',  '>=')
+
 - name: update coredns
   command:
     argv:
