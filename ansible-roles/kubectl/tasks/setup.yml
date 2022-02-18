@@ -7,45 +7,46 @@
 - name: Check installed kubectl version
   command:
     argv:
+      - snap
+      - info
       - kubectl
-      - version
-      - -o
-      - json
-  environment: "{{ kubectl_env }}"
-  register: kubectl_version_result
-  failed_when: kubectl_version_result.rc not in [0, 2]
+  register: kubectl_snap_info_str
   changed_when: no
+  check_mode: no
   when: kubectl_upgrade | bool
 
 - name: Check whether upgrade is required
   set_fact:
-    kubectl_needs_upgrade: "{{ installed_version != kubectl_version }}"
+    kubectl_needs_upgrade: "{{ kubectl_installed_channel != kubectl_channel }}"
+    kubectl_installed: "{{ kubectl_snap_info.tracking is defined }}"
+    kubectl_channel: "{{ kubectl_channel }}"
   vars:
-    uninstalled:
-      major: 0
-      minor: 0
-    client_ver: "{{ (kubectl_version_result.stdout | default('\"\"') | from_json).clientVersion | default(uninstalled) }}"
-    installed_version: "{{ client_ver.major }}.{{ client_ver.minor }}"
+    kubectl_channel: "{{ kubectl_version }}/stable"
+    kubectl_snap_info: "{{ kubectl_snap_info_str.stdout | from_yaml }}"
+    kubectl_installed_channel: "{{ kubectl_snap_info.tracking | default('') }}"
   when: kubectl_upgrade | bool
 
-- name: Uninstall old version of kubectl snap package
-  snap:
-    name: kubectl
-    classic: yes
-    state: absent
-  when:
-    - kubectl_upgrade | bool
-    - kubectl_needs_upgrade | bool
-
 - name: Install the kubectl snap package
-  snap:
+  community.general.snap:
     name: kubectl
-    channel: "{{kubectl_version}}/stable"
+    channel: "{{kubectl_channel}}"
     classic: yes
     state: present
   when:
     - kubectl_upgrade | bool
-    - kubectl_needs_upgrade | bool
+    - not kubectl_installed
+
+- name: Upgrade kubectl snap package
+  command:
+    argv:
+      - snap
+      - refresh
+      - "--channel={{kubectl_channel}}"
+      - kubectl
+  when:
+    - kubectl_upgrade | bool
+    - kubectl_installed
+    - kubectl_needs_upgrade
 
 - name: Complete kubectl setup
   set_fact:

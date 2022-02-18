@@ -1,0 +1,5 @@
+---
+collections:
+- name: kubernetes.core
+  type: galaxy
+  version: 2.2.2

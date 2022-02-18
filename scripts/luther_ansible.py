@@ -163,11 +163,10 @@ class Ansible(object):
         if not os.path.exists(path):
             vault_action = 'create'
 
-        cmd = itertools.chain(
-            ['ansible-vault'],
-            vault_args,
-            [vault_action, path]
-        )
+        cmd = ['ansible-vault',
+               vault_action,
+               *vault_args,
+               path]
         rc = self._exec_cmd(*cmd)
         exit(rc)
 
@@ -177,11 +176,10 @@ class Ansible(object):
         vault_args = self._ansible_vault_credentials()
 
         vault_action = 'view'
-        cmd = itertools.chain(
-            ['ansible-vault'],
-            vault_args,
-            [vault_action, path]
-        )
+        cmd = ['ansible-vault',
+               vault_action,
+               *vault_args,
+               path]
         rc = self._exec_cmd(*cmd)
         exit(rc)
 
@@ -209,8 +207,8 @@ class Ansible(object):
             sub_cmd.append(str(string))
         cmd = itertools.chain(
             base_cmd,
-            self._ansible_vault_credentials(),
             sub_cmd,
+            self._ansible_vault_credentials(),
         )
         rc = self._exec_cmd(*cmd)
         exit(rc)
@@ -223,8 +221,8 @@ class Ansible(object):
 
         cmd = itertools.chain(
             base_cmd,
-            self._ansible_vault_credentials(),
             sub_cmd,
+            self._ansible_vault_credentials(),
         )
         rc = self._exec_script(cmd, stdin_file=path)
         exit(rc)
@@ -250,8 +248,8 @@ class Ansible(object):
 
         cmd = itertools.chain(
             base_cmd,
-            self._ansible_vault_credentials(),
             sub_cmd,
+            self._ansible_vault_credentials(),
         )
         rc = self._exec_cmd(*cmd)
         exit(rc)

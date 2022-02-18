@@ -1,9 +1,49 @@
 ---
 # tasks file for helm
 
-- name: Install helm
-  snap:
-    name: helm
-    classic: yes
-    state: present
-    channel: "{{helm_version}}/stable"
+- name: Get helm snap version
+  command:
+    argv:
+      - snap
+      - info
+      - helm
+  register: helm_snap_info_str
+  changed_when: no
+
+- vars:
+    helm_snap_info: helm_snap_info_str.stdout | from_yaml
+  block:
+    - name: Install helm
+      community.general.snap:
+        name: helm
+        classic: yes
+        state: present
+        channel: "{{helm_channel}}"
+      when: "'tracking' not in helm_snap_info"
+
+    - name: Upgrade helm
+      command:
+        argv:
+          - snap
+          - refresh
+          - "--channel={{helm_channel}}"
+          - helm
+      when:
+        - "'tracking' in helm_snap_info"
+        - helm_snap_info.tracking != helm_channel
+
+- when: helm_version is version('3.0', '<')
+  block:
+    - name: Create config directory (helm 2.x only)
+      file:
+        path: /root/.helm/repository
+        state: directory
+        recurse: yes
+        mode: '0755'
+    - name: Configure stable repository (helm 2.x only)
+      ansible.builtin.copy:
+        src: repositories.yaml
+        dest: /root/.helm/repository/repositories.yaml
+        owner: root
+        group: root
+        mode: '0644'

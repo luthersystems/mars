@@ -1,7 +1,7 @@
-ansible==2.8.1
-boto3==1.9.173
-botocore==1.12.173
-boto==2.45.0
-PyYAML==3.13
-python-dotenv==0.10.3
-requests==2.25.1
+ansible==5.3.0
+boto3==1.20.50
+botocore==1.23.50
+boto==2.49.0
+PyYAML==6.0
+python-dotenv==0.19.2
+requests==2.27.1

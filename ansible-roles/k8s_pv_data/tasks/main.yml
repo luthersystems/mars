@@ -2,7 +2,7 @@
 # tasks file for k8s_pv_data
 
 - name: retrieve PVs
-  k8s_facts:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: PersistentVolume
     label_selectors: "{{k8s_pv_data_selectors}}"
