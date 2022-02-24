@@ -23,35 +23,18 @@
     name: python3-pip
     state: present
 
-- name: Ensure the awscli module is insalled
+- name: Ensure python modules are installed
   pip:
-    name: awscli
-    state: present
-
-- name: Python library boto is installed
-  pip:
-    name: boto
-    state: present
-
-- name: Python library boto3 is installed
-  pip:
-    name: boto3
-    state: present
-
-- name: Python library botocore is installed
-  pip:
-    name: botocore
-    state: present
+    name:
+      - awscli==1.22.50
+      - boto==2.49.0
+      - boto3==1.20
+      - botocore==1.23.50
+      - kubernetes==21.7.0
+      - openshift==0.13.1
 
 - name: Configure kubectl for EKS
   shell: "{{kubectl_shell_prefix}} aws --region {{kubectl_eks_region|quote}} eks update-kubeconfig --name {{kubectl_eks_cluster_name|quote}}"
-
-- name: Install pip modules for k8s management with ansible
-  pip:
-    name:
-      - kubernetes
-      - openshift
-    state: present
 
 - name: Install kubectl shell helpers
   copy:
