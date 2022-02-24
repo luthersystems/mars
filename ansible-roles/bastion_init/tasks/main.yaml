@@ -34,7 +34,21 @@
       - openshift==0.13.1
 
 - name: Configure kubectl for EKS
-  shell: "{{kubectl_shell_prefix}} aws --region {{kubectl_eks_region|quote}} eks update-kubeconfig --name {{kubectl_eks_cluster_name|quote}}"
+  command:
+    argv:
+      - aws
+      - "--region={{kubectl_eks_region|quote}}"
+      - eks
+      - update-kubeconfig
+      - "--name={{kubectl_eks_cluster_name|quote}}"
+  environment: "{{ kubectl_env }}"
+
+- name: Set kubeconfig.yaml permissions
+  file:
+    path: "{{kubectl_config_path}}"
+    owner: ubuntu
+    group: ubuntu
+    mode: '0600'
 
 - name: Install kubectl shell helpers
   copy:
