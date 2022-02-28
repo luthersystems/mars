@@ -78,3 +78,11 @@
     - dir: '/root'
       owner: root
       group: root
+
+- name: Configure unattended upgrades
+  copy:
+    src: 51unattended-upgrades-custom
+    dest: /etc/apt/apt.conf.d/51unattended-upgrades-custom
+    owner: root
+    group: root
+    mode: '0644'
