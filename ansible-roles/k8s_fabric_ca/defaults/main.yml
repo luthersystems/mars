@@ -4,7 +4,6 @@
 k8s_fabric_ca_org: org1
 k8s_fabric_ca_domain_root: "{{k8s_fabric_ca_org}}.{{k8s_fabric_network_domain_root}}"
 k8s_fabric_ca_keyfile: !!null
-
 k8s_fabric_ca_namespace: fabric-{{k8s_fabric_ca_org}}
 k8s_fabric_ca_helm_release: fabric-ca-{{k8s_fabric_ca_org}}
 k8s_fabric_ca_helm_chart_path: "{{kubectl_asset_root_path}}/fabric-ca"
@@ -12,3 +11,4 @@ k8s_fabric_ca_storage_size: 10Gi
 k8s_fabric_ca_pv_selectors:
   - app.kubernetes.io/component=bcca
   - type=storage
+k8s_fabric_ca_lb_idle_timeout: 60
