@@ -9,6 +9,7 @@ metadata:
     prometheus.io/port: {{ .Values.internal.container.operationsPort | quote }}
     service.beta.kubernetes.io/aws-load-balancer-internal: "true"
     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+    service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout: {{ .Values.service.idleTimeout | quote }}
     service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: Project={{ .Values.global.lutherProjectID }},Environment={{ .Values.global.lutherEnv }},Organization={{ .Values.dlt.organization }},Component={{.Values.dlt.component}},Resource=elb
     external-dns.alpha.kubernetes.io/hostname: {{ include "fabric-peer.self-fqdn" . }}
 spec:

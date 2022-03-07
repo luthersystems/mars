@@ -32,6 +32,7 @@ fullnameOverride: ""
 service:
   type: LoadBalancer
   port: 443
+  idleTimeout: 60
   loadBalancerSourceRanges:
     - 10.0.0.0/8
 
