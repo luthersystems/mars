@@ -1,0 +1,4 @@
+---
+# defaults file for helm_2to3
+helm_2to3_version: 0.10.0
+helm_2to3_url: "https://github.com/helm/helm-2to3.git"

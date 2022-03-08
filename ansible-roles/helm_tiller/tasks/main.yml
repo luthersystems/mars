@@ -9,9 +9,10 @@
     owner: no
     group: no
     use_ssh_args: yes
+  when: helm_version is version('3.0', '<')
 
 - name: K8s resources exist
-  k8s: 
+  k8s:
     src: "{{helm_tiller_k8s_resource_path}}/{{item}}"
   with_items:
     - "{{helm_tiller_k8s_resources}}"
@@ -20,6 +21,7 @@
     AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
     AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
     KUBECONFIG: "{{kubectl_config_path}}"
+  when: helm_version is version('3.0', '<')
 
 - name: Initialize tiller
   command:
@@ -38,3 +40,4 @@
     AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
     AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
     KUBECONFIG: "{{kubectl_config_path}}"
+  when: helm_version is version('3.0', '<')
