@@ -2,4 +2,3 @@
 # attempting to initialize the cluster muiltple times.
 dependencies:
   - role: kubectl
-  - role: helm_charts
