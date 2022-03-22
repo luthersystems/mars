@@ -1,0 +1,13 @@
+---
+- name: Remove helm chart
+  ansible.builtin.file:
+    path: "{{alb_ingress_controller_helm_chart_path}}"
+    state: absent
+
+- name: Uninstall alb-ingress-controller helm release
+  kubernetes.core.helm:
+    name: ingress-controller
+    namespace: kube-system
+    state: absent
+    wait: true
+  environment: "{{ kubectl_env }}"

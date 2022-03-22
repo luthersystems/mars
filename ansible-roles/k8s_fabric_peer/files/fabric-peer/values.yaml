@@ -65,6 +65,7 @@ service:
   idleTimeout: 60
   loadBalancerSourceRanges:
     - 10.0.0.0/8
+  useNLB: true
 
 ingress:
   enabled: false

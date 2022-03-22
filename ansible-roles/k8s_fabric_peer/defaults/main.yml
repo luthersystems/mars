@@ -24,3 +24,4 @@ k8s_fabric_peer_pv_selectors:
   - type=storage
 k8s_fabric_peer_hcs: "{{k8s_fabric_network_hcs}}"
 k8s_fabric_peer_lb_idle_timeout: 60
+k8s_fabric_peer_use_nlb: true

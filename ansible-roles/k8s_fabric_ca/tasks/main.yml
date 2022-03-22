@@ -48,6 +48,7 @@
       - --set=persistentVolume.storageSize={{k8s_fabric_ca_storage_size}}
       - --set=availabilityZone={{k8s_pv_data_replica_azs[0]}}
       - --set=service.idleTimeout={{k8s_fabric_ca_lb_idle_timeout}}
+      - --set=service.useNLB={{k8s_fabric_ca_use_nlb}}
       - --wait
       - "{{k8s_fabric_ca_helm_release}}"
       - "{{k8s_fabric_ca_helm_chart_path}}"

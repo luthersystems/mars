@@ -7,9 +7,15 @@ metadata:
   annotations:
     prometheus.io/scrape: "true"
     prometheus.io/port: {{ .Values.internal.container.operationsPort | quote }}
-    service.beta.kubernetes.io/aws-load-balancer-internal: "true"
-    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+    {{- if .Values.service.useNLB }}
+    service.beta.kubernetes.io/aws-load-balancer-type: "external"
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+    service.beta.kubernetes.io/aws-load-balancer-attributes: load_balancing.cross_zone.enabled=true
+    {{- else }}
     service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout: {{ .Values.service.idleTimeout | quote }}
+    {{- end }}
+    service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
     service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: Project={{ .Values.global.lutherProjectID }},Environment={{ .Values.global.lutherEnv }},Organization={{ .Values.dlt.organization }},Component={{.Values.dlt.component}},Resource=elb
     external-dns.alpha.kubernetes.io/hostname: {{ include "fabric-ca.service-fqdn" . }}
 spec:
