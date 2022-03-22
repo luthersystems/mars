@@ -48,6 +48,7 @@ service:
   idleTimeout: 60
   loadBalancerSourceRanges:
     - 10.0.0.0/8
+  useNLB: true
 
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious
