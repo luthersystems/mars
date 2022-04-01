@@ -1,7 +1,8 @@
 #!/bin/bash
 
 if [ x"$USER_ID" != x"0" ]; then
-	echo "default:x:${USER_ID}:${GROUP_ID}:Default User:${HOME}:/usr/sbin/nologin" >> /etc/passwd
+    echo "default:x:${USER_ID}:${GROUP_ID}:Default User:${HOME}:/usr/sbin/nologin" >> /etc/passwd
+    chown -R $USER_ID:$GROUP_ID $HOME
 fi
 pwconv
 grpconv
