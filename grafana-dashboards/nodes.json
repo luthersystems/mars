@@ -153,8 +153,8 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "100 - (avg by (kubernetes_node) (irate(node_cpu_seconds_total{job=\"kubernetes-service-endpoints\",mode=\"idle\"}[5m])) * 100)",
-          "legendFormat": "{{kubernetes_node}}",
+          "expr": "100 - (avg by (kubernetes_node, cpu) (irate(node_cpu_seconds_total{job=\"kubernetes-service-endpoints\",mode=\"idle\"}[5m])) * 100)",
+          "legendFormat": "{{kubernetes_node}}/{{cpu}}",
           "refId": "A"
         }
       ],
@@ -502,7 +502,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "kubelet_running_pod_count",
+          "expr": "kubelet_running_pods",
           "legendFormat": "{{instance}}",
           "refId": "A"
         }
