@@ -25,6 +25,10 @@ class Terraform(object):
         argparser.add_argument('--verbose', '-v', dest='verbosity', action='count', default=0)
         subparsers = argparser.add_subparsers()
 
+        refresh_parser = subparsers.add_parser('refresh')
+        refresh_parser.add_argument('--target')
+        refresh_parser.set_defaults(parser_func=self.refresh)
+
         plan_parser = subparsers.add_parser('plan')
         plan_parser.add_argument('--destroy', action='store_true')
         plan_parser.add_argument('--out')
@@ -66,6 +70,13 @@ class Terraform(object):
         untaint_parser.add_argument("--module", help='Module containing the resource to untaint')
         untaint_parser.add_argument("name", help="A resource to untaint", nargs='+')
         untaint_parser.set_defaults(parser_func=self.untaint)
+
+        import_parser = subparsers.add_parser('import')
+        import_parser.add_argument("--allow-missing-config", action='store_true',
+                                   help='Allow import when no resource configuration block exists.')
+        import_parser.add_argument("addr", help="Address to import resource to")
+        import_parser.add_argument("resource_id", help="Resource-specific ID")
+        import_parser.set_defaults(parser_func=self.import_action)
 
         terraform_parser = subparsers.add_parser('terraform')
         terraform_parser.add_argument("args", help="A resource to untaint", nargs='+')
@@ -117,6 +128,22 @@ class Terraform(object):
             cmd)
         if rc != 0:
             exit(rc)
+
+    def refresh(self, target=None):
+        self._tfenv_init()
+        self._check_env()
+        self._prompt_env_switch()
+
+        base_args = ['terraform', 'refresh']
+        var_file_args = self._var_file_args()
+        extra_args = []
+        if target is not None:
+            extra_args.extend(['-target', target])
+        args = itertools.chain(base_args, var_file_args, extra_args)
+        rc = self._script(
+            self._tf_workspace_select(),
+            args)
+        exit(rc)
 
     def plan(self, destroy=False, out=None, apply_plan=False, target=None):
         self._tfenv_init()
@@ -217,6 +244,21 @@ class Terraform(object):
         rc = self._script(
             self._tf_workspace_select(),
             ['terraform', 'graph'] + list(args))
+        exit(rc)
+
+    def import_action(self, allow_missing_config=None, addr=None, resource_id=None):
+        self._tfenv_init()
+        self._check_env()
+        self._prompt_env_switch()
+        base_args = ['terraform', 'import']
+        var_file_args = self._var_file_args()
+        extra_args = []
+        if allow_missing_config:
+            extra_args.extend(['-allow-missing-config'])
+        args = itertools.chain(base_args, var_file_args, extra_args, [addr, resource_id])
+        rc = self._script(
+            self._tf_workspace_select(),
+            args)
         exit(rc)
 
     def taint(self, name=None, module=None):
