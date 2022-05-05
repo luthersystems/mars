@@ -17,28 +17,29 @@ class Terraform(object):
         self.shared_env = 'common'
         self._var_files = None
         self.verbosity = 0
+        self.skip_prompt = False
 
     def main(self):
         import argparse
         argparser = argparse.ArgumentParser()
         argparser.add_argument('env')
         argparser.add_argument('--verbose', '-v', dest='verbosity', action='count', default=0)
+        argparser.add_argument('--skip-prompt', action='store_true',
+                               help='Skip workspace switch prompt')
         subparsers = argparser.add_subparsers()
-
-        refresh_parser = subparsers.add_parser('refresh')
-        refresh_parser.add_argument('--target')
-        refresh_parser.set_defaults(parser_func=self.refresh)
 
         plan_parser = subparsers.add_parser('plan')
         plan_parser.add_argument('--destroy', action='store_true')
         plan_parser.add_argument('--out')
         plan_parser.add_argument('--target')
         plan_parser.add_argument('--apply', dest='apply_plan', action='store_true')
+        plan_parser.add_argument('--refresh-only', action='store_true')
         plan_parser.set_defaults(parser_func=self.plan)
 
         apply_parser = subparsers.add_parser('apply')
         apply_parser.add_argument("--plan")
         apply_parser.add_argument("--target")
+        apply_parser.add_argument('--refresh-only', action='store_true')
         apply_parser.set_defaults(parser_func=self.apply)
 
         destroy_parser = subparsers.add_parser('destroy')
@@ -86,6 +87,7 @@ class Terraform(object):
 
         self.env = args.env
         self.verbosity = args.verbosity
+        self.skip_prompt = args.skip_prompt
 
         if self._verbosity_is(2):
             print("args: {}".format(args))
@@ -96,7 +98,7 @@ class Terraform(object):
             argparser.print_help()
             exit(1)
 
-        args_ignore = set(['parser_func', 'env', 'verbosity'])
+        args_ignore = set(['parser_func', 'env', 'verbosity', 'skip_prompt'])
         kwargs = {k: v for k, v in vars(args).items() if k not in args_ignore}
         args.parser_func(**kwargs)
 
@@ -129,23 +131,7 @@ class Terraform(object):
         if rc != 0:
             exit(rc)
 
-    def refresh(self, target=None):
-        self._tfenv_init()
-        self._check_env()
-        self._prompt_env_switch()
-
-        base_args = ['terraform', 'refresh']
-        var_file_args = self._var_file_args()
-        extra_args = []
-        if target is not None:
-            extra_args.extend(['-target', target])
-        args = itertools.chain(base_args, var_file_args, extra_args)
-        rc = self._script(
-            self._tf_workspace_select(),
-            args)
-        exit(rc)
-
-    def plan(self, destroy=False, out=None, apply_plan=False, target=None):
+    def plan(self, destroy=False, out=None, apply_plan=False, target=None, refresh_only=None):
         self._tfenv_init()
         self._check_env()
         self._prompt_env_switch()
@@ -170,6 +156,8 @@ class Terraform(object):
             extra_args.append(arg)
         if target is not None:
             extra_args.extend(['-target', target])
+        if refresh_only:
+            extra_args.append('-refresh-only')
         args = itertools.chain(base_args, var_file_args, extra_args)
         rc = self._script(
             self._tf_workspace_select(),
@@ -196,7 +184,7 @@ class Terraform(object):
             self.apply(plan=plan_path)
         exit(rc)
 
-    def apply(self, plan=None, target=None):
+    def apply(self, plan=None, target=None, refresh_only=None):
         self._tfenv_init()
         self._check_env()
         self._prompt_env_switch()
@@ -207,6 +195,8 @@ class Terraform(object):
             args = list(self._var_file_args())
         if target is not None:
             args.extend(['-target', target])
+        if refresh_only:
+            args.append('-refresh-only')
         rc = self._script(
             self._tf_workspace_select(),
             ['terraform', 'apply'] + list(args))
@@ -316,6 +306,8 @@ class Terraform(object):
             return
         sys.stderr.write(
                 '\nswitching environment \x1b[31m{}\x1b[0m ~> \x1b[32m{}\x1b[0m\n\n'.format(curr_env, self.env))
+        if self.skip_prompt:
+            return
         while 1:
             sys.stderr.write("switch to {}? [y/N] ".format(self.env))
             resp = input()
