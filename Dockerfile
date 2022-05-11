@@ -1,6 +1,7 @@
 FROM ubuntu:20.04
 
-ADD build/packer /opt/bin/packer
+ARG TARGETARCH
+ENV TARGETARCH=$TARGETARCH
 
 ADD build/tfenv /opt/tfenv
 RUN mkdir -p /opt/tfenv/versions && chmod -R a+w /opt/tfenv/versions
@@ -14,27 +15,31 @@ WORKDIR /marsproject
 # https://githubmemory.com/repo/pypa/pip/issues/10219
 # Because this is an ubuntu container and not centos C.UTF-8 is the correct fix
 # and not en_us.UTF-8
-ENV LANG=C.UTF-8 LC_ALL=C.UTF-8 PYTHONIOENCODING=UTF-8
+ENV LANG=C.UTF-8 LC_ALL=C.UTF-8 PYTHONIOENCODING=UTF-8 DEBIAN_FRONTEND=noninteractive
 
 # Update apt cache and install prerequisites before running tfenv for the first
 # time.
 #   https://github.com/kamatama41/tfenv/blob/c859abc80bcab1cdb3b166df358e82ff7c1e1d36/README.md#usage
-RUN apt-get update && apt-get install -yq git curl unzip jq perl python3 python3-pip libffi-dev libssl-dev vim ca-certificates apt-transport-https lsb-release gnupg rsync
+RUN apt-get update -y && apt-get install -yq git curl unzip jq perl python3 python3-pip libffi-dev libssl-dev vim ca-certificates apt-transport-https lsb-release gnupg rsync software-properties-common
+
+RUN curl -fsSL https://apt.releases.hashicorp.com/gpg | apt-key add - && \
+    apt-add-repository "deb [arch=$(dpkg --print-architecture)] https://apt.releases.hashicorp.com $(lsb_release -cs) main" && \
+    apt update -y && apt install -y packer
 
 RUN pip3 install --upgrade pip
 
 ADD requirements.txt /opt/mars/requirements.txt
 RUN pip3 install -r /opt/mars/requirements.txt
 
-RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+RUN pip install azure-cli --upgrade
+
+RUN pip install https://github.com/boto/botocore/archive/v2.zip https://github.com/aws/aws-cli/archive/v2.zip
+RUN apt-get -yq --no-install-recommends install groff # required by awscli
 
 ADD ansible-reqs.yml /opt/mars/ansible-reqs.yml
 RUN ansible-galaxy install -r /opt/mars/ansible-reqs.yml
 
 RUN tfenv install 0.12.31
-
-ADD build/awscli/aws /tmp/aws
-RUN /tmp/aws/install
 
 ENTRYPOINT ["/opt/mars/run.sh"]
 
