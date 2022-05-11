@@ -35,6 +35,8 @@ GRAFANA_DASHBOARDS=$(shell find grafana-dashboards)
 
 ECR_LOGIN=bash get-ecr-token.sh ${ECR_HOST}
 
+PLATFORMS=linux/amd64,linux/arm64
+
 .PHONY: default
 default: docker-static
 	@
@@ -79,7 +81,8 @@ aws-ecr-login:
 	${ECR_LOGIN}
 
 ${STATIC_IMAGE_DUMMY}: Dockerfile ${TFENV} ${PACKER} awscli ${ANSIBLE_ROLES} ${ANSIBLE_PLUGINS} ${GRAFANA_DASHBOARDS} ${SCRIPTS} ssh_config requirements.txt
-	${DOCKER} build \
+	${DOCKER} buildx build \
+		--platform ${PLATFORMS} \
 		-t ${STATIC_IMAGE}:latest \
 		-t ${STATIC_IMAGE}:${VERSION} \
 		-t ${ECR_STATIC_IMAGE}:latest \
@@ -90,5 +93,9 @@ ${STATIC_IMAGE_DUMMY}: Dockerfile ${TFENV} ${PACKER} awscli ${ANSIBLE_ROLES} ${A
 
 .PHONY: ${ECR_STATIC_IMAGE}
 ${ECR_STATIC_IMAGE}: ${STATIC_IMAGE_DUMMY}
-	docker push ${ECR_STATIC_IMAGE}:latest
-	docker push ${ECR_STATIC_IMAGE}:${VERSION}
+	${DOCKER} buildx build \
+		--push \
+		--platform ${PLATFORMS} \
+		-t ${ECR_STATIC_IMAGE}:latest \
+		-t ${ECR_STATIC_IMAGE}:${VERSION} \
+		.
