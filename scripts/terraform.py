@@ -54,6 +54,7 @@ class Terraform(object):
         graph_parser.set_defaults(parser_func=self.graph)
 
         init_parser = subparsers.add_parser('init')
+        init_parser.add_argument("--upgrade", action='store_true')
         init_parser.add_argument("--backend-config",
                                  help='A backend config file or key=value assignment',
                                  nargs='+')
@@ -83,6 +84,19 @@ class Terraform(object):
         terraform_parser.add_argument("args", help="A resource to untaint", nargs='+')
         terraform_parser.set_defaults(parser_func=self.terraform)
 
+        migration_fromplan_parser = subparsers.add_parser('migration_fromplan')
+        migration_fromplan_parser.add_argument("tfplan_file", help="input from terraform plan -out")
+        migration_fromplan_parser.add_argument("migration_file", help="output HCL migration file")
+        migration_fromplan_parser.set_defaults(parser_func=self.migration_fromplan)
+
+        migrate_plan_parser = subparsers.add_parser('migrate_plan')
+        migrate_plan_parser.add_argument("migration_file", help="HCL migration file")
+        migrate_plan_parser.set_defaults(parser_func=self.migrate_plan)
+
+        migrate_apply_parser = subparsers.add_parser('migrate_apply')
+        migrate_apply_parser.add_argument("migration_file", help="HCL migration file")
+        migrate_apply_parser.set_defaults(parser_func=self.migrate_apply)
+
         args = argparser.parse_args()
 
         self.env = args.env
@@ -102,13 +116,15 @@ class Terraform(object):
         kwargs = {k: v for k, v in vars(args).items() if k not in args_ignore}
         args.parser_func(**kwargs)
 
-    def init(self, backend_config=None):
+    def init(self, backend_config=None, upgrade=None):
         self._tfenv_init()
         args = []
         if backend_config is not None:
             for config in backend_config:
                 args.append('-backend-config')
                 args.append(config)
+        if upgrade:
+            args.append("--upgrade")
         rc = self._script(
             # no switching workspaces for init -- not necessary
             ['terraform', 'init'] + list(args))
@@ -286,6 +302,41 @@ class Terraform(object):
                 cmd)
             if rc != 0:
                 exit(rc)
+
+    def migration_fromplan(self, tfplan_file=None, migration_file=None):
+        self._tfenv_init()
+        show_cmd = ("terraform", "show", "-json", tfplan_file)
+        tfedit_cmd = ("tfedit", "migration", "fromplan", "-o="+migration_file)
+        tfshow = subprocess.Popen(show_cmd, stdout=subprocess.PIPE)
+        subprocess.check_call(tfedit_cmd, stdin=tfshow.stdout)
+        tfshow.wait()
+
+    def migrate_plan(self, migration_file=None):
+        self._tfenv_init()
+        self._check_env()
+        self._prompt_env_switch()
+        var_file_args = " ".join(self._var_file_args())
+        cmd = ("tfmigrate", "plan", migration_file)
+        environ = os.environ.copy()
+        environ["TFMIGRATE_LOG"] = "DEBUG"
+        environ["TF_CLI_ARGS_plan"] = var_file_args
+        environ["TF_CLI_ARGS_import"] = var_file_args
+        subprocess.check_call(self._tf_workspace_select())
+        subprocess.check_call(cmd, env=environ)
+
+    def migrate_apply(self, migration_file=None):
+        self._tfenv_init()
+        self._check_env()
+        self._prompt_env_switch()
+        var_file_args = " ".join(self._var_file_args())
+        cmd = ("tfmigrate", "apply", migration_file)
+        environ = os.environ.copy()
+        environ["TFMIGRATE_LOG"] = "DEBUG"
+        environ["TF_CLI_ARGS_plan"] = var_file_args
+        environ["TF_CLI_ARGS_apply"] = var_file_args
+        environ["TF_CLI_ARGS_import"] = var_file_args
+        subprocess.check_call(self._tf_workspace_select())
+        subprocess.check_call(cmd, env=environ)
 
     def _check_env(self):
         '''
