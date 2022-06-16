@@ -79,3 +79,8 @@
         create: true
         pspEnabled: true
     default_values: "{{default_base_values | combine(service_account, recursive=True)}}"
+
+- name: Purge old values files
+  file:
+    path: "{{kubectl_asset_root_path}}/external-dns"
+    state: absent
