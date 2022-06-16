@@ -1,67 +1,81 @@
 ---
 # tasks file for k8s_external_dns
 
-- name: Chart values directory exists
-  file:
-    path: "{{k8s_external_dns_chart_public_values_path | dirname}}"
-    state: directory
+- name: Add bitnami repository
+  kubernetes.core.helm_repository:
+    name: bitnami
+    repo_url: https://charts.bitnami.com/bitnami
 
-- name: Public chart values have been rendered
-  template:
-    dest: "{{k8s_external_dns_chart_public_values_path}}"
-    src: values-public.yaml.j2
+- name: Install public external-dns release
+  kubernetes.core.helm:
+    name: "{{k8s_external_dns_public_helm_release}}"
+    chart_ref: "{{k8s_external_dns_chart}}"
+    chart_version: "{{k8s_external_dns_chart_version}}"
+    namespace: "{{k8s_external_dns_namespace}}"
+    create_namespace: yes
+    update_repo_cache: yes
+    wait: true
+    values: "{{k8s_external_dns_public_chart_values | default(default_values, true)}}"
+  environment: "{{ kubectl_env }}"
+  vars:
+    service_account_v2:
+      rbac:
+        serviceAccountAnnotations:
+          eks.amazonaws.com/role-arn: "{{k8s_external_dns_public_service_account_iam_role_arn}}"
+    service_account_v3:
+      serviceAccount:
+        annotations:
+          eks.amazonaws.com/role-arn: "{{k8s_external_dns_public_service_account_iam_role_arn}}"
+    service_account: "{{service_account_v2 if k8s_external_dns_chart_version is version('3.0.0', '<') else service_account_v3}}"
+    default_base_values:
+      image:
+        tag: "{{k8s_external_dns_image_tag}}"
+      txtOwnerId: "{{luther_project_id}}-{{luther_env}}-public"
+      policy: sync
+      provider: aws
+      aws:
+        zoneType: public
+      rbac:
+        create: true
+        pspEnabled: true
+    default_values: "{{default_base_values | combine(service_account, recursive=True)}}"
 
-- name: Private chart values have been rendered
-  template:
-    dest: "{{k8s_external_dns_chart_private_values_path}}"
-    src: values-private.yaml.j2
-
-- name: Update helm repositories
-  command:
-    argv:
-      - helm
-      - repo
-      - update
-  # Only update when the chart is not an absolute file path
-  when: k8s_external_dns_chart is not match("/")
-  environment:
-    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
-    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
-    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
-    KUBECONFIG: "{{kubectl_config_path}}"
-
-- name: Public chart has been installed
-  command:
-    argv:
-      - helm
-      - upgrade
-      - --install
-      - --wait
-      - --values={{k8s_external_dns_chart_public_values_path}}
-      - --version={{k8s_external_dns_chart_version}}
-      - --namespace={{k8s_external_dns_namespace}}
-      - "{{k8s_external_dns_public_helm_release}}"
-      - "{{k8s_external_dns_chart}}"
-  environment:
-    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
-    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
-    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
-    KUBECONFIG: "{{kubectl_config_path}}"
-
-- name: Private chart has been installed
-  command:
-    argv:
-      - helm
-      - upgrade
-      - --install
-      - --wait
-      - --values={{k8s_external_dns_chart_private_values_path}}
-      - --version={{k8s_external_dns_chart_version}}
-      - --namespace={{k8s_external_dns_namespace}}
-      - "{{k8s_external_dns_private_helm_release}}"
-      - "{{k8s_external_dns_chart}}"
-  environment:
-    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
-    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
-    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
-    KUBECONFIG: "{{kubectl_config_path}}"
+- name: Install private external-dns release
+  kubernetes.core.helm:
+    name: "{{k8s_external_dns_private_helm_release}}"
+    chart_ref: "{{k8s_external_dns_chart}}"
+    chart_version: "{{k8s_external_dns_chart_version}}"
+    namespace: "{{k8s_external_dns_namespace}}"
+    create_namespace: yes
+    update_repo_cache: yes
+    wait: true
+    values: "{{k8s_external_dns_private_chart_values | default(default_values, true)}}"
+  environment: "{{ kubectl_env }}"
+  vars:
+    service_account_v2:
+      rbac:
+        serviceAccountAnnotations:
+          eks.amazonaws.com/role-arn: "{{k8s_external_dns_private_service_account_iam_role_arn}}"
+    service_account_v3:
+      serviceAccount:
+        annotations:
+          eks.amazonaws.com/role-arn: "{{k8s_external_dns_private_service_account_iam_role_arn}}"
+    service_account: "{{service_account_v2 if k8s_external_dns_chart_version is version('3.0.0', '<') else service_account_v3}}"
+    default_base_values:
+      image:
+        tag: "{{k8s_external_dns_image_tag}}"
+      txtOwnerId: "{{luther_project_id}}-{{luther_env}}-private"
+      policy: sync
+      provider: aws
+      aws:
+        zoneType: private
+        # external-dns managing private hosted zones needs to filter by tag to
+        # handle private zones with the same name existing in different
+        # environments/vpcs.
+        zoneTags:
+          - Project={{luther_project_id}}
+          - Environment={{luther_env}}
+      rbac:
+        create: true
+        pspEnabled: true
+    default_values: "{{default_base_values | combine(service_account, recursive=True)}}"
