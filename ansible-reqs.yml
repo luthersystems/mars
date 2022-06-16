@@ -2,4 +2,4 @@
 collections:
 - name: kubernetes.core
   type: galaxy
-  version: 2.2.2
+  version: 2.3.2
