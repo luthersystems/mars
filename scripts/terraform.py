@@ -31,7 +31,7 @@ class Terraform(object):
         plan_parser = subparsers.add_parser('plan')
         plan_parser.add_argument('--destroy', action='store_true')
         plan_parser.add_argument('--out')
-        plan_parser.add_argument('--target')
+        plan_parser.add_argument('--target', action='append')
         plan_parser.add_argument('--apply', dest='apply_plan', action='store_true')
         plan_parser.add_argument('--refresh-only', action='store_true')
         plan_parser.set_defaults(parser_func=self.plan)
@@ -171,7 +171,8 @@ class Terraform(object):
             arg = '-out={}'.format(plan_path)
             extra_args.append(arg)
         if target is not None:
-            extra_args.extend(['-target', target])
+            for t in target:
+                extra_args.extend(['-target', t])
         if refresh_only:
             extra_args.append('-refresh-only')
         args = itertools.chain(base_args, var_file_args, extra_args)
