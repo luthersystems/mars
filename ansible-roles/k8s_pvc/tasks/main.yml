@@ -1,0 +1,22 @@
+---
+- name: Helm chart exists
+  synchronize:
+    src: pvc/
+    dest: "{{k8s_pvc_helm_chart_path}}"
+    delete: yes
+    recursive: yes
+    owner: no
+    group: no
+    use_ssh_args: yes
+
+- name: Install helm chart
+  kubernetes.core.helm:
+    chart_ref: "{{k8s_pvc_helm_chart_path}}"
+    name: "{{k8s_pvc_name}}"
+    namespace: "{{k8s_pvc_namespace}}"
+    create_namespace: yes
+    values:
+      component: "{{k8s_pvc_component}}"
+      partOf: "{{k8s_pvc_part_of}}"
+      storageSize: "{{k8s_pvc_storage_size}}"
+  environment: "{{ kubectl_env }}"

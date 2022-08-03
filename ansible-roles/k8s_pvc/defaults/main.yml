@@ -1,0 +1,9 @@
+---
+# k8s_pvc_namespace: ""
+# k8s_pvc_name: ""
+# k8s_pvc_storage_size: 10Gi
+
+k8s_pvc_component: ""
+k8s_pvc_part_of: ""
+
+k8s_pvc_helm_chart_path: "{{kubectl_asset_root_path}}/pvc"
