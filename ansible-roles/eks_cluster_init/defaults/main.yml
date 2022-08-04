@@ -10,3 +10,11 @@ eks_cluster_init_nondefault_storageclasses:
 # The sole will update the supplied classes to set allowVolumeExpansion to true
 eks_cluster_init_enable_resize_storageclasses:
   - gp2
+
+eks_cluster_init_encrypted_storageclass: gp2-encrypted
+
+# eks_cluster_init_eks_worker_iam_role_arn: ""
+# eks_cluster_init_k8s_admin_role_arn: ""
+# eks_cluster_init_storage_kms_key_id: ""
+
+eks_cluster_init_volume_reclaim_policy: Delete

@@ -1,11 +1,56 @@
 ---
 # tasks file for eks_cluster_init
 
+- name: Enable IAM admin role access
+  kubernetes.core.k8s:
+    kind: ConfigMap
+    name: aws-auth
+    namespace: kube-system
+    definition:
+      data:
+        mapRoles: "{{ map_roles | to_nice_yaml(indent=2) }}"
+  vars:
+    map_roles:
+      - rolearn: "{{ eks_cluster_init_eks_worker_iam_role_arn }}"
+        username: !unsafe system:node:{{EC2PrivateDNSName}}
+        groups:
+          - system:bootstrappers
+          - system:nodes
+      - rolearn: "{{ eks_cluster_init_k8s_admin_role_arn }}"
+        username: luther:admin
+        groups:
+          - system:masters
+  environment: "{{ kubectl_env }}"
+  when:
+    - eks_cluster_init_eks_worker_iam_role_arn is defined
+    - eks_cluster_init_k8s_admin_role_arn is defined
+
+- name: Create default encrypted storage class
+  kubernetes.core.k8s:
+    api_version: storage.k8s.io/v1
+    kind: StorageClass
+    name: "{{ eks_cluster_init_encrypted_storageclass }}"
+    definition:
+      metadata:
+        annotations:
+          storageclass.kubernetes.io/is-default-class: "true"
+      provisioner: kubernetes.io/aws-ebs
+      parameters:
+        type: gp2
+        fsType: ext4
+        encrypted: "true"
+        kmsKeyId: "{{ eks_cluster_init_storage_kms_key_id }}"
+      reclaimPolicy: "{{ eks_cluster_init_volume_reclaim_policy }}"
+      volumeBindingMode: WaitForFirstConsumer
+      allowVolumeExpansion: true
+  environment: "{{ kubectl_env }}"
+  when: eks_cluster_init_storage_kms_key_id is defined
+
 - name: Annotate non-default StorageClass objects
   kubernetes.core.k8s:
     kind: StorageClass
     name: "{{item}}"
-    resource_definition:
+    definition:
       metadata:
         annotations:
           storageclass.kubernetes.io/is-default-class: "false"
@@ -16,7 +61,7 @@
   kubernetes.core.k8s:
     kind: StorageClass
     name: "{{item}}"
-    resource_definition:
+    definition:
       allowVolumeExpansion: true
   loop: "{{eks_cluster_init_enable_resize_storageclasses}}"
   environment: "{{ kubectl_env }}"
