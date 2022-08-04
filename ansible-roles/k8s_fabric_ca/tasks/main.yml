@@ -63,8 +63,10 @@
       persistentVolume:
         create: "{{not k8s_fabric_ca_separate_pvc}}"
         storageSize: "{{k8s_fabric_ca_storage_size}}"
-      availabilityZone: "{{k8s_pv_data_replica_azs[0]}}"
+      availabilityZone: "{{availability_zones[0]}}"
       service:
         idleTimeout: "{{k8s_fabric_ca_lb_idle_timeout}}"
         useNLB: "{{k8s_fabric_ca_use_nlb}}"
   environment: "{{ kubectl_env }}"
+  vars:
+    availability_zones: "{{[k8s_fabric_ca_az] | default(k8s_pv_data_replica_azs, true)}}"
