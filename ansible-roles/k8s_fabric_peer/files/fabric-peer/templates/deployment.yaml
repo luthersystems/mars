@@ -223,7 +223,7 @@ spec:
             - name: tls
               mountPath: /tls
       nodeSelector:
-        failure-domain.beta.kubernetes.io/zone: {{ .Values.availabilityZone }}
+        topology.kubernetes.io/zone: {{ .Values.availabilityZone }}
       {{- with .Values.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
