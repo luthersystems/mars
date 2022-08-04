@@ -2,38 +2,38 @@
 # tasks file for k8s_fabric_orderer loop
 
 - name: Helm Chart is installed
-  command:
-    argv:
-      - helm
-      - upgrade
-      - --install
-      - --wait
-      - --namespace={{k8s_fabric_orderer_namespace}}
-      - --set=global.lutherProjectID={{luther_project_id}}
-      - --set=global.lutherEnv={{luther_env}}
-      - --set=global.hyperledger.fabricVersion={{k8s_fabric_version}}
-      - --set=dlt.organization={{k8s_fabric_orderer_org}}
-      - --set=dlt.organizationIndex={{item}}
-      - --set=dlt.domain={{k8s_fabric_orderer_domain_root}}
-      - --set=dlt.hcs={{k8s_fabric_orderer_hcs}}
-      - --set=dlt.hcsOperatorId={{k8s_fabric_orderer_hcs_operator_id}}
-      - --set=dlt.hcsOperatorPrivateKey={{k8s_fabric_orderer_hcs_operator_private_key}}
-      - --set=global.aws.region={{shiro_phylum_s3_region}}
-      - --set=global.aws.staticBucket={{shiro_phylum_s3_bucket}}
-      - --set=image.repository={{k8s_fabric_orderer_image_repository}}
-      - --set=startService={{k8s_fabric_orderer_start_service}}
-      - --set=persistentVolume.storageSize={{k8s_fabric_orderer_storage_size}}
-      - --set=logLevel={{k8s_fabric_orderer_log_level}}
-      - --set=availabilityZone={{k8s_pv_data_replica_azs[item]}}
-      - --set=service.idleTimeout={{k8s_fabric_orderer_lb_idle_timeout}}
-      - --set=service.useNLB={{k8s_fabric_orderer_use_nlb}}
-      - "fabric-orderer{{item}}"
-      - "{{k8s_fabric_orderer_helm_chart_path}}"
-  environment:
-    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
-    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
-    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
-    KUBECONFIG: "{{kubectl_config_path}}"
+  kubernetes.core.helm:
+    chart_ref: "{{k8s_fabric_orderer_helm_chart_path}}"
+    name: "fabric-orderer{{item}}"
+    namespace: "{{k8s_fabric_orderer_namespace}}"
+    wait: true
+    values:
+      global:
+        lutherProjectID: "{{luther_project_id}}"
+        lutherEnv: "{{luther_env}}"
+        hyperledger:
+          fabricVersion: "{{k8s_fabric_version}}"
+        aws:
+          region: "{{shiro_phylum_s3_region}}"
+          staticBucket: "{{shiro_phylum_s3_bucket}}"
+      dlt:
+        organization: "{{k8s_fabric_orderer_org}}"
+        organizationIndex: "{{item}}"
+        domain: "{{k8s_fabric_orderer_domain_root}}"
+        hcs: "{{k8s_fabric_orderer_hcs}}"
+        hcsOperatorId: "{{k8s_fabric_orderer_hcs_operator_id}}"
+        hcsOperatorPrivateKey: "{{k8s_fabric_orderer_hcs_operator_private_key}}"
+      image:
+        repository: "{{k8s_fabric_orderer_image_repository}}"
+      startService: "{{k8s_fabric_orderer_start_service}}"
+      persistentVolume:
+        storageSize: "{{k8s_fabric_orderer_storage_size}}"
+      logLevel: "{{k8s_fabric_orderer_log_level}}"
+      availabilityZone: "{{k8s_pv_data_replica_azs[item]}}"
+      service:
+        idleTimeout: "{{k8s_fabric_orderer_lb_idle_timeout}}"
+        useNLB: "{{k8s_fabric_orderer_use_nlb}}"
+  environment: "{{ kubectl_env }}"
 
 - name: Upgrade pauser has run
   when: is_fabric_upgrade | bool
