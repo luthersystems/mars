@@ -22,6 +22,7 @@ k8s_fabric_peer_log_level: INFO
 k8s_fabric_peer_pv_selectors:
   - app.kubernetes.io/component=bcpeer
   - type=storage
+k8s_fabric_peer_separate_pvc: false
 k8s_fabric_peer_hcs: "{{k8s_fabric_network_hcs}}"
 k8s_fabric_peer_lb_idle_timeout: 60
 k8s_fabric_peer_use_nlb: true

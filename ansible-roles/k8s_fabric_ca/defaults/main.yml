@@ -11,5 +11,6 @@ k8s_fabric_ca_storage_size: 10Gi
 k8s_fabric_ca_pv_selectors:
   - app.kubernetes.io/component=bcca
   - type=storage
+k8s_fabric_ca_separate_pvc: false
 k8s_fabric_ca_lb_idle_timeout: 60
 k8s_fabric_ca_use_nlb: true

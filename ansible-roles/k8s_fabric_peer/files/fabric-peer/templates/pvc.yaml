@@ -1,3 +1,4 @@
+{{- if .Values.persistentVolume.create }}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -38,3 +39,4 @@ spec:
   resources:
     requests:
       storage: {{ .Values.persistentVolume.dockerStorageSize }}
+{{- end }}
