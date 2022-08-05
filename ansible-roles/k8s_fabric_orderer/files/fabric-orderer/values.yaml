@@ -39,6 +39,7 @@ internal:
     keepaliveMinInterval: 30s
 
 persistentVolume:
+  create: true
   storageClassName: gp2
   storageSize: 10Gi
 

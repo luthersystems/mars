@@ -25,7 +25,7 @@
     - eks_cluster_init_eks_worker_iam_role_arn is defined
     - eks_cluster_init_k8s_admin_role_arn is defined
 
-- name: Create default encrypted storage class
+- name: Create default encrypted StorageClass
   kubernetes.core.k8s:
     api_version: storage.k8s.io/v1
     kind: StorageClass

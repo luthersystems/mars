@@ -55,6 +55,7 @@ internal:
     invokeTimeout: 30s
 
 persistentVolume:
+  create: true
   storageClassName: gp2
   storageSize: 10Gi
   dockerStorageSize: 10Gi

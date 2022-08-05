@@ -1,0 +1,8 @@
+component: ""
+partOf: ""
+
+nameOverride: ""
+fullnameOverride: ""
+
+storageClassName: gp2-encrypted
+storageSize: 5Gi

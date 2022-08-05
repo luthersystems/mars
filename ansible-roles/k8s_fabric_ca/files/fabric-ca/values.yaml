@@ -43,6 +43,7 @@ internal:
     operationsPort: 9080
 
 persistentVolume:
+  create: true
   storageClassName: gp2
   storageSize: 10Gi
 
