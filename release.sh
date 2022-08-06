@@ -58,8 +58,6 @@ make docker-push
 
 set_version "$VERSION_NEXT"
 
-make
-
 git commit -a -m 'Set version to '"$VERSION_NEXT"
 
 set +o xtrace
