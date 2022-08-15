@@ -36,9 +36,9 @@
       - --set=dlt.mspID={{k8s_fabric_cli_msp}}
       - --set=dlt.domain={{k8s_fabric_cli_domain_root}}
       - --set=dlt.peerIndex={{item}}
-      - --set=substrate.version={{shiro_phylum_substrate_version}}
-      - --set=global.aws.region={{shiro_phylum_s3_region}}
-      - --set=global.aws.staticBucket={{shiro_phylum_s3_bucket}}
+      - --set=substrate.version={{k8s_fabric_cli_substrate_version or shiro_phylum_substrate_version}}
+      - --set=global.aws.region={{k8s_fabric_cli_cert_bucket_region or shiro_phylum_s3_region}}
+      - --set=global.aws.staticBucket={{k8s_fabric_cli_cert_bucket or shiro_phylum_s3_bucket}}
       - --wait
       - "fabric-cli{{item}}-{{k8s_fabric_cli_org}}"
       - "{{k8s_fabric_cli_helm_chart_path}}"
