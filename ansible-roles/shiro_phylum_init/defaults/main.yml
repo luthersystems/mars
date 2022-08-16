@@ -2,3 +2,5 @@
 # defaults file for shiro_phylum_init
 
 shiro_phylum_init_script: "{{k8s_fabric_scripts_dir}}/init-phylum.sh"
+shiro_phylum_init_substrate_version: ""
+shiro_phylum_init_version: ""

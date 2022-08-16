@@ -2,4 +2,3 @@ allow_duplicates: true
 
 dependencies:
   - kubectl
-  - shiro_phylum_base

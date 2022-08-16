@@ -25,8 +25,8 @@
         hyperledger:
           fabricVersion: "{{k8s_fabric_version}}"
         aws:
-          region: "{{shiro_phylum_s3_region}}"
-          staticBucket: "{{shiro_phylum_s3_bucket}}"
+          region: "{{k8s_fabric_orderer_cert_bucket_region or shiro_phylum_s3_region}}"
+          staticBucket: "{{k8s_fabric_orderer_cert_bucket or shiro_phylum_s3_bucket}}"
       dlt:
         organization: "{{k8s_fabric_orderer_org}}"
         organizationIndex: "{{item}}"
@@ -47,7 +47,7 @@
         useNLB: "{{k8s_fabric_orderer_use_nlb}}"
   environment: "{{ kubectl_env }}"
   vars:
-    availability_zones: "{{k8s_fabric_orderer_azs | default(k8s_pv_data_replica_azs, true)}}"
+    availability_zones: "{{k8s_fabric_orderer_azs or k8s_pv_data_replica_azs}}"
 
 - name: Upgrade pauser has run
   when: is_fabric_upgrade | bool

@@ -1,4 +1,3 @@
 dependencies:
   - kubectl
-  - shiro_phylum_base
   - k8s_fabric_scripts
