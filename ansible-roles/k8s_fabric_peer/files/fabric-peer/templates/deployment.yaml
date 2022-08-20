@@ -185,7 +185,7 @@ spec:
         # version of substrate (not the end of the world because substrate
         # upgrades still require downtime).
         - name: chaincode-archive-bootstrap
-          image: 967058059066.dkr.ecr.eu-west-2.amazonaws.com/luthersystems/awscli:0.1.0
+          image: luthersystems/awscli:0.2.0
           env:
             - name: AWS_REGION
               value: {{ .Values.substrate.s3.region }}
@@ -201,7 +201,7 @@ spec:
             - name: chaincode-archives
               mountPath: /chaincodes
         - name: config-fetch
-          image: 967058059066.dkr.ecr.eu-west-2.amazonaws.com/luthersystems/awscli:0.1.0
+          image: luthersystems/awscli:0.2.0
           env:
             - name: AWS_REGION
               value: {{ .Values.global.aws.region }}
