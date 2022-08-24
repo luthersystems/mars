@@ -16,11 +16,7 @@
     src: "{{helm_tiller_k8s_resource_path}}/{{item}}"
   with_items:
     - "{{helm_tiller_k8s_resources}}"
-  environment:
-    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
-    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
-    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
-    KUBECONFIG: "{{kubectl_config_path}}"
+  environment: "{{ kubectl_env }}"
   when: helm_version is version('3.0', '<')
 
 - name: Initialize tiller
@@ -35,9 +31,5 @@
       - --upgrade
       - --tiller-connection-timeout=100
       - --override=spec.template.spec.containers[0].command={{helm_tiller_command}}
-  environment:
-    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
-    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
-    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
-    KUBECONFIG: "{{kubectl_config_path}}"
-  when: helm_version is version('3.0', '<')
+   environment: "{{ kubectl_env }}"
+   when: helm_version is version('3.0', '<')

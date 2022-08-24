@@ -7,11 +7,7 @@
     api_version: v1
     kind: Namespace
     state: present
-  environment:
-    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
-    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
-    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
-    KUBECONFIG: "{{kubectl_config_path}}"
+  environment: "{{ kubectl_env }}"
 
 - name: Alertmanager config exists
   k8s:
@@ -22,11 +18,7 @@
     resource_definition:
       data: "{{prometheus_alertmanager_configmap_data}}"
     state: present
-  environment:
-    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
-    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
-    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
-    KUBECONFIG: "{{kubectl_config_path}}"
+  environment: "{{ kubectl_env }}"
 
 - name: Grafana admin credentials exist
   k8s:
@@ -39,11 +31,7 @@
         admin-user: "{{grafana_admin_user | b64encode}}"
         admin-password: "{{grafana_admin_password | b64encode}}"
     state: present
-  environment:
-    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
-    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
-    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
-    KUBECONFIG: "{{kubectl_config_path}}"
+  environment: "{{ kubectl_env }}"
 
 - name: Google OAuth client credentials exist
   k8s:
@@ -58,11 +46,7 @@
         GF_AUTH_GENERIC_OAUTH_CLIENT_ID: "{{grafana_custom_oauth_config.client_id | default('') | b64encode}}"
         GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: "{{grafana_custom_oauth_config.client_secret | default ('') | b64encode}}"
     state: present
-  environment:
-    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
-    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
-    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
-    KUBECONFIG: "{{kubectl_config_path}}"
+  environment: "{{ kubectl_env }}"
 
 - name: Grafana dashboards configmap directory exists
   file:
@@ -78,11 +62,7 @@
 - name: Grafana dashboards configmap exists
   k8s:
     src: "{{grafana_dashboard_configmap_path}}"
-  environment:
-    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
-    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
-    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
-    KUBECONFIG: "{{kubectl_config_path}}"
+  environment: "{{ kubectl_env }}"
 
 - name: Chart values directory exists
   file:
@@ -106,6 +86,7 @@
     use_ssh_args: yes
 
 - name: Helm chart is installed
+  # TODO: use k8s core
   command:
     argv:
       - helm
@@ -118,8 +99,4 @@
       - "prometheus.extraScrapeConfigs={{lookup('template', 'extra_scrape_configs.yaml.j2')}}"
       - "{{k8s_monitoring_helm_release}}"
       - "{{k8s_monitoring_chart_path}}"
-  environment:
-    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
-    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
-    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
-    KUBECONFIG: "{{kubectl_config_path}}"
+  environment: "{{ kubectl_env }}"

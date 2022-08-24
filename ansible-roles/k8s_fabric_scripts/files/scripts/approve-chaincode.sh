@@ -12,7 +12,7 @@ NAMESPACE="fabric-$ORG"
 
 source "${BASH_SOURCE%/*}/channel-utils.sh"
 
-pod="$(select_first_pod "$ORG" 0)"
+pod="$(select_first_cli_pod "$ORG" 0)"
 
 approvedByOrg() {
     POD=$1
@@ -29,6 +29,7 @@ fi
 
 changed=0
 if ! approvedByOrg "$pod"; then
+    # TODO: --clientauth --certfile "$CORE_PEER_TLS_CERT_FILE" --keyfile "$CORE_PEER_TLS_KEY_FILE"
     if ! pod_exec "$pod" peer lifecycle chaincode approveformyorg \
              --channelID "$CHANNEL" --tls \
              --cafile "$ORDERER_CA" --orderer "$ORDERER" \

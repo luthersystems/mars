@@ -6,11 +6,7 @@
     api_version: v1
     kind: PersistentVolume
     label_selectors: "{{k8s_pv_data_selectors}}"
-  environment:
-    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
-    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
-    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
-    KUBECONFIG: "{{kubectl_config_path}}"
+  environment: "{{ kubectl_env }}"
   register: vol_list
 
 - name: set k8s_pv_data_replica_azs

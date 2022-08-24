@@ -8,13 +8,18 @@ NAMESPACE="fabric-$ORG"
 
 source "${BASH_SOURCE%/*}/channel-utils.sh"
 
-CHANNELBLOCK=luther.block
+CHANNELBLOCK=${CHANNEL}.block
 ANCHORTX=./channel-artifacts/${MSP}anchors.tx
 
-pod="$(select_first_pod "$ORG" 0)"
+pod="$(select_first_cli_pod "$ORG" 0)"
+
+WORKDIR=/opt/blocks/update-anchor-peers-${RANDOM}
+echo "WORKDIR=$WORKDIR"
+
+pod_exec "$pod" mkdir -p $WORKDIR
 
 pod_exec "$pod" \
-    peer channel fetch oldest "$CHANNELBLOCK" -c "$CHANNEL"
+    peer channel fetch oldest "$WORKDIR/$CHANNELBLOCK" -c "$CHANNEL"
 
 if [[ $? -ne 0 ]]; then
     echo "Unable to retrieve latest channel block" >&2
@@ -22,10 +27,10 @@ if [[ $? -ne 0 ]]; then
 fi
 
 pod_exec "$pod" \
-    configtxlator proto_decode --type common.Block --input "$CHANNELBLOCK" --output "$CHANNELBLOCK.json"
+    configtxlator proto_decode --type common.Block --input "$WORKDIR/$CHANNELBLOCK" --output "$WORKDIR/$CHANNELBLOCK.json"
 
 if [[ $? -ne 0 ]]; then
-    echo "Unable to decode channel block: $CHANNELBLOCK" >&2
+    echo "Unable to decode channel block: $WORKDIR/$CHANNELBLOCK" >&2
     exit 1
 fi
 
@@ -41,8 +46,11 @@ fi
 #fi
 
 pod_exec "$pod" \
-    peer channel update -o "$ORDERER" -c "$CHANNEL" -f "$ANCHORTX" --tls true --cafile "$ORDERER_CA"
-
+    peer channel update \
+    -f "$ANCHORTX" \
+    -o "$ORDERER" -c "$CHANNEL" \
+    --tls --cafile "$ORDERER_CA"
+# TODO: --clientauth --certfile "$CORE_PEER_TLS_CERT_FILE" --keyfile "$CORE_PEER_TLS_KEY_FILE"
 
 echo
 # FIXME: Because we can't correctly detect above whether the anchor peers have

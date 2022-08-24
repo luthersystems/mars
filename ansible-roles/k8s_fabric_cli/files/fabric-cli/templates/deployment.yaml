@@ -22,9 +22,13 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       volumes:
+        {{- if .Values.dockerChaincode }}
         - name: chaincode-archives
           emptyDir: {}
+        {{- end }}
         - name: genesisblock
+          emptyDir: {}
+        - name: blocks
           emptyDir: {}
         - name: orderertls
           emptyDir: {}
@@ -72,20 +76,25 @@ spec:
           volumeMounts:
             - name: genesisblock
               mountPath: /opt/gopath/src/github.com/hyperledger/fabric/peer/channel-artifacts
+            - name: blocks
+              mountPath: /opt/blocks
             - name: orderertls
               mountPath: /etc/hyperledger/fabric/orderertls
             - name: msp
               mountPath: /etc/hyperledger/fabric/msp
             - name: tls
               mountPath: /etc/hyperledger/fabric/tls
+            {{- if .Values.dockerChaincode }}
             - name: chaincode-archives
               mountPath: /opt/gopath/src/github.com/hyperledger/fabric/examples/chaincode/go
+            {{- end }}
             - name: collections-config
               mountPath: /etc/hyperledger/fabric/collections-config
           workingDir: /opt/gopath/src/github.com/hyperledger/fabric/peer
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       initContainers:
+        {{- if .Values.dockerChaincode }}
         # TODO:  Consider turning chaincode-archive-bootstrap into a sidecar
         # that periodically syncs chaincode archives into a volume that is
         # shared between it and the fabric-cli container.  Without continuous
@@ -108,6 +117,7 @@ spec:
           volumeMounts:
             - name: chaincode-archives
               mountPath: /chaincodes
+        {{- end }}
         - name: config-fetch
           image: luthersystems/awscli:0.2.0
           env:
@@ -143,10 +153,8 @@ spec:
               mountPath: /tls
             - name: collections-config
               mountPath: /collections-config
-      {{- with .Values.nodeSelector }}
       nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+        topology.kubernetes.io/zone: {{ .Values.availabilityZone }}
       {{- with .Values.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}

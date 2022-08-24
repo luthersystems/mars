@@ -14,6 +14,10 @@ global:
 
 replicaCount: 1
 
+# coreConfigMap is the name of a ConfigMap resource that contains a core.yaml
+# configuration file.
+coreConfigMap: fabric-peer-config
+
 dlt:
   component: bcord
   organization: orderer

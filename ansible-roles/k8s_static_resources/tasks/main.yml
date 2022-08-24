@@ -16,11 +16,7 @@
 - name: Raw k8s resource(s) exists
   k8s:
     src: "{{k8s_static_resources_root_path}}/{{luther_env}}/k8s_resources/{{item.metadata.namespace | default('nonamespace')}}/{{item.metadata.name}}.yaml"
-  environment:
-    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
-    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
-    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
-    KUBECONFIG: "{{kubectl_config_path}}"
+  environment: "{{ kubectl_env }}"
   loop: "{{k8s_static_resources}}"
 
 - name: S3 resource directories exist
@@ -43,9 +39,5 @@
 - name: S3 k8s resource(s) exists
   k8s:
     src: "{{k8s_static_resources_root_path}}{{item.object_key}}"
-  environment:
-    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
-    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
-    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
-    KUBECONFIG: "{{kubectl_config_path}}"
+  environment: "{{ kubectl_env }}"
   loop: "{{k8s_static_resources_s3_objects}}"

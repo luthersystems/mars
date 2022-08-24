@@ -1,0 +1,29 @@
+---
+# tasks file for k8s_fabric_cli loop
+
+- name: Helm Chart is installed
+  kubernetes.core.helm:
+    chart_ref: "{{k8s_fabric_cli_helm_chart_path}}"
+    name: "fabric-cli{{item}}-{{k8s_fabric_cli_org}}"
+    namespace: "{{k8s_fabric_cli_namespace}}"
+    wait: true
+    values:
+      global:
+        lutherEnv: "{{luther_env}}"
+        hyperledger:
+          fabricVersion: "{{k8s_fabric_version}}"
+        aws:
+          region: "{{k8s_fabric_cli_cert_bucket_region or shiro_phylum_s3_region}}"
+          staticBucket: "{{k8s_fabric_cli_cert_bucket or shiro_phylum_s3_bucket}}"
+      dlt:
+        organization: "{{k8s_fabric_cli_org}}"
+        mspID: "{{k8s_fabric_cli_msp}}"
+        domain: "{{k8s_fabric_cli_domain_root}}"
+        peerIndex: "{{item}}"
+      substrate:
+        version: "{{k8s_fabric_cli_substrate_version or shiro_phylum_substrate_version}}"
+      dockerChaincode: "{{k8s_fabric_chaincode_docker}}"
+      availabilityZone: "{{availability_zones[item]}}"
+  environment: "{{ kubectl_env }}"
+  vars:
+    availability_zones: "{{k8s_fabric_cli_azs}}"

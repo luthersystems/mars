@@ -31,6 +31,9 @@ spec:
           emptyDir: {}
         - name: tls
           emptyDir: {}
+        - name: config
+          configMap:
+            name: {{ .Values.coreConfigMap }}
         {{- if .Values.dlt.hcs }}
         - name: hcs
           emptyDir: {}
@@ -138,6 +141,9 @@ spec:
               mountPath: /var/hyperledger/production
             - name: genesisblock
               mountPath: /var/hyperledger/orderer/artifacts
+            - name: config
+              subPath: core.yaml
+              mountPath: /etc/hyperledger/fabric/core.yaml
             - name: msp
               mountPath: /var/hyperledger/orderer/msp
             - name: tls

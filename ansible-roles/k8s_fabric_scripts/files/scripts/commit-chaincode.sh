@@ -13,7 +13,7 @@ NAMESPACE="fabric-$ORG"
 
 source "${BASH_SOURCE%/*}/channel-utils.sh"
 
-pod="$(select_first_pod "$ORG" 0)"
+pod="$(select_first_cli_pod "$ORG" 0)"
 
 org_peer() {
     local org_domain="$1"
@@ -61,6 +61,7 @@ if ! pod_exec "$pod" peer lifecycle chaincode commit \
      --collections-config "$COLLECTIONS_PATH" \
      --signature-policy "$ENDORSEMENT_POLICY" \
      --sequence "$SEQ_NO"
+     # TODO: --clientauth --certfile "$CORE_PEER_TLS_CERT_FILE" --keyfile "$CORE_PEER_TLS_KEY_FILE"
 then
     echo "Failed to commit chaincode lifecycle" >&2
     exit 1

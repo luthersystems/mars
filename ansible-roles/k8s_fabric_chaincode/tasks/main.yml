@@ -20,6 +20,7 @@
   set_fact:
     committed: "{{ committed }}"
     next_sequence: "{{ (sequence | int) + 1 | default(1) }}"
+    cc_dash_ver: "{{ k8s_fabric_chaincode_version | replace('.', '-') }}"
   vars:
     committed: "{{ query_committed.rc == 0 }}"
     committed_json: "{{ query_committed.stdout | from_json }}"
@@ -31,17 +32,41 @@
   command:
     argv:
       - scripts/install-chaincode.sh
-      - "{{ item.name }}"
+      - "{{ item.0 }}" # org name
+      - "{{ item.1 }}" # peer index
       - "{{ k8s_fabric_chaincode_name }}"
       - "{{ k8s_fabric_chaincode_version }}"
+      # e.g. substrate-2-164-0
+      - "substrate-{{ cc_dash_ver }}"
+      - "{{ ansible_date_time.iso8601 }}"
+      - "{{ k8s_fabric_chaincode_external }}"
     chdir: "{{ k8s_fabric_scripts_workdir }}"
   environment: "{{ kubectl_env }}"
   when: not committed
-  loop: "{{ k8s_fabric_chaincode_orgs }}"
+  loop: "{{ k8s_fabric_chaincode_orgs | org_peer_pairs }}"
   register: install_result
   changed_when: '"peers have installed the chaincode" in install_result.stderr'
   tags:
   - prepare_chaincode_upgrade
+
+- name: Helm chart exists
+  synchronize:
+    src: chaincode/
+    dest: "{{k8s_fabric_chaincode_helm_chart_path}}"
+    delete: yes
+    recursive: yes
+    owner: no
+    group: no
+    use_ssh_args: yes
+  when: k8s_fabric_chaincode_external and not committed
+  tags:
+  - prepare_chaincode_upgrade
+
+- name: Loop is run
+  include_tasks: inner.yml
+  loop: "{{ k8s_fabric_chaincode_orgs | org_peer_pairs }}"
+  loop_control:
+    index_var: index
 
 - name: Approve chaincode on each org
   command:
@@ -56,7 +81,8 @@
     chdir: "{{ k8s_fabric_scripts_workdir }}"
   environment: "{{ kubectl_env }}"
   when: not committed
-  loop: "{{ k8s_fabric_chaincode_orgs }}"
+  # TODO: only approve on luther orgs!
+  loop:  "{{ k8s_fabric_chaincode_orgs }}"
   register: approve_result
   changed_when: '"has approved the chaincode" in approve_result.stderr'
   tags:
@@ -118,6 +144,7 @@
     chdir: "{{ k8s_fabric_scripts_workdir }}"
   environment: "{{ kubectl_env }}"
   when: not committed and approve_result.changed
+  loop: "{{ k8s_fabric_chaincode_orgs }}"
   register: readiness_result
   until: readiness_result is succeeded
   retries: 5
@@ -157,3 +184,25 @@
   retries: 5
   delay: 3
   changed_when: false
+
+- name: Look up unused chaincodes
+  k8s_info:
+    api_version: v1
+    kind: Service
+    label_selectors:
+      - app.kubernetes.io/name = chaincode
+      - app.kubernetes.io/version != {{ k8s_fabric_chaincode_version }}
+  environment: "{{ kubectl_env }}"
+  register: chaincodes
+  when: k8s_fabric_chaincode_external
+
+- name: Remove unused chaincodes
+  command:
+    argv:
+      - helm
+      - uninstall
+      - "--namespace={{ item.metadata.namespace }}"
+      - "{{ item.metadata.labels['app.kubernetes.io/instance'] }}"
+  environment: "{{ kubectl_env }}"
+  loop: "{{ chaincodes.resources }}"
+  when: k8s_fabric_chaincode_external

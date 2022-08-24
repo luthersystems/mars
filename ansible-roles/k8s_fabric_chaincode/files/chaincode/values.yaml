@@ -1,0 +1,51 @@
+# Default values for chaincode.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+component: ""
+partOf: ""
+
+dlt:
+  organization: org1
+  peerIndex: 0
+
+image:
+  repository: luthersystems/substrate
+  version: 2.164.0-fabric2
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  name: chaincode
+  type: ClusterIP
+  port: 80
+
+ports:
+  server: 8080
+  metrics: 9600
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+env:
+  CHAINCODE_LISTEN_ADDRESS: ":8080"
+  CHAINCODE_PROM_LISTEN_ADDR: ":9600"
+  CHAINCODE_LOG_LEVEL: "info"
+
+# chaincode package ID from peer, required
+ccid: ""
+
+availabilityZone: ""
