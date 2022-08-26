@@ -16,9 +16,9 @@ NAMESPACE="fabric-$ORG_NAME"
 
 source "${BASH_SOURCE%/*}/channel-utils.sh"
 
-pod="$(select_first_pod "$ORG_NAME" 0)"
+pod="$(select_first_cli_pod "$ORG_NAME" 0)"
 
-WORKDIR=/tmp/check-signatures-${RANDOM}
+WORKDIR=/opt/blocks/check-signatures-$(date +%s)
 echo "WORKDIR=$WORKDIR"
 
 REMOTE_PROPOSAL_PATH="$WORKDIR/signed_proposal.pb"

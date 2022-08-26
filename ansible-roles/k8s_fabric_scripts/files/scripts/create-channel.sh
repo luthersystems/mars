@@ -12,7 +12,7 @@ CHANNELBLOCK=${CHANNEL}.block
 
 pod="$(select_first_cli_pod $ORG 0)"
 
-WORKDIR=/opt/blocks/get-channel-block-${RANDOM}
+WORKDIR=/opt/blocks/get-channel-block-$(date +%s)
 echo "WORKDIR=$WORKDIR"
 
 pod_exec "$pod" mkdir -p $WORKDIR

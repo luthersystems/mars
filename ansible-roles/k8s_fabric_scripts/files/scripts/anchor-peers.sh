@@ -13,7 +13,7 @@ ANCHORTX=./channel-artifacts/${MSP}anchors.tx
 
 pod="$(select_first_cli_pod "$ORG" 0)"
 
-WORKDIR=/opt/blocks/update-anchor-peers-${RANDOM}
+WORKDIR=/opt/blocks/update-anchor-peers-$(date +%s)
 echo "WORKDIR=$WORKDIR"
 
 pod_exec "$pod" mkdir -p $WORKDIR

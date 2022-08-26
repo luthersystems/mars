@@ -13,7 +13,7 @@ source "${BASH_SOURCE%/*}/channel-utils.sh"
 
 pod="$(select_first_pod "$ORG_NAME" "$ORG_INDEX")"
 
-WORKDIR=/tmp/join-channel-${RANDOM}
+WORKDIR=/opt/blocks/join-channel-$(date +%s)
 echo "WORKDIR=$WORKDIR"
 
 pod_exec "$pod" mkdir -p $WORKDIR

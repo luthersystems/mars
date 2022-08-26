@@ -9,7 +9,7 @@ source "${BASH_SOURCE%/*}/channel-utils.sh"
 
 CHANNELBLOCK=${CHANNEL}.block
 
-WORKDIR=/opt/blocks/sync-channel-block-${RANDOM}
+WORKDIR=/opt/blocks/sync-channel-block-$(date +%s)
 
 if [ ! -f "$CHANNELBLOCK" ]; then
     echo "Channel block does not exist: $CHANNELBLOCK" >&2

@@ -10,13 +10,27 @@ NAMESPACE="fabric-$ORG_NAME"
 
 source "${BASH_SOURCE%/*}/channel-utils.sh"
 
-pod="$(select_first_pod "$ORG_NAME" 0)"
+pod="$(select_first_cli_pod "$ORG_NAME" 0)"
 
-WORKDIR=/tmp/get-channel-block-${RANDOM}
+WORKDIR=/opt/blocks/get-channel-block-$(date +%s)
 echo "WORKDIR=$WORKDIR"
 
 pod_exec "$pod" mkdir -p $WORKDIR
 
-pod_exec "$pod" peer channel fetch 0 "$WORKDIR/$BLOCK_NAME" -o "$ORDERER" -c "$CHANNEL" --tls --cafile "$ORDERER_CA"
+if [[ $? -ne 0 ]]; then
+    echo "Unable to create block dir" >&2
+    exit 1
+fi
 
-kubectl -n "$NAMESPACE" cp "$pod:$WORKDIR/$BLOCK_NAME" "$BLOCK_PATH"
+pod_exec "$pod" \
+    peer channel fetch oldest "$WORKDIR/$BLOCK_NAME" -c "$CHANNEL"
+
+if [[ $? -ne 0 ]]; then
+    echo "Unable to retrieve latest channel block" >&2
+    exit 1
+fi
+
+if ! pod_fetch "$pod" "$WORKDIR/$BLOCK_NAME" "$BLOCK_PATH"; then
+    echo "Unable to copy channel block" >&2
+    exit 1
+fi

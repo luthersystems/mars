@@ -12,9 +12,9 @@ NAMESPACE=fabric-org1
 
 source "${BASH_SOURCE%/*}/channel-utils.sh"
 
-pod="$(select_first_pod org1 0)"
+pod="$(select_first_cli_pod org1 0)"
 
-WORKDIR=/tmp/compute-org-update-${RANDOM}
+WORKDIR=/opt/blocks/compute-org-update-$(date +%s)
 echo "WORKDIR=$WORKDIR"
 
 pod_exec "$pod" mkdir -p $WORKDIR

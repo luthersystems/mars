@@ -58,15 +58,37 @@
     owner: no
     group: no
     use_ssh_args: yes
-  when: k8s_fabric_chaincode_external and not committed
+  when: k8s_fabric_chaincode_external
   tags:
   - prepare_chaincode_upgrade
 
-- name: Loop is run
-  include_tasks: inner.yml
+- name: Helm Chart is installed
+  kubernetes.core.helm:
+    chart_ref: "{{k8s_fabric_chaincode_helm_chart_path}}"
+    name: "substrate-{{ cc_dash_ver }}-peer{{ item.1 }}"
+    namespace: "fabric-{{ item.0 }}"
+    wait: true
+    values:
+      image:
+        version: "{{k8s_fabric_chaincode_version}}"
+      service:
+        name: "substrate-{{ cc_dash_ver }}-peer{{ item.1 }}"
+      ccid: "{{install_result.results[index].stdout}}"
+      dlt:
+        organization: "{{item.0 }}"
+        peerIndex: "{{item.1}}"
+      availabilityZone: "{{availability_zones[item.1]}}"
+      env:
+        CHAINCODE_LOG_LEVEL: "{{k8s_fabric_chaincode_loglevel}}"
   loop: "{{ k8s_fabric_chaincode_orgs | org_peer_pairs }}"
   loop_control:
     index_var: index
+  when: k8s_fabric_chaincode_external and not committed
+  tags:
+  - prepare_chaincode_upgrade
+  environment: "{{ kubectl_env }}"
+  vars:
+    availability_zones: "{{k8s_fabric_chaincode_azs}}"
 
 - name: Approve chaincode on each org
   command:
@@ -197,12 +219,11 @@
   when: k8s_fabric_chaincode_external
 
 - name: Remove unused chaincodes
-  command:
-    argv:
-      - helm
-      - uninstall
-      - "--namespace={{ item.metadata.namespace }}"
-      - "{{ item.metadata.labels['app.kubernetes.io/instance'] }}"
+  kubernetes.core.helm:
+    state: absent
+    name: "{{ item.metadata.labels['app.kubernetes.io/instance'] }}"
+    namespace: "{{ item.metadata.namespace }}"
+    wait: true
   environment: "{{ kubectl_env }}"
   loop: "{{ chaincodes.resources }}"
   when: k8s_fabric_chaincode_external

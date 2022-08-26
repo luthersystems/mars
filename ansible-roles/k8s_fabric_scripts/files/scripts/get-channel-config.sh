@@ -17,9 +17,9 @@ NAMESPACE="fabric-$ORG_NAME"
 
 source "${BASH_SOURCE%/*}/channel-utils.sh"
 
-pod="$(select_first_pod "$ORG_NAME" 0)"
+pod="$(select_first_cli_pod "$ORG_NAME" 0)"
 
-WORKDIR=/tmp/get-channel-config-${RANDOM}
+WORKDIR=/opt/blocks/get-channel-config-$(date +%s)
 echo "WORKDIR=$WORKDIR"
 
 REMOTE_BLOCK_PATH="$WORKDIR/channel_config.pb"
