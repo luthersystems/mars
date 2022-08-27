@@ -1,3 +1,4 @@
 dependencies:
   - kubectl
   - k8s_fabric_scripts
+  - k8s_ansible_plugins

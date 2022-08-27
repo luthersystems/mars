@@ -471,7 +471,7 @@ data:
         # unix:///var/run/docker.sock
         # http://localhost:2375
         # https://localhost:2376
-        endpoint: unix:///var/run/docker.sock
+        endpoint: {{k8s_fabric_peer_docker_socket | to_json}}
 
         # settings for docker vms
         docker:
@@ -552,7 +552,15 @@ data:
         # List of directories to treat as external builders and launchers for
         # chaincode. The external builder detection processing will iterate over the
         # builders in the order specified below.
+        {% if k8s_fabric_peer_chaincode_external %}
+        externalBuilders:
+            - name: substrate-buildpack
+              path: /buildpacks/substrate
+              propagateEnvironment:
+                  - PEER_INDEX
+        {% else %}
         externalBuilders: []
+        {% endif %}
             # - path: /path/to/directory
             #   name: descriptive-builder-name
             #   propagateEnvironment:

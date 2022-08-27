@@ -35,6 +35,10 @@ buildImage:
   repository: hyperledger/fabric-ccenv
   arch: amd64
 
+buildpackImage:
+  repository: luthersystems/buildpack
+  version: 0.1.0
+
 substrate:
   version: 2.96.0
   s3:

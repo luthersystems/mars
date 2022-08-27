@@ -22,10 +22,16 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       volumes:
+        {{- if .Values.externalChaincode }}
+        - name: buildpacks
+          emptyDir: {}
+        {{- end }}
+        {{- if .Values.dockerChaincode }}
         - name: docker-tls
           emptyDir: {}
         - name: chaincode-archives
           emptyDir: {}
+        {{- end }}
         - name: genesisblock
           emptyDir: {}
         - name: orderertls
@@ -59,6 +65,8 @@ spec:
             - while true; do sleep 10; done
           {{- end }}
           env:
+            - name: PEER_INDEX
+              value: "{{ .Values.dlt.peerIndex }}"
             - name: FABRIC_LOGGING_SPEC
               value: {{ .Values.logLevel }}
             - name: CORE_PEER_ADDRESS
@@ -94,6 +102,7 @@ spec:
               value: /etc/hyperledger/fabric/tls/server.key
             - name: CORE_PEER_TLS_ROOTCERT_FILE
               value: /etc/hyperledger/fabric/tls/ca.crt
+            {{- if .Values.dockerChaincode }}
             - name: CORE_VM_ENDPOINT
               value: http://localhost:2376
             - name: CORE_VM_DOCKER_TLS_ENABLED
@@ -107,6 +116,7 @@ spec:
             {{- if .Values.chaincode.resourceLimits.memory }}
             - name: CORE_VM_DOCKER_HOSTCONFIG_MEMORY
               value: {{ .Values.chaincode.resourceLimits.memory | int64 | toString | quote }}
+            {{- end }}
             {{- end }}
             - name: CORE_OPERATIONS_LISTENADDRESS
               value: 0.0.0.0:{{ .Values.internal.container.operationsPort }}
@@ -144,8 +154,16 @@ spec:
               port: http-op
           {{- end }}
           volumeMounts:
+            {{- if .Values.externalChaincode }}
+            - name: buildpacks
+              mountPath: /buildpacks
+            {{- end }}
+            {{- if .Values.dockerChaincode }}
             - name: docker-tls
               mountPath: /docker-tls
+            - name: chaincode-archives
+              mountPath: /opt/gopath/src/github.com/hyperledger/fabric/examples/chaincode/go
+            {{- end }}
             - name: genesisblock
               mountPath: /opt/gopath/src/github.com/hyperledger/fabric/peer/channel-artifacts
             - name: orderertls
@@ -159,11 +177,10 @@ spec:
               mountPath: /etc/hyperledger/fabric/tls
             - name: storage
               mountPath: /var/hyperledger/production
-            - name: chaincode-archives
-              mountPath: /opt/gopath/src/github.com/hyperledger/fabric/examples/chaincode/go
           workingDir: /opt/gopath/src/github.com/hyperledger/fabric/peer
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+        {{- if .Values.dockerChaincode }}
         - name: docker-chaincodes
           image: docker:stable-dind
           imagePullPolicy: Always
@@ -177,7 +194,18 @@ spec:
               mountPath: /var/lib/docker
             - name: docker-tls
               mountPath: /docker-tls
+        {{- end }}
       initContainers:
+        {{- if .Values.externalChaincode }}
+        - name: install-buildpack
+          image: "{{ .Values.buildpackImage.repository }}:{{ .Values.buildpackImage.version }}"
+          args:
+            - /buildpacks/substrate
+          volumeMounts:
+            - name: buildpacks
+              mountPath: /buildpacks
+        {{- end }}
+        {{- if .Values.dockerChaincode }}
         # TODO:  Consider turning chaincode-archive-bootstrap into a sidecar
         # that periodically syncs chaincode archives into a volume that is
         # shared between it and the fabric-peer container.  Without continuous
@@ -200,6 +228,7 @@ spec:
           volumeMounts:
             - name: chaincode-archives
               mountPath: /chaincodes
+        {{- end }}
         - name: config-fetch
           image: luthersystems/awscli:0.2.0
           env:

@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "chaincode.fullname" . }}
+  labels:
+    {{- include "chaincode.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "chaincode.labels.match" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "chaincode.labels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.version }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - {{ .Values.ccid }}
+          env:
+            {{- range $var, $value := .Values.env }}
+            - name: {{ $var }}
+              value: {{ $value | print | toJson }}
+            {{- end }}
+          ports:
+            - name: server
+              containerPort: {{ .Values.ports.server }}
+              protocol: TCP
+            - name: metrics
+              containerPort: {{ .Values.ports.metrics }}
+              protocol: TCP
+          livenessProbe:
+            tcpSocket:
+              port: server
+          readinessProbe:
+            tcpSocket:
+              port: server
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            readOnlyRootFilesystem: true
+            runAsUser: 1
+            allowPrivilegeEscalation: false
+
+      {{- if .Values.availabilityZone }}
+      nodeSelector:
+        topology.kubernetes.io/zone: {{ .Values.availabilityZone }}
+      {{- end }}

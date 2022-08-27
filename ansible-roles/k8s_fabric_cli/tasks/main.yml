@@ -7,11 +7,7 @@
     api_version: v1
     kind: Namespace
     state: present
-  environment:
-    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
-    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
-    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
-    KUBECONFIG: "{{kubectl_config_path}}"
+  environment: "{{ kubectl_env }}"
 
 - name: Helm chart exists
   synchronize:
@@ -24,27 +20,29 @@
     use_ssh_args: yes
 
 - name: Helm Chart is installed
-  command:
-    argv:
-      - helm
-      - upgrade
-      - --install
-      - --namespace={{k8s_fabric_cli_namespace}}
-      - --set=global.lutherEnv={{luther_env}}
-      - --set=global.hyperledger.fabricVersion={{k8s_fabric_version}}
-      - --set=dlt.organization={{k8s_fabric_cli_org}}
-      - --set=dlt.mspID={{k8s_fabric_cli_msp}}
-      - --set=dlt.domain={{k8s_fabric_cli_domain_root}}
-      - --set=dlt.peerIndex={{item}}
-      - --set=substrate.version={{k8s_fabric_cli_substrate_version or shiro_phylum_substrate_version}}
-      - --set=global.aws.region={{k8s_fabric_cli_cert_bucket_region or shiro_phylum_s3_region}}
-      - --set=global.aws.staticBucket={{k8s_fabric_cli_cert_bucket or shiro_phylum_s3_bucket}}
-      - --wait
-      - "fabric-cli{{item}}-{{k8s_fabric_cli_org}}"
-      - "{{k8s_fabric_cli_helm_chart_path}}"
-  environment:
-    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
-    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
-    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
-    KUBECONFIG: "{{kubectl_config_path}}"
+  kubernetes.core.helm:
+    chart_ref: "{{k8s_fabric_cli_helm_chart_path}}"
+    name: "fabric-cli{{item}}-{{k8s_fabric_cli_org}}"
+    namespace: "{{k8s_fabric_cli_namespace}}"
+    wait: true
+    values:
+      global:
+        lutherEnv: "{{luther_env}}"
+        hyperledger:
+          fabricVersion: "{{k8s_fabric_version}}"
+        aws:
+          region: "{{k8s_fabric_cli_cert_bucket_region or shiro_phylum_s3_region}}"
+          staticBucket: "{{k8s_fabric_cli_cert_bucket or shiro_phylum_s3_bucket}}"
+      dlt:
+        organization: "{{k8s_fabric_cli_org}}"
+        mspID: "{{k8s_fabric_cli_msp}}"
+        domain: "{{k8s_fabric_cli_domain_root}}"
+        peerIndex: "{{item}}"
+      substrate:
+        version: "{{k8s_fabric_cli_substrate_version or shiro_phylum_substrate_version}}"
+      dockerChaincode: "{{k8s_fabric_cli_chaincode_docker}}"
+      availabilityZone: "{{availability_zones[item]}}"
+  environment: "{{ kubectl_env }}"
+  vars:
+    availability_zones: "{{k8s_fabric_cli_azs}}"
   loop: "{{range(0,k8s_fabric_cli_org_size)|list}}"

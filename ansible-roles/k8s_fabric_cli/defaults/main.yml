@@ -12,3 +12,6 @@ k8s_fabric_cli_helm_chart_path: "{{kubectl_asset_root_path}}/fabric-cli"
 k8s_fabric_cli_substrate_version: ""
 k8s_fabric_cli_cert_bucket: ""
 k8s_fabric_cli_cert_bucket_region: ""
+k8s_fabric_cli_azs: []
+
+k8s_fabric_cli_chaincode_docker: true

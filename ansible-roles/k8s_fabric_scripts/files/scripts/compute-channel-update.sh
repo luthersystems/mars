@@ -22,9 +22,9 @@ NAMESPACE="fabric-$ORG_NAME"
 
 source "${BASH_SOURCE%/*}/channel-utils.sh"
 
-pod="$(select_first_pod "$ORG_NAME" 0)"
+pod="$(select_first_cli_pod "$ORG_NAME" 0)"
 
-WORKDIR=/tmp/compute-channel-update-${RANDOM}
+WORKDIR=/opt/blocks/compute-channel-update-$(date +%s)
 echo "WORKDIR=$WORKDIR"
 
 REMOTE_CONFIG_PATH="$WORKDIR/config.json"

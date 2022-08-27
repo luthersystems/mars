@@ -11,7 +11,7 @@ NAMESPACE="fabric-$ORG"
 
 source "${BASH_SOURCE%/*}/channel-utils.sh"
 
-pod="$(select_first_pod "$ORG" 0)"
+pod="$(select_first_cli_pod "$ORG" 0)"
 
 if ! package_id="$(chaincodePackageID "$pod" "$CC_NAME" "$CC_VERSION")"; then
     echo "chaincode not installed on peer" >&2
@@ -44,6 +44,7 @@ cat > collections.json <<EOF
 $COLLECTIONS_CONFIG
 EOF
 
+# TODO: --clientauth --certfile "$CORE_PEER_TLS_CERT_FILE" --keyfile "$CORE_PEER_TLS_KEY_FILE"
 peer lifecycle chaincode approveformyorg \\
   --tls --cafile orderer-tlsca.pem --orderer "$ORDERER" \\
   --channelID "$CHANNEL" \\

@@ -5,11 +5,6 @@ k8s_fabric_peer_org: org1
 k8s_fabric_peer_msp: Org1MSP
 k8s_fabric_peer_org_size: 1
 k8s_fabric_peer_domain_root: "{{k8s_fabric_network_domain_root}}"
-k8s_fabric_peer_docker_log_driver: json-file
-k8s_fabric_peer_docker_log_options:
-  max-size: "50m"
-  max-file: "5"
-k8s_fabric_peer_configmap_path: "{{kubectl_asset_root_path}}/static_resources/{{luther_env}}/{{k8s_fabric_peer_namespace}}/fabric-peer.yaml"
 k8s_fabric_peer_namespace: fabric-{{k8s_fabric_peer_org}}
 k8s_fabric_peer_helm_chart_path: "{{kubectl_asset_root_path}}/fabric-peer"
 k8s_fabric_peer_image_repository: hyperledger/fabric-peer
@@ -30,3 +25,13 @@ k8s_fabric_peer_azs: []
 k8s_fabric_peer_substrate_version: ""
 k8s_fabric_peer_cert_bucket: ""
 k8s_fabric_peer_cert_bucket_region: ""
+
+k8s_fabric_peer_configmap_path: "{{kubectl_asset_root_path}}/static_resources/{{luther_env}}/{{k8s_fabric_peer_namespace}}/fabric-peer.yaml"
+k8s_fabric_peer_docker_socket: "unix:///var/run/docker.sock"
+k8s_fabric_peer_docker_log_options:
+  max-size: "50m"
+  max-file: "5"
+k8s_fabric_peer_docker_log_driver: json-file
+k8s_fabric_peer_buildpack_version: ""
+k8s_fabric_peer_chaincode_external: false
+k8s_fabric_peer_chaincode_docker: true

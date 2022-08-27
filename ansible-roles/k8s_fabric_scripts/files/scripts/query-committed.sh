@@ -10,7 +10,8 @@ NAMESPACE="fabric-$ORG"
 source "${BASH_SOURCE%/*}/channel-utils.sh"
 
 query() {
-    pod="$(select_first_pod "$ORG" 0)"
+
+    pod="$(select_first_cli_pod "$ORG" 0)"
 
     # look up the committed chaincode
     pod_exec "$pod" \
