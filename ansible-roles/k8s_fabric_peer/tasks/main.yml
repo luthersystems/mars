@@ -31,6 +31,28 @@
     org_selector: "fabric/organization={{k8s_fabric_peer_org}}"
     k8s_pv_data_selectors: "{{k8s_fabric_peer_pv_selectors + [org_selector]}}"
 
+- name: Set crypto-config facts
+  set_fact:
+    k8s_fabric_peer_crypto_config_secret_name: fabric-crypto-config
+  when: k8s_fabric_peer_crypto_config
+
+- name: Fabric crypto-config secrets exists
+  k8s:
+    namespace: "{{k8s_fabric_peer_namespace}}"
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "{{crypto_config_secret}}"
+      type: Opaque
+      data:
+        crypto-config.zip: "{{k8s_fabric_peer_crypto_config}}"
+  #no_log: True
+  environment: "{{ kubectl_env }}"
+  vars:
+    crypto_config_secret: "{{k8s_fabric_peer_crypto_config_secret_name}}"
+  when: k8s_fabric_peer_crypto_config
+
 - name: Helm chart exists
   synchronize:
     src: fabric-peer/

@@ -31,6 +31,9 @@ spec:
           emptyDir: {}
         - name: chaincode-archives
           emptyDir: {}
+        - name: docker-storage
+          persistentVolumeClaim:
+            claimName: {{ list "dockerstorage" . | include "fabric-peer.pvc" }}
         {{- end }}
         - name: genesisblock
           emptyDir: {}
@@ -46,9 +49,11 @@ spec:
         - name: storage
           persistentVolumeClaim:
             claimName: {{ list "storage" . | include "fabric-peer.pvc" }}
-        - name: docker-storage
-          persistentVolumeClaim:
-            claimName: {{ list "dockerstorage" . | include "fabric-peer.pvc" }}
+        {{- if .Values.dlt.cryptoConfigSecret }}
+        - name: fabric-crypto-config
+          secret:
+            secretName: {{ .Values.dlt.cryptoConfigSecret }}
+        {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.arch }}-{{ .Values.global.hyperledger.fabricVersion }}"
@@ -229,6 +234,34 @@ spec:
             - name: chaincode-archives
               mountPath: /chaincodes
         {{- end }}
+        {{- if .Values.dlt.cryptoConfigSecret }}
+        - name: config-setup
+          image: luthersystems/awscli:0.2.0 # TODO: better container for this? scratch?
+          args:
+            - sh
+            - -c
+            - |
+              set -xe;
+              cp /opt/crypto-config/crypto-config.zip /tmp
+              cd /tmp
+              unzip crypto-config.zip
+              cd crypto-config
+              # TODO: replace domain var with proper orderer domain
+              cp -rf ordererOrganizations/{{ .Values.dlt.domain }}/orderers/orderer0.{{ .Values.dlt.domain }}/msp/tlscacerts/* /orderertls
+              cp -rf peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ include "fabric-peer.self-fqdn" . }}/msp/* /msp
+              cp -rf peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ include "fabric-peer.self-fqdn" . }}/tls/* /tls
+              ls /msp /tls /orderertls
+          volumeMounts:
+            - name: orderertls
+              mountPath: /orderertls
+            - name: msp
+              mountPath: /msp
+            - name: tls
+              mountPath: /tls
+            - name: fabric-crypto-config
+              mountPath: /opt/crypto-config
+              readOnly: true
+        {{- else }}
         - name: config-fetch
           image: luthersystems/awscli:0.2.0
           env:
@@ -251,6 +284,7 @@ spec:
               mountPath: /msp
             - name: tls
               mountPath: /tls
+        {{- end }}
       nodeSelector:
         topology.kubernetes.io/zone: {{ .Values.availabilityZone }}
       {{- with .Values.affinity }}
