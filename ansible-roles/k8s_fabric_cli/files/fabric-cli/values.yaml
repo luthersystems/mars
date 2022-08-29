@@ -19,6 +19,10 @@ dlt:
   mspID: Org1MSP
   peerIndex: 0
   domain: luther.systems
+  # IMPORTANT: all 3 of these must be specified together!
+  cryptoConfigSecret: ""
+  channelArtifactsConfigMap: ""
+  collectionsConfigMap: ""
 
 image:
   repository: hyperledger/fabric-tools

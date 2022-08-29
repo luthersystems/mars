@@ -247,9 +247,9 @@ spec:
               unzip crypto-config.zip
               cd crypto-config
               # TODO: replace domain var with proper orderer domain
-              cp -rf ordererOrganizations/{{ .Values.dlt.domain }}/orderers/orderer0.{{ .Values.dlt.domain }}/msp/tlscacerts/* /orderertls
-              cp -rf peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ include "fabric-peer.self-fqdn" . }}/msp/* /msp
-              cp -rf peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ include "fabric-peer.self-fqdn" . }}/tls/* /tls
+              mv ordererOrganizations/{{ .Values.dlt.domain }}/orderers/orderer0.{{ .Values.dlt.domain }}/msp/tlscacerts/* /orderertls
+              mv peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ include "fabric-peer.self-fqdn" . }}/msp/* /msp
+              mv peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ include "fabric-peer.self-fqdn" . }}/tls/* /tls
               ls /msp /tls /orderertls
           volumeMounts:
             - name: orderertls

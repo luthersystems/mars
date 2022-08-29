@@ -9,6 +9,68 @@
     state: present
   environment: "{{ kubectl_env }}"
 
+- name: Set crypto-config facts
+  set_fact:
+    k8s_fabric_cli_crypto_config_secret_name: fabric-crypto-config
+  when: k8s_fabric_cli_crypto_config
+
+- name: Fabric crypto-config secrets exists
+  k8s:
+    namespace: "{{k8s_fabric_cli_namespace}}"
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "{{crypto_config_secret}}"
+      type: Opaque
+      data:
+        crypto-config.zip: "{{k8s_fabric_cli_crypto_config}}"
+  no_log: True
+  environment: "{{ kubectl_env }}"
+  vars:
+    crypto_config_secret: "{{k8s_fabric_cli_crypto_config_secret_name}}"
+  when: k8s_fabric_cli_crypto_config
+
+- name: Set channel-artifacts facts
+  set_fact:
+    k8s_fabric_cli_channel_artifacts_configmap_name: fabric-channel-artifacts
+  when: k8s_fabric_cli_channel_artifacts
+
+- name: Fabric channel-artifacts configmap exists
+  k8s:
+    namespace: "{{k8s_fabric_cli_namespace}}"
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: "{{channel_artifacts_configmap}}"
+      binaryData:
+        channel-artifacts.zip: "{{k8s_fabric_cli_channel_artifacts}}"
+  environment: "{{ kubectl_env }}"
+  vars:
+    channel_artifacts_configmap: "{{k8s_fabric_cli_channel_artifacts_configmap_name}}"
+  when: k8s_fabric_cli_channel_artifacts
+
+- name: Set collections facts
+  set_fact:
+    k8s_fabric_cli_collections_configmap_name: fabric-collections
+  when: k8s_fabric_cli_collections
+
+- name: Fabric collections configmap exists
+  k8s:
+    namespace: "{{k8s_fabric_cli_namespace}}"
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: "{{collections_configmap}}"
+      binaryData:
+        collections.json: "{{k8s_fabric_cli_collections}}"
+  environment: "{{ kubectl_env }}"
+  vars:
+    collections_configmap: "{{k8s_fabric_cli_collections_configmap_name}}"
+  when: k8s_fabric_cli_collections
+
 - name: Helm chart exists
   synchronize:
     src: fabric-cli/
@@ -38,6 +100,9 @@
         mspID: "{{k8s_fabric_cli_msp}}"
         domain: "{{k8s_fabric_cli_domain_root}}"
         peerIndex: "{{item}}"
+        cryptoConfigSecret: "{{crypto_config_secret}}"
+        channelArtifactsConfigMap: "{{channel_artifacts_configmap}}"
+        collectionsConfigMap: "{{collections_configmap}}"
       substrate:
         version: "{{k8s_fabric_cli_substrate_version or shiro_phylum_substrate_version}}"
       dockerChaincode: "{{k8s_fabric_cli_chaincode_docker}}"
@@ -45,4 +110,7 @@
   environment: "{{ kubectl_env }}"
   vars:
     availability_zones: "{{k8s_fabric_cli_azs}}"
+    crypto_config_secret: "{{k8s_fabric_cli_crypto_config_secret_name}}"
+    channel_artifacts_configmap: "{{k8s_fabric_cli_channel_artifacts_configmap_name}}"
+    collections_configmap: "{{k8s_fabric_cli_collections_configmap_name}}"
   loop: "{{range(0,k8s_fabric_cli_org_size)|list}}"

@@ -38,6 +38,21 @@ spec:
           emptyDir: {}
         - name: collections-config
           emptyDir: {}
+        {{- if .Values.dlt.cryptoConfigSecret }}
+        - name: fabric-crypto-config
+          secret:
+            secretName: {{ .Values.dlt.cryptoConfigSecret }}
+        {{- end }}
+        {{- if .Values.dlt.channelArtifactsConfigMap }}
+        - name: fabric-channel-artifacts
+          configMap:
+            name: {{ .Values.dlt.channelArtifactsConfigMap }}
+        {{- end }}
+        {{- if .Values.dlt.collectionsConfigMap }}
+        - name: fabric-collections
+          configMap:
+            name: {{ .Values.dlt.collectionsConfigMap }}
+        {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.arch }}-{{ .Values.global.hyperledger.fabricVersion }}"
@@ -118,6 +133,62 @@ spec:
             - name: chaincode-archives
               mountPath: /chaincodes
         {{- end }}
+        {{- if and .Values.dlt.cryptoConfigSecret .Values.dlt.channelArtifactsConfigMap .Values.dlt.collectionsConfigMap }}
+        - name: config-setup
+          image: luthersystems/awscli:0.2.0 # TODO: better container for this? scratch?
+          args:
+            - sh
+            - -c
+            - |
+              set -xe;
+
+              du -h /opt/channel-artifacts /opt/crypto-config /opt/collections
+
+              cd /tmp
+
+              cp /opt/channel-artifacts/channel-artifacts.zip /tmp
+              unzip channel-artifacts.zip
+              mv channel-artifacts/* /channel-artifacts
+
+              cp /opt/collections/collections.json /collections-config/
+
+              cp /opt/crypto-config/crypto-config.zip /tmp
+              unzip crypto-config.zip
+
+              mv crypto-config/ordererOrganizations/{{ .Values.dlt.domain }}/orderers/orderer0.{{ .Values.dlt.domain }}/msp/tlscacerts/* /orderertls
+              mkdir -p /tls/all-cas
+              cd crypto-config
+              cp --parents $(find . -name ca.crt) /tls/all-cas
+
+              # TODO: replace domain var with proper orderer domain
+              {{- if eq .Values.dlt.organization "orderer" }}
+              mv ordererOrganizations/{{ .Values.dlt.domain }}/users/Admin@{{ .Values.dlt.domain }}/msp/* /msp
+              mv ordererOrganizations/{{ .Values.dlt.domain }}/orderers/orderer{{ .Values.dlt.peerIndex }}.{{ .Values.dlt.domain }}/tls/* /tls
+              {{- else }}
+              mv peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/users/Admin@{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/msp/* /msp
+              mv peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ list .Values.dlt.peerIndex . | include "fabric-cli.peer-fqdn" }}/tls/* /tls
+              {{- end }}
+          volumeMounts:
+            - name: orderertls
+              mountPath: /orderertls
+            - name: msp
+              mountPath: /msp
+            - name: tls
+              mountPath: /tls
+            - name: genesisblock
+              mountPath: /channel-artifacts
+            - name: collections-config
+              mountPath: /collections-config
+            - name: fabric-crypto-config
+              mountPath: /opt/crypto-config
+              readOnly: true
+            - name: fabric-channel-artifacts
+              mountPath: /opt/channel-artifacts
+              readOnly: true
+            - name: fabric-collections
+              mountPath: /opt/collections
+              readOnly: true
+        {{- else }}
         - name: config-fetch
           image: luthersystems/awscli:0.2.0
           env:
@@ -132,6 +203,8 @@ spec:
               set -euxo pipefail;
               ARTIFACT_ROOT=s3://{{ .Values.global.aws.staticBucket }}/{{ .Values.global.lutherEnv }}/fabric-artifacts
               aws s3 cp --recursive "${ARTIFACT_ROOT}/channel-artifacts/" /channel-artifacts
+              aws s3 cp "${ARTIFACT_ROOT}/collections.json" /collections-config/
+
               aws s3 cp --recursive "${ARTIFACT_ROOT}/crypto-config/ordererOrganizations/luther.systems/orderers/orderer0.luther.systems/msp/tlscacerts/" /orderertls
               {{- if eq .Values.dlt.organization "orderer" }}
               aws s3 cp --recursive "${ARTIFACT_ROOT}/crypto-config/ordererOrganizations/luther.systems/users/Admin@{{ .Values.dlt.domain }}/msp/" /msp
@@ -141,7 +214,6 @@ spec:
               aws s3 cp --recursive "${ARTIFACT_ROOT}/crypto-config/peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ list .Values.dlt.peerIndex . | include "fabric-cli.peer-fqdn" }}/tls/" /tls
               {{- end }}
               aws s3 cp --recursive "${ARTIFACT_ROOT}/crypto-config/peerOrganizations" /tls/all-cas/ --exclude "*" --include "*/peers/*/ca.crt"
-              aws s3 cp "${ARTIFACT_ROOT}/collections.json" /collections-config/
           volumeMounts:
             - name: genesisblock
               mountPath: /channel-artifacts
@@ -153,6 +225,7 @@ spec:
               mountPath: /tls
             - name: collections-config
               mountPath: /collections-config
+        {{- end }}
       nodeSelector:
         topology.kubernetes.io/zone: {{ .Values.availabilityZone }}
       {{- with .Values.affinity }}
