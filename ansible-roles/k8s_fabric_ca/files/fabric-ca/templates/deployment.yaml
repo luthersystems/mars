@@ -96,7 +96,6 @@ spec:
               cd crypto-config
 
               mv peerOrganizations/{{ .Values.dlt.domain }}/ca/* /crypto
-              ls /crypto
           volumeMounts:
             - name: crypto
               mountPath: /crypto

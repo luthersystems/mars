@@ -250,7 +250,6 @@ spec:
               mv ordererOrganizations/{{ .Values.dlt.domain }}/orderers/orderer0.{{ .Values.dlt.domain }}/msp/tlscacerts/* /orderertls
               mv peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ include "fabric-peer.self-fqdn" . }}/msp/* /msp
               mv peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ include "fabric-peer.self-fqdn" . }}/tls/* /tls
-              ls /msp /tls /orderertls
           volumeMounts:
             - name: orderertls
               mountPath: /orderertls

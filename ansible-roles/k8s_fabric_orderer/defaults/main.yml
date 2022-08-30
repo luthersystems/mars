@@ -22,3 +22,9 @@ k8s_fabric_orderer_use_nlb: true
 k8s_fabric_orderer_azs: []
 k8s_fabric_orderer_cert_bucket: ""
 k8s_fabric_orderer_cert_bucket_region: ""
+
+k8s_fabric_orderer_crypto_config: ""
+k8s_fabric_orderer_crypto_config_secret_name: ""
+
+k8s_fabric_orderer_channel_artifacts: ""
+k8s_fabric_orderer_channel_artifacts_configmap_name: ""

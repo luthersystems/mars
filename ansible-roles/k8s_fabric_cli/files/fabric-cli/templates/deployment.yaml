@@ -142,8 +142,6 @@ spec:
             - |
               set -xe;
 
-              du -h /opt/channel-artifacts /opt/crypto-config /opt/collections
-
               cd /tmp
 
               cp /opt/channel-artifacts/channel-artifacts.zip /tmp

@@ -31,6 +31,16 @@ spec:
           emptyDir: {}
         - name: tls
           emptyDir: {}
+        {{- if .Values.dlt.cryptoConfigSecret }}
+        - name: fabric-crypto-config
+          secret:
+            secretName: {{ .Values.dlt.cryptoConfigSecret }}
+        {{- end }}
+        {{- if .Values.dlt.channelArtifactsConfigMap }}
+        - name: fabric-channel-artifacts
+          configMap:
+            name: {{ .Values.dlt.channelArtifactsConfigMap }}
+        {{- end }}
         {{- if .Values.dlt.hcs }}
         - name: hcs
           emptyDir: {}
@@ -149,6 +159,49 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       initContainers:
+        {{- if and .Values.dlt.cryptoConfigSecret .Values.dlt.channelArtifactsConfigMap  }}
+        - name: config-setup
+          image: luthersystems/awscli:0.2.0 # TODO: better container for this? scratch?
+          args:
+            - sh
+            - -c
+            - |
+              set -xe;
+
+              cd /tmp
+
+              cp /opt/channel-artifacts/channel-artifacts.zip /tmp
+              unzip channel-artifacts.zip
+              mv channel-artifacts/* /channel-artifacts
+
+              cp /opt/crypto-config/crypto-config.zip /tmp
+              unzip crypto-config.zip
+              cd crypto-config
+
+              mv ordererOrganizations/{{ .Values.dlt.domain }}/orderers/{{ include "fabric-orderer.self-fqdn" . }}/msp/* /msp
+              mv ordererOrganizations/{{ .Values.dlt.domain }}/orderers/{{ include "fabric-orderer.self-fqdn" . }}/tls/* /tls
+
+              {{- if .Values.dlt.hcs }}
+              mv aes.key /hcs/
+              {{- end }}
+          volumeMounts:
+            - name: genesisblock
+              mountPath: /channel-artifacts
+            - name: msp
+              mountPath: /msp
+            - name: tls
+              mountPath: /tls
+            {{- if .Values.dlt.hcs }}
+            - name: hcs
+              mountPath: /hcs
+            {{- end }}
+            - name: fabric-crypto-config
+              mountPath: /opt/crypto-config
+              readOnly: true
+            - name: fabric-channel-artifacts
+              mountPath: /opt/channel-artifacts
+              readOnly: true
+        {{- else }}
         - name: config-fetch
           image: luthersystems/awscli:0.2.0
           env:
@@ -180,6 +233,7 @@ spec:
             - name: hcs
               mountPath: /hcs
             {{- end }}
+        {{- end }}
       nodeSelector:
         topology.kubernetes.io/zone: {{ .Values.availabilityZone }}
       {{- with .Values.affinity }}
