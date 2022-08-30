@@ -47,7 +47,7 @@
       type: Opaque
       data:
         crypto-config.zip: "{{k8s_fabric_peer_crypto_config}}"
-  #no_log: True
+  no_log: True
   environment: "{{ kubectl_env }}"
   vars:
     crypto_config_secret: "{{k8s_fabric_peer_crypto_config_secret_name}}"
