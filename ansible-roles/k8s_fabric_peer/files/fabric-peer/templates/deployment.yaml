@@ -236,7 +236,7 @@ spec:
         {{- end }}
         {{- if .Values.dlt.cryptoConfigSecret }}
         - name: config-setup
-          image: luthersystems/awscli:0.2.0 # TODO: better container for this? scratch?
+          image: busybox:1.35.0
           args:
             - sh
             - -c

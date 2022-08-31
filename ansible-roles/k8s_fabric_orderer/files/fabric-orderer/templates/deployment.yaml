@@ -161,7 +161,7 @@ spec:
       initContainers:
         {{- if and .Values.dlt.cryptoConfigSecret .Values.dlt.channelArtifactsConfigMap  }}
         - name: config-setup
-          image: luthersystems/awscli:0.2.0 # TODO: better container for this? scratch?
+          image: busybox:1.35.0
           args:
             - sh
             - -c
