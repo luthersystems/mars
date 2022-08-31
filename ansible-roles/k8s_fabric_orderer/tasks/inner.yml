@@ -31,8 +31,8 @@
         organization: "{{k8s_fabric_orderer_org}}"
         organizationIndex: "{{item}}"
         domain: "{{k8s_fabric_orderer_domain_root}}"
-        cryptoConfigSecret: "{{crypto_config_secret}}"
-        channelArtifactsConfigMap: "{{channel_artifacts_configmap}}"
+        cryptoConfigSecret: "{{k8s_fabric_orderer_crypto_config_secret_name}}"
+        channelArtifactsConfigMap: "{{k8s_fabric_orderer_channel_artifacts_configmap_name}}"
         hcs: "{{k8s_fabric_orderer_hcs}}"
         hcsOperatorId: "{{k8s_fabric_orderer_hcs_operator_id}}"
         hcsOperatorPrivateKey: "{{k8s_fabric_orderer_hcs_operator_private_key}}"
@@ -50,8 +50,6 @@
   environment: "{{ kubectl_env }}"
   vars:
     availability_zones: "{{k8s_fabric_orderer_azs or k8s_pv_data_replica_azs}}"
-    crypto_config_secret: "{{k8s_fabric_orderer_crypto_config_secret_name}}"
-    channel_artifacts_configmap: "{{k8s_fabric_orderer_channel_artifacts_configmap_name}}"
 
 - name: Upgrade pauser has run
   when: is_fabric_upgrade | bool

@@ -44,7 +44,7 @@
         domain: "{{k8s_fabric_peer_domain_root}}"
         peerIndex: "{{item}}"
         hcs: "{{k8s_fabric_peer_hcs}}"
-        cryptoConfigSecret: "{{crypto_config_secret}}"
+        cryptoConfigSecret: "{{k8s_fabric_peer_crypto_config_secret_name}}"
       substrate:
         version: "{{k8s_fabric_peer_substrate_version or shiro_phylum_substrate_version}}"
       image:
@@ -72,7 +72,6 @@
   environment: "{{ kubectl_env }}"
   vars:
     availability_zones: "{{k8s_fabric_peer_azs or k8s_pv_data_replica_azs}}"
-    crypto_config_secret: "{{k8s_fabric_peer_crypto_config_secret_name}}"
 
 - name: Upgrade pauser has run
   when: is_fabric_upgrade | bool
