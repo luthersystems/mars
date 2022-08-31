@@ -9,6 +9,47 @@
     state: present
   environment: "{{ kubectl_env }}"
 
+- name: Fabric crypto-config secrets exists
+  k8s:
+    namespace: "{{k8s_fabric_cli_namespace}}"
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "{{k8s_fabric_cli_crypto_config_secret_name}}"
+      type: Opaque
+      data:
+        crypto-config.zip: "{{k8s_fabric_cli_crypto_config}}"
+  no_log: True
+  environment: "{{ kubectl_env }}"
+  when: k8s_fabric_cli_crypto_config
+
+- name: Fabric channel-artifacts configmap exists
+  k8s:
+    namespace: "{{k8s_fabric_cli_namespace}}"
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: "{{k8s_fabric_cli_channel_artifacts_configmap_name}}"
+      binaryData:
+        channel-artifacts.zip: "{{k8s_fabric_cli_channel_artifacts}}"
+  environment: "{{ kubectl_env }}"
+  when: k8s_fabric_cli_channel_artifacts
+
+- name: Fabric collections configmap exists
+  k8s:
+    namespace: "{{k8s_fabric_cli_namespace}}"
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: "{{k8s_fabric_cli_collections_configmap_name}}"
+      binaryData:
+        collections.json: "{{k8s_fabric_cli_collections}}"
+  environment: "{{ kubectl_env }}"
+  when: k8s_fabric_cli_collections
+
 - name: Helm chart exists
   synchronize:
     src: fabric-cli/
@@ -38,6 +79,9 @@
         mspID: "{{k8s_fabric_cli_msp}}"
         domain: "{{k8s_fabric_cli_domain_root}}"
         peerIndex: "{{item}}"
+        cryptoConfigSecret: "{{k8s_fabric_cli_crypto_config_secret_name}}"
+        channelArtifactsConfigMap: "{{k8s_fabric_cli_channel_artifacts_configmap_name}}"
+        collectionsConfigMap: "{{k8s_fabric_cli_collections_configmap_name}}"
       substrate:
         version: "{{k8s_fabric_cli_substrate_version or shiro_phylum_substrate_version}}"
       dockerChaincode: "{{k8s_fabric_cli_chaincode_docker}}"

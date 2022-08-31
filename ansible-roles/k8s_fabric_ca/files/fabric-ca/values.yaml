@@ -19,6 +19,7 @@ dlt:
   organization: org1
   domain: org1.luther.systems
   keyfile: ""
+  cryptoConfigSecret: ""
 
 image:
   repository: hyperledger/fabric-ca

@@ -31,6 +31,8 @@
         organization: "{{k8s_fabric_orderer_org}}"
         organizationIndex: "{{item}}"
         domain: "{{k8s_fabric_orderer_domain_root}}"
+        cryptoConfigSecret: "{{k8s_fabric_orderer_crypto_config_secret_name}}"
+        channelArtifactsConfigMap: "{{k8s_fabric_orderer_channel_artifacts_configmap_name}}"
         hcs: "{{k8s_fabric_orderer_hcs}}"
         hcsOperatorId: "{{k8s_fabric_orderer_hcs_operator_id}}"
         hcsOperatorPrivateKey: "{{k8s_fabric_orderer_hcs_operator_private_key}}"

@@ -27,6 +27,11 @@ spec:
         - name: storage
           persistentVolumeClaim:
             claimName: {{ list "storage" . | include "fabric-ca.pvc" }}
+        {{- if .Values.dlt.cryptoConfigSecret }}
+        - name: fabric-crypto-config
+          secret:
+            secretName: {{ .Values.dlt.cryptoConfigSecret }}
+        {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.arch }}-{{ .Values.global.hyperledger.fabricVersion }}"
@@ -77,6 +82,27 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       initContainers:
+        {{- if .Values.dlt.cryptoConfigSecret }}
+        - name: config-setup
+          image: busybox:1.35.0
+          args:
+            - sh
+            - -c
+            - |
+              set -xe;
+              cp /opt/crypto-config/crypto-config.zip /tmp
+              cd /tmp
+              unzip crypto-config.zip
+              cd crypto-config
+
+              mv peerOrganizations/{{ .Values.dlt.domain }}/ca/* /crypto
+          volumeMounts:
+            - name: crypto
+              mountPath: /crypto
+            - name: fabric-crypto-config
+              mountPath: /opt/crypto-config
+              readOnly: true
+        {{- else }}
         - name: config-fetch
           image: luthersystems/awscli:0.2.0
           env:
@@ -95,6 +121,7 @@ spec:
           volumeMounts:
             - name: crypto
               mountPath: /crypto
+        {{- end }}
       nodeSelector:
         topology.kubernetes.io/zone: {{ .Values.availabilityZone }}
     {{- with .Values.affinity }}

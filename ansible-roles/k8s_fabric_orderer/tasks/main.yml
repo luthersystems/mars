@@ -16,6 +16,34 @@
     org_selector: "fabric/organization={{k8s_fabric_orderer_org}}"
     k8s_pv_data_selectors: "{{k8s_fabric_orderer_pv_selectors + [org_selector]}}"
 
+- name: Fabric crypto-config secrets exists
+  k8s:
+    namespace: "{{k8s_fabric_orderer_namespace}}"
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "{{k8s_fabric_orderer_crypto_config_secret_name}}"
+      type: Opaque
+      data:
+        crypto-config.zip: "{{k8s_fabric_orderer_crypto_config}}"
+  no_log: True
+  environment: "{{ kubectl_env }}"
+  when: k8s_fabric_orderer_crypto_config
+
+- name: Fabric channel-artifacts configmap exists
+  k8s:
+    namespace: "{{k8s_fabric_orderer_namespace}}"
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: "{{k8s_fabric_orderer_channel_artifacts_configmap_name}}"
+      binaryData:
+        channel-artifacts.zip: "{{k8s_fabric_orderer_channel_artifacts}}"
+  environment: "{{ kubectl_env }}"
+  when: k8s_fabric_orderer_channel_artifacts
+
 - name: Helm chart exists
   synchronize:
     src: fabric-orderer/

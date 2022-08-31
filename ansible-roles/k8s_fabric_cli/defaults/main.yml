@@ -15,3 +15,12 @@ k8s_fabric_cli_cert_bucket_region: ""
 k8s_fabric_cli_azs: []
 
 k8s_fabric_cli_chaincode_docker: true
+
+k8s_fabric_cli_crypto_config: ""
+k8s_fabric_cli_crypto_config_secret_name: ""
+
+k8s_fabric_cli_channel_artifacts: ""
+k8s_fabric_cli_channel_artifacts_configmap_name: ""
+
+k8s_fabric_cli_collections: ""
+k8s_fabric_cli_collections_configmap_name: ""

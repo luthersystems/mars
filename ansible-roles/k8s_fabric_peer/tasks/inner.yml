@@ -44,6 +44,7 @@
         domain: "{{k8s_fabric_peer_domain_root}}"
         peerIndex: "{{item}}"
         hcs: "{{k8s_fabric_peer_hcs}}"
+        cryptoConfigSecret: "{{k8s_fabric_peer_crypto_config_secret_name}}"
       substrate:
         version: "{{k8s_fabric_peer_substrate_version or shiro_phylum_substrate_version}}"
       image:

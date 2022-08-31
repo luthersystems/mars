@@ -25,6 +25,7 @@ dlt:
   peerIndex: 0
   domain: luther.systems
   hcs: false
+  cryptoConfigSecret: ""
 
 image:
   repository: hyperledger/fabric-peer
