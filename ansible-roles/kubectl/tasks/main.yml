@@ -4,3 +4,21 @@
 - name: kubectl setup
   include_tasks: setup.yml
   when: not kubectl_setup or kubectl_upgrade
+
+- name: kubectl assume role
+  community.aws.sts_assume_role:
+    role_arn: "{{ kubectl_aws_role_arn }}"
+    role_session_name: assumeRoleSession
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ kubectl_aws_access_key_id }}"
+    AWS_SECRET_ACCESS_KEY: "{{ kubectl_aws_secret_access_key }}"
+    AWS_SESSION_TOKEN: "{{ kubectl_aws_session_token }}"
+  when: kubectl_aws_role_arn
+  register: assumed_role
+
+- name: kubectl assume role
+  set_fact:
+    kubectl_aws_access_key_id: "{{ assumed_role.sts_creds.access_key }}"
+    kubectl_aws_secret_access_key: "{{ assumed_role.sts_creds.secret_key }}"
+    kubectl_aws_session_token: "{{ assumed_role.sts_creds.session_token }}"
+  when: kubectl_aws_role_arn
