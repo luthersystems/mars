@@ -263,7 +263,7 @@ class Ansible(object):
         config.update(self.inventory_defaults)
         if os.path.exists(config_path):
             with open(config_path) as f:
-                config.update(yaml.load(f))
+                config.update(yaml.load(f, Loader=yaml.FullLoader))
         self.inventory_config = config
 
     def _ansible_vault_credentials(self):

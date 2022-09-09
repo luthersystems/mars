@@ -7,12 +7,10 @@
       - "{{shiro_phylum_init_script}}"
       - "{{shiro_phylum_init_substrate_version or shiro_phylum_substrate_version}}"
       - "{{shiro_phylum_init_version or shiro_phylum_version}}"
-  environment:
-    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
-    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
-    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
-    KUBECONFIG: "{{kubectl_config_path}}"
-    SHIRO_TX_COMMIT_TIMEOUT: "{{k8s_fabric_peer_chaincode_invoke_timeout}}"
-    SHIRO_TX_TIMEOUT: "{{k8s_fabric_peer_chaincode_invoke_timeout}}"
+  environment: "{{ kubectl_env | combine(extra_env_vars) }}"
+  vars:
+    extra_env_vars:
+      SHIRO_TX_COMMIT_TIMEOUT: "{{ k8s_fabric_peer_chaincode_invoke_timeout }}"
+      SHIRO_TX_TIMEOUT: "{{ k8s_fabric_peer_chaincode_invoke_timeout }}"
   register: init_result
   changed_when: '"Phylum version is initialized and in service" not in init_result.stderr'

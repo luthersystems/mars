@@ -18,13 +18,7 @@ kubectl_aws_access_key_id: "{{lookup('env', 'AWS_ACCESS_KEY_ID')}}"
 kubectl_aws_secret_access_key: "{{lookup('env', 'AWS_SECRET_ACCESS_KEY')}}"
 kubectl_aws_session_token: "{{lookup('env', 'AWS_SESSION_TOKEN')}}"
 
-kubectl_env:
-  AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
-  AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
-  AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
-  KUBECONFIG: "{{kubectl_config_path}}"
-
-kubectl_shell_prefix: "AWS_ACCESS_KEY_ID={{kubectl_aws_access_key_id|quote}} AWS_SECRET_ACCESS_KEY={{kubectl_aws_secret_access_key|quote}} AWS_SESSION_TOKEN={{kubectl_aws_session_token|quote}} KUBECONFIG={{kubectl_config_path|quote}}"
-
 kubectl_setup: no
 kubectl_upgrade: no
+
+kubectl_aws_role_arn: ""

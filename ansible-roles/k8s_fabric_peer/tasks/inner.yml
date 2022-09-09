@@ -79,13 +79,11 @@
     argv:
     - "{{k8s_fabric_scripts_dir}}/upgrade-pauser.sh"
     chdir: "{{k8s_fabric_scripts_workdir}}"
-  environment:
-    PAUSING_AT: "peer"
-    WHICH: "{{item}}"
-    CHANNEL: "luther"
-    ORDERERC: "{{k8s_fabric_orderer_cluster_size}}"
-    PEER_ORG: "{{k8s_fabric_peer_org}}"
-    AWS_ACCESS_KEY_ID: "{{kubectl_aws_access_key_id}}"
-    AWS_SECRET_ACCESS_KEY: "{{kubectl_aws_secret_access_key}}"
-    AWS_SESSION_TOKEN: "{{kubectl_aws_session_token}}"
-    KUBECONFIG: "{{kubectl_config_path}}"
+  environment: "{{ kubectl_env | combine(extra_env_vars) }}"
+  vars:
+    extra_env_vars:
+      PAUSING_AT: peer
+      WHICH: "{{ item }}"
+      CHANNEL: luther
+      ORDERERC: "{{ k8s_fabric_orderer_cluster_size }}"
+      PEER_ORG: "{{ k8s_fabric_peer_org }}"
