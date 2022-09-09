@@ -18,8 +18,6 @@ kubectl_aws_access_key_id: "{{lookup('env', 'AWS_ACCESS_KEY_ID')}}"
 kubectl_aws_secret_access_key: "{{lookup('env', 'AWS_SECRET_ACCESS_KEY')}}"
 kubectl_aws_session_token: "{{lookup('env', 'AWS_SESSION_TOKEN')}}"
 
-kubectl_env: {}
-
 kubectl_setup: no
 kubectl_upgrade: no
 
