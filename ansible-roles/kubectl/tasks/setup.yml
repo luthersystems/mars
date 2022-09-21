@@ -1,52 +1,38 @@
 ---
-- name: Check kubectl_version
+- name: Check kubectl_version var
   fail:
     msg: "A value must be provided for kubectl_version"
   when: not kubectl_version
 
-- name: Check installed kubectl version
-  command:
-    argv:
-      - snap
-      - info
-      - kubectl
-  register: kubectl_snap_info_str
-  changed_when: no
-  check_mode: no
-  when: kubectl_upgrade | bool
-
-- name: Check whether upgrade is required
-  set_fact:
-    kubectl_needs_upgrade: "{{ kubectl_installed_channel != kubectl_channel }}"
-    kubectl_installed: "{{ kubectl_snap_info.tracking is defined }}"
-    kubectl_channel: "{{ kubectl_channel }}"
-  vars:
-    kubectl_channel: "{{ kubectl_version }}/stable"
-    kubectl_snap_info: "{{ kubectl_snap_info_str.stdout | from_yaml }}"
-    kubectl_installed_channel: "{{ kubectl_snap_info.tracking | default('') }}"
-  when: kubectl_upgrade | bool
-
-- name: Install the kubectl snap package
+# TODO: remove this after applying to acre
+- name: Remove deprecated snap
   community.general.snap:
     name: kubectl
-    channel: "{{kubectl_channel}}"
-    classic: yes
+    state: absent
+  when:
+    - kubectl_upgrade
+
+- name: Add an apt signing key for Kubernetes
+  ansible.builtin.apt_key:
+    url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
     state: present
   when:
-    - kubectl_upgrade | bool
-    - not kubectl_installed
+    - not kubectl_setup
 
-- name: Upgrade kubectl snap package
-  command:
-    argv:
-      - snap
-      - refresh
-      - "--channel={{kubectl_channel}}"
-      - kubectl
+- name: Adding apt repository for Kubernetes
+  ansible.builtin.apt_repository:
+    repo: deb https://apt.kubernetes.io/ kubernetes-xenial main
+    state: present
+    filename: kubernetes.list
   when:
-    - kubectl_upgrade | bool
-    - kubectl_installed
-    - kubectl_needs_upgrade
+    - not kubectl_setup
+
+- name: Install kubectl binaries
+  ansible.builtin.apt:
+    name:
+      - kubectl={{kubectl_version}}*
+    state: present
+    update_cache: yes
 
 - name: Complete kubectl setup
   set_fact:

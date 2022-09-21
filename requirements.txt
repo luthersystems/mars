@@ -6,3 +6,5 @@ PyYAML==6.0
 python-dotenv==0.19.2
 requests==2.27.1
 azure-cli==2.36.0
+kubernetes==24.2.0
+jsonpatch==1.32
