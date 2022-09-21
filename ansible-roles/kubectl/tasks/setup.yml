@@ -4,6 +4,14 @@
     msg: "A value must be provided for kubectl_version"
   when: not kubectl_version
 
+# TODO: remove this after applying to acre
+- name: Remove deprecated snap
+  community.general.snap:
+    name: kubectl
+    state: absent
+  when:
+    - kubectl_upgrade
+
 - name: Add an apt signing key for Kubernetes
   ansible.builtin.apt_key:
     url: https://packages.cloud.google.com/apt/doc/apt-key.gpg

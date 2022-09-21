@@ -1,4 +1,4 @@
-# tasks file for kubectl
+# tasks file for helm
 
 - name: helm setup
   include_tasks: setup.yml

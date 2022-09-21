@@ -4,6 +4,14 @@
     msg: "A value must be provided for helm_version"
   when: not helm_version
 
+# TODO: remove this after applying to acre
+- name: Remove deprecated snap
+  community.general.snap:
+    name: helm
+    state: absent
+  when:
+    - helm_upgrade
+
 - name: Add an apt signing key for helm
   ansible.builtin.apt_key:
     url: https://baltocdn.com/helm/signing.asc
