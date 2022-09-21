@@ -22,3 +22,6 @@ kubectl_setup: no
 kubectl_upgrade: no
 
 kubectl_aws_role_arn: ""
+
+kubectl_configure: no
+kubectl_configured: no

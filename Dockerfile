@@ -52,8 +52,8 @@ ENV LANG=C.UTF-8 LC_ALL=C.UTF-8 PYTHONIOENCODING=UTF-8 DEBIAN_FRONTEND=nonintera
 # Update apt cache and install prerequisites before running tfenv for the first
 # time.
 #   https://github.com/kamatama41/tfenv/blob/c859abc80bcab1cdb3b166df358e82ff7c1e1d36/README.md#usage
-RUN apt-get update -y
-RUN apt-get install --no-install-recommends -yq \
+
+RUN apt-get update -y && apt-get install --no-install-recommends -yq \
     apt-transport-https \
     build-essential \
     ca-certificates \
@@ -71,8 +71,7 @@ RUN apt-get install --no-install-recommends -yq \
     python3-pip \
     rsync \
     software-properties-common \
-    unzip \
-    vim
+    unzip
 
 RUN curl -fsSL https://apt.releases.hashicorp.com/gpg | apt-key add - && \
     apt-add-repository "deb [arch=$(dpkg --print-architecture)] https://apt.releases.hashicorp.com $(lsb_release -cs) main" && \
@@ -108,5 +107,3 @@ ENV ANSIBLE_FILTER_PLUGINS=/opt/ansible/plugins/filters
 ENV ANSIBLE_ROLES_PATH=/opt/ansible/roles
 
 ADD grafana-dashboards /opt/grafana-dashboards
-
-ENV EDITOR="vim -i NONE"

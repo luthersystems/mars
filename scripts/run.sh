@@ -3,6 +3,9 @@
 if [ x"$USER_ID" != x"0" ]; then
     echo "default:x:${USER_ID}:${GROUP_ID}:Default User:${HOME}:/usr/sbin/nologin" >> /etc/passwd
     chown -R $USER_ID:$GROUP_ID $HOME
+    user=default
+else
+    user=root
 fi
 pwconv
 grpconv
@@ -18,4 +21,4 @@ quote_args() {
     done
 }
 CMD="PATH=$PATH /opt/mars/mars.py $(quote_args "$@")"
-su -s "/bin/bash" -c "${CMD}" default
+su -s "/bin/bash" -c "${CMD}" $user
