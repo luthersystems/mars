@@ -39,6 +39,7 @@ class Terraform(object):
         apply_parser = subparsers.add_parser('apply')
         apply_parser.add_argument("--plan")
         apply_parser.add_argument("--target")
+        apply_parser.add_argument("--approve", action='store_true')
         apply_parser.add_argument('--refresh-only', action='store_true')
         apply_parser.set_defaults(parser_func=self.apply)
 
@@ -201,7 +202,7 @@ class Terraform(object):
             self.apply(plan=plan_path)
         exit(rc)
 
-    def apply(self, plan=None, target=None, refresh_only=None):
+    def apply(self, plan=None, target=None, refresh_only=None, approve=None):
         self._tfenv_init()
         self._check_env()
         self._prompt_env_switch()
@@ -214,6 +215,8 @@ class Terraform(object):
             args.extend(['-target', target])
         if refresh_only:
             args.append('-refresh-only')
+        if approve:
+            args.append('-auto-approve')
         rc = self._script(
             self._tf_workspace_select(),
             ['terraform', 'apply'] + list(args))

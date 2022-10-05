@@ -1,4 +1,6 @@
 #!/bin/bash
+export USER_ID="${USER_ID:-0}"
+export GROUP_ID="${GROUP_ID:-0}"
 
 if [ x"$USER_ID" != x"0" ]; then
     echo "default:x:${USER_ID}:${GROUP_ID}:Default User:${HOME}:/usr/sbin/nologin" >> /etc/passwd
