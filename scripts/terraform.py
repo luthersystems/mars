@@ -44,6 +44,7 @@ class Terraform(object):
         apply_parser.set_defaults(parser_func=self.apply)
 
         destroy_parser = subparsers.add_parser('destroy')
+        destroy_parser.add_argument("--approve", action='store_true')
         destroy_parser.set_defaults(parser_func=self.destroy)
 
         show_parser = subparsers.add_parser('show')
@@ -222,11 +223,13 @@ class Terraform(object):
             ['terraform', 'apply'] + list(args))
         exit(rc)
 
-    def destroy(self):
+    def destroy(self, approve=None):
         self._tfenv_init()
         self._check_env()
         self._prompt_env_switch()
-        args = self._var_file_args()
+        args = list(self._var_file_args())
+        if approve:
+            args.append('-auto-approve')
         rc = self._script(
             self._tf_workspace_select(),
             ['terraform', 'destroy'] + list(args))
