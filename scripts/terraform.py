@@ -432,8 +432,7 @@ class Terraform(object):
         sys.stderr.write(cmd + '\n')
         if kwargs.get('dry_run'):
             return 0
-        rc = os.system(cmd)
-        return rc
+        return self._sh(cmd)
 
     def _exec(self, *cmdargs, **kwargs):
         cmd = ' '.join(shlex.quote(a) for a in cmdargs)
@@ -441,8 +440,7 @@ class Terraform(object):
         if chdir:
             cmd = '(cd {} && {})'.format(chdir, cmd)
         sys.stderr.write(cmd + '\n')
-        rc = os.system(cmd)
-        return rc
+        return self._sh(cmd)
 
     def _script_capture(self, *cmds, **kwargs):
         def mkcmd(args):
@@ -459,6 +457,11 @@ class Terraform(object):
         sys.stderr.write(cmd + '\n')
         return subprocess.check_output(cmd, shell=True, cwd=chdir)
 
+    def _sh(self, cmd):
+        process = subprocess.Popen(['/bin/bash', '-c', cmd], stdin=sys.stdin, stderr=sys.stderr)
+        process.communicate()
+        rc = process.wait()
+        return rc
 
 if __name__ == '__main__':
     tf = Terraform()
