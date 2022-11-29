@@ -1,6 +1,6 @@
 ---
 # defaults file for helm
-helm_version: 2.17
+helm_version: 3.7
 
 helm_diff_plugin_version: v3.5.0
 
