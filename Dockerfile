@@ -2,8 +2,7 @@ FROM ubuntu:20.04 as downloader
 ARG TARGETARCH
 ENV TARGETARCH=$TARGETARCH
 
-RUN apt-get update
-RUN apt-get install --no-install-recommends -y gnupg curl ca-certificates
+RUN apt-get update -y && apt-get install --no-install-recommends -yq gnupg curl ca-certificates git
 ADD aws-cli-pkg-key.asc /tmp/aws-cli-pkg-key.asc
 RUN gpg --import /tmp/aws-cli-pkg-key.asc
 
@@ -33,11 +32,11 @@ RUN sha256sum --check --status --strict SHA256SUMS
 RUN tar -xvf tfedit.tar.gz tfedit
 RUN tar -xvf tfmigrate.tar.gz tfmigrate
 
-FROM ubuntu:20.04
+ARG TFENV_VER
+ENV TFENV_VER=$TFENV_VER
+RUN git clone -b $TFENV_VER --depth 1 https://github.com/tfutils/tfenv.git /tmp/tfenv
 
-ADD build/tfenv /opt/tfenv
-RUN mkdir -p /opt/tfenv/versions && chmod -R a+w /opt/tfenv/versions
-ENV PATH="/opt/tfenv/bin:/opt/bin:${PATH}"
+FROM ubuntu:20.04
 
 RUN mkdir -p /marsproject /opt/home
 ENV HOME="/opt/home"
@@ -107,3 +106,7 @@ ENV ANSIBLE_FILTER_PLUGINS=/opt/ansible/plugins/filters
 ENV ANSIBLE_ROLES_PATH=/opt/ansible/roles
 
 ADD grafana-dashboards /opt/grafana-dashboards
+
+COPY --from=downloader /tmp/tfenv /opt/tfenv
+RUN mkdir -p /opt/tfenv/versions && chmod -R a+w /opt/tfenv/versions && echo 'trust-tfenv: yes' > /opt/tfenv/use-gpgv
+ENV PATH="/opt/tfenv/bin:/opt/bin:${PATH}"
