@@ -18,3 +18,5 @@ eks_cluster_init_encrypted_storageclass: gp2-encrypted
 # eks_cluster_init_storage_kms_key_id: ""
 
 eks_cluster_init_volume_reclaim_policy: Delete
+
+eks_cluster_init_configure_aws_auth: yes

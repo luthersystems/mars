@@ -1,0 +1,8 @@
+---
+# defaults file for k8s_coredns_config
+
+# k8s_coredns_config_host_rewrites is a list of objects with the following
+# schema:
+#   query:  The requested dns name
+#   target: The (internal) dns name matching the query
+k8s_coredns_config_host_rewrites: []

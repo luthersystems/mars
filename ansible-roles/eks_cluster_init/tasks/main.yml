@@ -22,6 +22,7 @@
           - system:masters
   environment: "{{ kubectl_env }}"
   when:
+    - eks_cluster_init_configure_aws_auth
     - eks_cluster_init_eks_worker_iam_role_arn is defined
     - eks_cluster_init_k8s_admin_role_arn is defined
 
