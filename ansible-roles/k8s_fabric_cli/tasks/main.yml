@@ -72,8 +72,8 @@
         hyperledger:
           fabricVersion: "{{k8s_fabric_version}}"
         aws:
-          region: "{{k8s_fabric_cli_cert_bucket_region or shiro_phylum_s3_region}}"
-          staticBucket: "{{k8s_fabric_cli_cert_bucket or shiro_phylum_s3_bucket}}"
+          region: "{{k8s_fabric_cli_cert_bucket_region or shiro_phylum_s3_region | default('')}}"
+          staticBucket: "{{k8s_fabric_cli_cert_bucket or shiro_phylum_s3_bucket | default('')}}"
       dlt:
         organization: "{{k8s_fabric_cli_org}}"
         mspID: "{{k8s_fabric_cli_msp}}"
@@ -83,7 +83,7 @@
         channelArtifactsConfigMap: "{{k8s_fabric_cli_channel_artifacts_configmap_name}}"
         collectionsConfigMap: "{{k8s_fabric_cli_collections_configmap_name}}"
       substrate:
-        version: "{{k8s_fabric_cli_substrate_version or shiro_phylum_substrate_version}}"
+        version: "{{k8s_fabric_cli_substrate_version or shiro_phylum_substrate_version | default('')}}"
       dockerChaincode: "{{k8s_fabric_cli_chaincode_docker}}"
       availabilityZone: "{{availability_zones[item]}}"
   environment: "{{ kubectl_env }}"

@@ -36,8 +36,8 @@
         hyperledger:
           fabricVersion: "{{k8s_fabric_version}}"
         aws:
-          region: "{{k8s_fabric_peer_cert_bucket_region or shiro_phylum_s3_region}}"
-          staticBucket: "{{k8s_fabric_peer_cert_bucket or shiro_phylum_s3_bucket}}"
+          region: "{{k8s_fabric_peer_cert_bucket_region or shiro_phylum_s3_region | default('')}}"
+          staticBucket: "{{k8s_fabric_peer_cert_bucket or shiro_phylum_s3_bucket | default('')}}"
       dlt:
         organization: "{{k8s_fabric_peer_org}}"
         mspID: "{{k8s_fabric_peer_msp}}"
@@ -46,7 +46,7 @@
         hcs: "{{k8s_fabric_peer_hcs}}"
         cryptoConfigSecret: "{{k8s_fabric_peer_crypto_config_secret_name}}"
       substrate:
-        version: "{{k8s_fabric_peer_substrate_version or shiro_phylum_substrate_version}}"
+        version: "{{k8s_fabric_peer_substrate_version or shiro_phylum_substrate_version | default('')}}"
       image:
         repository: "{{k8s_fabric_peer_image_repository}}"
       startService: "{{k8s_fabric_peer_start_service}}"
