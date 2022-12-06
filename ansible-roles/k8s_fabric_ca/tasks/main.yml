@@ -65,8 +65,8 @@
         hyperledger:
           fabricVersion: "{{k8s_fabric_ca_version}}"
         aws:
-          region: "{{k8s_fabric_ca_cert_bucket_region or shiro_phylum_s3_region}}"
-          staticBucket: "{{k8s_fabric_ca_cert_bucket or shiro_phylum_s3_bucket}}"
+          region: "{{k8s_fabric_ca_cert_bucket_region or shiro_phylum_s3_region | default('')}}"
+          staticBucket: "{{k8s_fabric_ca_cert_bucket or shiro_phylum_s3_bucket | default('')}}"
       dlt:
         organization: "{{k8s_fabric_ca_org}}"
         domain: "{{k8s_fabric_ca_domain_root}}"
