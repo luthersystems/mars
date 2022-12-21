@@ -1,7 +1,7 @@
 PROJECT=mars
 PROJECT_PATH=bitbucket.org/luthersystems/${PROJECT}
 
-VERSION=0.59.0-SNAPSHOT
+VERSION=0.60.0-SNAPSHOT
 
 AWS_REGION=eu-west-2
 ECR_HOST=967058059066.dkr.ecr.${AWS_REGION}.amazonaws.com
