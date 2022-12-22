@@ -155,8 +155,9 @@ spec:
 
               mv crypto-config/ordererOrganizations/{{ .Values.dlt.domain }}/orderers/orderer0.{{ .Values.dlt.domain }}/msp/tlscacerts/* /orderertls
               mkdir -p /tls/all-cas
-              cd crypto-config
+              cd crypto-config/peerOrganizations
               cp --parents $(find . -name ca.crt) /tls/all-cas
+              cd ../
 
               # TODO: replace domain var with proper orderer domain
               {{- if eq .Values.dlt.organization "orderer" }}
