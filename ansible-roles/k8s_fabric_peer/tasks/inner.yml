@@ -63,6 +63,7 @@
       logLevel: "{{k8s_fabric_peer_log_level}}"
       availabilityZone: "{{availability_zones[item]}}"
       service:
+        type: "{{k8s_fabric_peer_service_type}}"
         idleTimeout: "{{k8s_fabric_peer_lb_idle_timeout}}"
         useNLB: "{{k8s_fabric_peer_use_nlb}}"
       externalChaincode: "{{k8s_fabric_peer_chaincode_external}}"
