@@ -19,7 +19,7 @@ k8s_fabric_orderer_hcs_operator_id: "{{k8s_fabric_network_hcs_operator_id}}"
 k8s_fabric_orderer_hcs_operator_private_key: "{{k8s_fabric_network_hcs_operator_private_key}}"
 k8s_fabric_orderer_lb_idle_timeout: 60
 k8s_fabric_orderer_use_nlb: true
-k8s_fabric_orderer_service_type: LoadBalancer
+k8s_fabric_orderer_service_type: ClusterIP
 k8s_fabric_orderer_azs: []
 k8s_fabric_orderer_cert_bucket: ""
 k8s_fabric_orderer_cert_bucket_region: ""
