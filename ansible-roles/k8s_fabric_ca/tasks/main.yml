@@ -77,6 +77,7 @@
         storageSize: "{{k8s_fabric_ca_storage_size}}"
       availabilityZone: "{{availability_zones[0]}}"
       service:
+        type: "{{k8s_fabric_ca_service_type}}"
         idleTimeout: "{{k8s_fabric_ca_lb_idle_timeout}}"
         useNLB: "{{k8s_fabric_ca_use_nlb}}"
   environment: "{{ kubectl_env }}"

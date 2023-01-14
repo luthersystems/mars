@@ -14,6 +14,7 @@ k8s_fabric_ca_pv_selectors:
 k8s_fabric_ca_separate_pvc: false
 k8s_fabric_ca_lb_idle_timeout: 60
 k8s_fabric_ca_use_nlb: true
+k8s_fabric_ca_service_type: ClusterIP
 k8s_fabric_ca_az: ""
 k8s_fabric_ca_phylum_bucket: ""
 k8s_fabric_ca_phylum_bucket_region: ""

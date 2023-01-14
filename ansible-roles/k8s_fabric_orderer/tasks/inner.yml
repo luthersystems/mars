@@ -45,6 +45,7 @@
       logLevel: "{{k8s_fabric_orderer_log_level}}"
       availabilityZone: "{{k8s_fabric_orderer_azs[item]}}"
       service:
+        type: "{{k8s_fabric_orderer_service_type}}"
         idleTimeout: "{{k8s_fabric_orderer_lb_idle_timeout}}"
         useNLB: "{{k8s_fabric_orderer_use_nlb}}"
   environment: "{{ kubectl_env }}"
