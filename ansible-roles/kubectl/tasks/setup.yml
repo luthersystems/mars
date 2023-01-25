@@ -19,6 +19,13 @@
   when:
     - not kubectl_setup
 
+- name: Add an apt signing key for Hashicorp
+  ansible.builtin.apt_key:
+    url: https://apt.releases.hashicorp.com/gpg
+    state: present
+  when:
+    - not kubectl_setup
+
 - name: Adding apt repository for Kubernetes
   ansible.builtin.apt_repository:
     repo: deb https://apt.kubernetes.io/ kubernetes-xenial main
