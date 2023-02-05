@@ -1,0 +1,5 @@
+---
+# defaults file for prometheus
+
+k8s_prometheus_iam_arn: ""
+k8s_prometheus_workspace_id: ""
