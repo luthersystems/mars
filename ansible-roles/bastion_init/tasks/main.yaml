@@ -28,9 +28,9 @@
     name:
       - awscli==1.22.50
       - boto==2.49.0
-      - boto3==1.20
+      - boto3==1.20.50
       - botocore==1.23.50
-      - kubernetes==21.7.0
+      - kubernetes==24.2.0
       - openshift==0.13.1
 
 - name: Configure kubectl for EKS
