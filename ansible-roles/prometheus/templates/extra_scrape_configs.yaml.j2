@@ -1,0 +1,9 @@
+- job_name: node
+  proxy_url: http://monitoring-pushprox.monitoring/
+  static_configs:
+    - targets:
+{% for org in k8s_fabric_peer_org_names %}
+{% for num in range(k8s_fabric_peer_org_size) %}
+      - chaincode.peer{{ num }}.{{ org }}.{{ k8s_fabric_network_domain_root }}:9100
+{% endfor %}
+{% endfor %}

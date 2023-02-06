@@ -1,5 +1,10 @@
 ---
 # defaults file for prometheus
 
+k8s_prometheus_region: ""
 k8s_prometheus_iam_arn: ""
 k8s_prometheus_workspace_id: ""
+
+# add legacy pushproxy for non-external chaincode
+k8s_prometheus_pushproxy: false
+k8s_prometheus_pushproxy_helm_chart_path: "{{kubectl_asset_root_path}}/pushprox"

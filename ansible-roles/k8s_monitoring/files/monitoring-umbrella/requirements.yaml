@@ -1,8 +1,7 @@
 dependencies:
   - name: prometheus
-    version: ~9.3.1
-    repository: https://kubernetes-charts.storage.googleapis.com/
+    version: ~11.12.1
+    repository: https://charts.helm.sh/stable
   - name: grafana
-    version: ~4.0.3
-    repository: https://kubernetes-charts.storage.googleapis.com/
-
+    version: ~5.5.7
+    repository: https://charts.helm.sh/stable
