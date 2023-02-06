@@ -1,0 +1,64 @@
+---
+# tasks file for prometheus
+
+- name: Add prometheus repository
+  kubernetes.core.helm_repository:
+    name: prometheus-community
+    repo_url: https://prometheus-community.github.io/helm-charts
+  no_log: True
+
+- name: Add state metrics repository
+  kubernetes.core.helm_repository:
+    name: kube-state-metrics
+    repo_url: https://kubernetes.github.io/kube-state-metrics
+  no_log: True
+
+- name: Install prometheus
+  kubernetes.core.helm:
+    name: prometheus
+    chart_ref: prometheus-community/prometheus
+    chart_version: 19.2.1
+    namespace: prometheus
+    create_namespace: yes
+    update_repo_cache: yes
+    wait: true
+    values:
+      serviceAccounts:
+        server:
+          name: prometheus
+          annotations:
+            eks.amazonaws.com/role-arn: "{{ k8s_prometheus_iam_arn }}"
+      server:
+        remoteWrite:
+          - url: "https://aps-workspaces.{{ k8s_prometheus_region }}.amazonaws.com/workspaces/{{ k8s_prometheus_workspace_id }}/api/v1/remote_write"
+            sigv4:
+              region: "{{ k8s_prometheus_region }}"
+            queue_config:
+              max_samples_per_send: 1000
+              max_shards: 200
+              capacity: 2500
+      alertmanager:
+        enabled: false
+      extraScrapeConfigs: "{{lookup('template', 'extra_scrape_configs.yaml.j2')}}"
+  environment: "{{ kubectl_env }}"
+
+- name: Helm chart exists
+  synchronize:
+    src: pushprox/
+    dest: "{{k8s_prometheus_pushproxy_helm_chart_path}}"
+    delete: yes
+    recursive: yes
+    owner: no
+    group: no
+    use_ssh_args: yes
+  when: k8s_prometheus_pushproxy
+
+- name: Helm Chart is installed
+  kubernetes.core.helm:
+    chart_ref: "{{k8s_prometheus_pushproxy_helm_chart_path}}"
+    name: monitoring
+    namespace: monitoring
+    create_namespace: yes
+    wait: true
+  when: k8s_prometheus_pushproxy
+  environment: "{{ kubectl_env }}"

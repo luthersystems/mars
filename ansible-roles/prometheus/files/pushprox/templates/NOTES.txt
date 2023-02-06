@@ -1,0 +1,6 @@
+1. Get the application URL by running these commands:
+
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "pushprox.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o name)
+  kubectl port-forward $POD_NAME 80:80
+
+2. Visit http://127.0.0.1 to use your application
