@@ -24,4 +24,5 @@
             eks.amazonaws.com/role-arn: "{{ k8s_fluentbit_iam_arn }}"
       cloudWatchLogs:
         region: "{{ k8s_fluentbit_region }}"
+        logGroupTemplate: "{{ k8s_fluentbit_log_group_name }}"
   environment: "{{ kubectl_env }}"
