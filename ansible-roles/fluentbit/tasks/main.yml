@@ -1,0 +1,27 @@
+---
+# tasks file for fluentbit
+
+- name: Add fluentbit repository
+  kubernetes.core.helm_repository:
+    name: eks
+    repo_url: https://aws.github.io/eks-charts
+  no_log: True
+
+- name: Install fluentbit
+  kubernetes.core.helm:
+    name: aws-for-fluent-bit
+    chart_ref: eks/aws-for-fluent-bit
+    chart_version: 0.1.24
+    namespace: kube-system
+    create_namespace: yes
+    update_repo_cache: yes
+    wait: true
+    values:
+      serviceAccounts:
+        server:
+          name: aws-for-fluent-bit
+          annotations:
+            eks.amazonaws.com/role-arn: "{{ k8s_fluentbit_iam_arn }}"
+      cloudWatchLogs:
+        region: "{{ k8s_fluentbit_region }}"
+  environment: "{{ kubectl_env }}"
