@@ -1,0 +1,6 @@
+---
+# defaults file for fluentbit
+
+k8s_fluentbit_region: ""
+k8s_fluentbit_iam_arn: ""
+k8s_fluentbit_log_group_name: ""
