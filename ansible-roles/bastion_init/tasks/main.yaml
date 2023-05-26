@@ -26,12 +26,39 @@
 - name: Ensure python modules are installed
   pip:
     name:
-      - awscli==1.22.50
       - boto==2.49.0
       - boto3==1.20.50
       - botocore==1.23.50
       - kubernetes==24.2.0
       - openshift==0.13.1
+
+- name: Check AWS CLI version
+  command:
+    cmd: aws --version
+  register: aws_cli_version
+  changed_when: false
+  ignore_errors: true
+
+- name: Set AWS CLI fact
+  set_fact:
+    aws_cli_installed: "{{ 'aws-cli/2.' in aws_cli_version.stdout }}"
+
+- name: Download the AWS CLI v2 installer
+  get_url:
+    url: "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
+    dest: "/tmp/awscliv2.zip"
+  when: not aws_cli_installed
+
+- name: Unzip the AWS CLI v2 installer
+  unarchive:
+    src: "/tmp/awscliv2.zip"
+    dest: "/tmp"
+    remote_src: yes
+  when: not aws_cli_installed
+
+- name: Run the AWS CLI v2 installer
+  command: "/tmp/aws/install"
+  when: not aws_cli_installed
 
 - name: Configure kubectl for EKS
   command:
