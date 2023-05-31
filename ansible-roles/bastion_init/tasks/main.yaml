@@ -26,12 +26,76 @@
 - name: Ensure python modules are installed
   pip:
     name:
-      - awscli==1.22.50
       - boto==2.49.0
       - boto3==1.20.50
       - botocore==1.23.50
       - kubernetes==24.2.0
       - openshift==0.13.1
+
+- name: Print AWS CLI desired version
+  debug:
+    var: aws_cli_version_desired
+
+- name: Check AWS CLI version
+  command:
+    cmd: aws --version
+  register: aws_cli_version_installed
+  changed_when: false
+  ignore_errors: true
+
+- name: Set AWS CLI installed fact
+  set_fact:
+    aws_cli_installed: "{{ 'aws-cli/' + aws_cli_version_desired in aws_cli_version_installed.stdout }}"
+
+- name: Copy AWS CLI public key to the bastion
+  copy:
+    src: aws-cli-pkg-key.asc
+    dest: /tmp/aws-cli-pkg-key.asc
+  when: not aws_cli_installed
+
+- name: Import AWS CLI public key
+  command:
+    cmd: gpg --import /tmp/aws-cli-pkg-key.asc
+  when: not aws_cli_installed
+
+- name: Download the specific AWS CLI v2 installer
+  get_url:
+    url: "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-{{ aws_cli_version_desired }}.zip"
+    dest: "/tmp/awscliv2.zip"
+  when: not aws_cli_installed
+
+- name: Download AWS CLI v2 signature file
+  get_url:
+    url: "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-{{ aws_cli_version_desired }}.zip.sig"
+    dest: "/tmp/awscliv2.sig"
+  when: not aws_cli_installed
+
+- name: Verify the signature of the AWS CLI v2 installer
+  command:
+    cmd: gpg --verify /tmp/awscliv2.sig /tmp/awscliv2.zip
+  when: not aws_cli_installed
+
+- name: Unzip the AWS CLI v2 installer
+  unarchive:
+    src: "/tmp/awscliv2.zip"
+    dest: "/tmp"
+    remote_src: yes
+  when: not aws_cli_installed
+
+- name: Run the AWS CLI v2 installer
+  command: "/tmp/aws/install --update"
+  when: not aws_cli_installed
+
+- name: Cleanup temporary files
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "/tmp/awscli-exe-linux-x86_64-{{ aws_cli_version_desired }}.zip"
+    - "/tmp/awscli-exe-linux-x86_64-{{ aws_cli_version_desired }}.zip.sig"
+    - "/tmp/aws-cli-pkg-key.asc"
+    - "/tmp/aws"
+  when: not aws_cli_installed
 
 - name: Configure kubectl for EKS
   command:
