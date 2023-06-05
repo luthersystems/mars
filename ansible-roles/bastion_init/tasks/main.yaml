@@ -75,6 +75,13 @@
     cmd: gpg --verify /tmp/awscliv2.sig /tmp/awscliv2.zip
   when: not aws_cli_installed
 
+- name: Install unzip package
+  become: true
+  package:
+    name: unzip
+    state: present
+  when: not aws_cli_installed
+
 - name: Unzip the AWS CLI v2 installer
   unarchive:
     src: "/tmp/awscliv2.zip"
