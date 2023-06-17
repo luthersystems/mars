@@ -19,6 +19,8 @@ spec:
   resources:
     requests:
       storage: {{ .Values.persistentVolume.storageSize }}
+
+{{- if not .Values.externalChaincode }}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -39,4 +41,5 @@ spec:
   resources:
     requests:
       storage: {{ .Values.persistentVolume.dockerStorageSize }}
+{{- end }}
 {{- end }}
