@@ -42,7 +42,6 @@
       - "{{ k8s_fabric_chaincode_external }}"
     chdir: "{{ k8s_fabric_scripts_workdir }}"
   environment: "{{ kubectl_env }}"
-  when: not committed
   loop: "{{ k8s_fabric_chaincode_orgs | org_peer_pairs }}"
   register: install_result
   changed_when: '"peers have installed the chaincode" in install_result.stderr'
@@ -85,7 +84,6 @@
     index_var: index
   when:
     - k8s_fabric_chaincode_external | bool
-    - not committed
   tags:
   - prepare_chaincode_upgrade
   environment: "{{ kubectl_env }}"
