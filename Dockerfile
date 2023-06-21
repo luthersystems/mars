@@ -97,6 +97,7 @@ RUN chmod a+x /opt/mars/terraform.py
 
 ADD ssh_config /etc/ssh/ssh_config
 # Grab bitbucket.org keys and place in known_hosts
+RUN ssh-keyscan -H github.com >> /etc/ssh/known_hosts && test -n "$(cat /etc/ssh/known_hosts)"
 RUN ssh-keyscan -H bitbucket.org >> /etc/ssh/known_hosts && test -n "$(cat /etc/ssh/known_hosts)"
 
 ADD ansible-roles /opt/ansible/roles
