@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from glob import glob
+import argparse
 import shlex
 import tempfile
 import os
@@ -20,7 +21,6 @@ class Terraform(object):
         self.skip_prompt = False
 
     def main(self):
-        import argparse
         argparser = argparse.ArgumentParser()
         argparser.add_argument('env')
         argparser.add_argument('--verbose', '-v', dest='verbosity', action='count', default=0)
@@ -33,7 +33,9 @@ class Terraform(object):
         plan_parser.add_argument('--out')
         plan_parser.add_argument('--target', action='append')
         plan_parser.add_argument('--apply', dest='apply_plan', action='store_true')
-        plan_parser.add_argument('--refresh-only', action='store_true')
+        refresh_group = plan_parser.add_mutually_exclusive_group()
+        refresh_group.add_argument('--refresh-only', action='store_true')
+        refresh_group.add_argument('--skip-refresh', action='store_true')
         plan_parser.set_defaults(parser_func=self.plan)
 
         apply_parser = subparsers.add_parser('apply')
@@ -149,7 +151,7 @@ class Terraform(object):
         if rc != 0:
             exit(rc)
 
-    def plan(self, destroy=False, out=None, apply_plan=False, target=None, refresh_only=None):
+    def plan(self, destroy=False, out=None, apply_plan=False, target=None, refresh_only=None, skip_refresh=None):
         self._tfenv_init()
         self._check_env()
         self._prompt_env_switch()
@@ -177,6 +179,8 @@ class Terraform(object):
                 extra_args.extend(['-target', t])
         if refresh_only:
             extra_args.append('-refresh-only')
+        if skip_refresh:
+            extra_args.append('-refresh=false')
         args = itertools.chain(base_args, var_file_args, extra_args)
         rc = self._script(
             self._tf_workspace_select(),
