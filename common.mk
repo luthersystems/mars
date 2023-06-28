@@ -1,10 +1,11 @@
 PROJECT=mars
-PROJECT_PATH=bitbucket.org/luthersystems/${PROJECT}
+PROJECT_PATH=github.com/luthersystems/${PROJECT}
 
-VERSION=0.68.0-SNAPSHOT
-
-AWS_REGION=eu-west-2
-ECR_HOST=967058059066.dkr.ecr.${AWS_REGION}.amazonaws.com
+TAG_SUFFIX ?= -amd64
+GIT_TAG ?= $(shell git describe --tags --exact-match 2>/dev/null)
+GIT_REVISION ?= $(shell git rev-parse --short HEAD)
+VERSION ?= $(if $(strip $(GIT_TAG)),$(GIT_TAG),$(GIT_REVISION))
+BUILD_VERSION ?= ${VERSION}${TAG_SUFFIX}
 
 ifeq ($(OS),Windows_NT)
 	IS_WINDOWS=1
