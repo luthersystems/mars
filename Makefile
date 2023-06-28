@@ -10,36 +10,31 @@ TFMIGRATE_VERSION=0.3.3
 TFENV_VER=v3.0.0
 
 STATIC_IMAGE_DUMMY=${call IMAGE_DUMMY,${STATIC_IMAGE}/${VERSION}}
-ECR_STATIC_IMAGE=${ECR_HOST}/${STATIC_IMAGE}
+FQ_STATIC_IMAGE=$(call FQ_DOCKER_IMAGE,${PUBLIC_STATIC_IMAGE})
+FQ_STATIC_IMAGE_DUMMY=$(call PUSH_DUMMY,${FQ_STATIC_IMAGE}/${BUILD_VERSION})
+FQ_MANIFEST_DUMMY=$(call MANIFEST_DUMMY,${FQ_STATIC_IMAGE}/${BUILD_VERSION})
 
 ANSIBLE_ROLES=$(shell find ansible-roles)
 ANSIBLE_PLUGINS=$(shell find ansible-plugins)
 GRAFANA_DASHBOARDS=$(shell find grafana-dashboards)
 
-ECR_LOGIN=bash get-ecr-token.sh ${ECR_HOST}
-
-PLATFORMS=linux/amd64,linux/arm64
 LOCALARCH=$(if $(findstring ${HWTYPE},"x86_64"),amd64,${HWTYPE})
 
 .PHONY: default
-default: docker-static
+default: static
 	@
 
-.PHONY: docker-static
-docker-static: ${STATIC_IMAGE_DUMMY}
+.PHONY: static
+static: ${STATIC_IMAGE_DUMMY}
 	@
 
-.PHONY: docker-push
-docker-push: aws-ecr-login ${ECR_STATIC_IMAGE}
+.PHONY: push
+push: ${FQ_STATIC_IMAGE_DUMMY}
 	@
 
 .PHONY: clean
 clean:
 	rm -rf build
-
-.PHONY: aws-ecr-login
-aws-ecr-login:
-	${ECR_LOGIN}
 
 build-%: LOADARG=$(if $(findstring $*,${LOCALARCH}),--load)
 build-%: Dockerfile  ${ANSIBLE_ROLES} ${ANSIBLE_PLUGINS} ${GRAFANA_DASHBOARDS} ${SCRIPTS} ssh_config requirements.txt
@@ -50,25 +45,30 @@ build-%: Dockerfile  ${ANSIBLE_ROLES} ${ANSIBLE_PLUGINS} ${GRAFANA_DASHBOARDS} $
 		--build-arg TFMIGRATE_VER=${TFMIGRATE_VERSION} \
 		--build-arg TFENV_VER=${TFENV_VER} \
 		${LOADARG} \
-		-t ${STATIC_IMAGE}:latest \
 		-t ${STATIC_IMAGE}:${VERSION} \
-		-t ${ECR_STATIC_IMAGE}:latest \
-		-t ${ECR_STATIC_IMAGE}:${VERSION} \
 		.
 
-${STATIC_IMAGE_DUMMY}: build-amd64 build-arm64
+${STATIC_IMAGE_DUMMY}: 
+	make build-${LOCALARCH}
 	${MKDIR_P} $(dir $@)
 	${TOUCH} $@
 
-.PHONY: ${ECR_STATIC_IMAGE}
-${ECR_STATIC_IMAGE}: ${STATIC_IMAGE_DUMMY}
-	${DOCKER} buildx build \
-		--push \
-		--platform ${PLATFORMS} \
-		--build-arg AWSCLI_VER=${AWSCLI_VERSION} \
-		--build-arg TFEDIT_VER=${TFEDIT_VERSION} \
-		--build-arg TFMIGRATE_VER=${TFMIGRATE_VERSION} \
-		--build-arg TFENV_VER=${TFENV_VER} \
-		-t ${ECR_STATIC_IMAGE}:latest \
-		-t ${ECR_STATIC_IMAGE}:${VERSION} \
-		.
+${FQ_STATIC_IMAGE_DUMMY}: ${STATIC_IMAGE_DUMMY}
+	${DOCKER} tag ${STATIC_IMAGE}:${VERSION} ${FQ_STATIC_IMAGE}:${BUILD_VERSION}
+	${DOCKER} push ${FQ_STATIC_IMAGE}:${BUILD_VERSION}
+	${MKDIR_P} $(dir $@)
+	${TOUCH} $@
+
+.PHONY: push-manifests
+push-manifests: ${FQ_MANIFEST_DUMMY}
+	@
+
+${FQ_MANIFEST_DUMMY}:
+	${DOCKER} buildx imagetools create \
+		--tag ${FQ_STATIC_IMAGE}:latest \
+		${FQ_STATIC_IMAGE}:${VERSION}-arm64 \
+		${FQ_STATIC_IMAGE}:${VERSION}-amd64
+	${DOCKER} buildx imagetools create \
+		--tag ${FQ_STATIC_IMAGE}:${VERSION} \
+		${FQ_STATIC_IMAGE}:${VERSION}-arm64 \
+		${FQ_STATIC_IMAGE}:${VERSION}-amd64
