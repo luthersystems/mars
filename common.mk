@@ -35,6 +35,8 @@ TAR=tar
 DUMMY_TARGET=build/$(1)/$(2)/.dummy
 IMAGE_DUMMY=$(call DUMMY_TARGET,image,$(1))
 PUSH_DUMMY=$(call DUMMY_TARGET,push,$(1))
+MANIFEST_DUMMY=$(call DUMMY_TARGET,manifest,$(1))
+FQ_DOCKER_IMAGE ?= docker.io/$(1)
 
 UNAME := $(shell uname)
 GIT_LS_FILES=$(shell git ls-files $(1))
