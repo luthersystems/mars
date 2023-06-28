@@ -1,4 +1,4 @@
-FROM ubuntu:20.04 as downloader
+FROM ubuntu:22.04 as downloader
 ARG TARGETARCH
 ENV TARGETARCH=$TARGETARCH
 
@@ -36,7 +36,7 @@ ARG TFENV_VER
 ENV TFENV_VER=$TFENV_VER
 RUN git clone -b $TFENV_VER --depth 1 https://github.com/tfutils/tfenv.git /tmp/tfenv
 
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 RUN mkdir -p /marsproject /opt/home
 ENV HOME="/opt/home"
