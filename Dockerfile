@@ -36,6 +36,12 @@ ARG TFENV_VER
 ENV TFENV_VER=$TFENV_VER
 RUN git clone -b $TFENV_VER --depth 1 https://github.com/tfutils/tfenv.git /tmp/tfenv
 
+ARG HELM_VERSION
+ENV HELM_VERSION=$HELM_VERSION
+RUN curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/${HELM_VERSION}/scripts/get-helm-3 && \
+    chmod 700 get_helm.sh && \
+    ./get_helm.sh
+
 FROM ubuntu:22.04
 
 RUN mkdir -p /marsproject /opt/home
@@ -111,3 +117,5 @@ ADD grafana-dashboards /opt/grafana-dashboards
 COPY --from=downloader /tmp/tfenv /opt/tfenv
 RUN mkdir -p /opt/tfenv/versions && chmod -R a+w /opt/tfenv/versions && echo 'trust-tfenv: yes' > /opt/tfenv/use-gpgv
 ENV PATH="/opt/tfenv/bin:/opt/bin:${PATH}"
+
+COPY --from=downloader /usr/local/bin/helm /opt/bin/helm
