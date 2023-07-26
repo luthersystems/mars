@@ -36,6 +36,7 @@ k8s_fabric_peer_docker_log_driver: json-file
 k8s_fabric_peer_buildpack_version: ""
 k8s_fabric_peer_chaincode_external: false
 k8s_fabric_peer_chaincode_docker: true
+k8s_fabric_peer_log_grpc: false
 
 k8s_fabric_peer_crypto_config: ""
 k8s_fabric_peer_crypto_config_secret_name: ""

@@ -111,4 +111,6 @@ startService: true
 
 logLevel: INFO
 
+logGrpc: false
+
 availabilityZone: ""
