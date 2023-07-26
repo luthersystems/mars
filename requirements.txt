@@ -5,6 +5,8 @@ boto==2.49.0
 PyYAML==6.0
 python-dotenv==0.19.2
 requests==2.31.0
-azure-cli==2.40.0
 kubernetes==24.2.0
 jsonpatch==1.32
+azure-cli==2.50.0
+azure-keyvault-secrets==4.7.0
+azure-identity==1.13.0
