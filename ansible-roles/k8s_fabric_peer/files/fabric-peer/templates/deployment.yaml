@@ -70,6 +70,12 @@ spec:
             - while true; do sleep 10; done
           {{- end }}
           env:
+            {{- if .Values.logGrpc }}
+            - name: GRPC_GO_LOG_VERBOSITY_LEVEL
+              value: 99
+            - name: GRPC_GO_LOG_SEVERITY_LEVEL
+              value: info
+            {{- end }}
             - name: PEER_INDEX
               value: "{{ .Values.dlt.peerIndex }}"
             - name: FABRIC_LOGGING_SPEC
