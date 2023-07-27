@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
 from glob import glob
+import argparse
 import shlex
 import os
 import os.path
 import re
+import stat
 import sys
 import itertools
 import textwrap
@@ -12,108 +14,109 @@ import tempfile
 import yaml
 import subprocess
 
+from ansible.constants import DEFAULT_VAULT_ID_MATCH # type: ignore
+from ansible.parsing.vault import VaultLib, VaultSecret
+
+import keyvault
+
 # TODO: * add ENV var check
 
 
 class Ansible(object):
 
     def __init__(self):
-        self.env = 'develop'
-        self.inventory_config = None
+        self.env = ''
+        self.inventory_config = {}
         self.inventory_defaults = {
             'ssh_user': 'ubuntu',
             'ssh_common_args': [
                 '-oStrictHostKeyChecking=no',
                 '-oUserKnownHostsFile=/dev/null',
             ],
-            # "script" is an misnomer from when the inventory was a python
+            # 'script' is an misnomer from when the inventory was a python
             # script.  The inventory source can be any file format/plugin
             # supported by ansible.
             'script': 'aws_ec2.yml',
         }
         self.vault_password_file = None
-        self.playbook_default = 'site.yaml'
 
     def main(self):
-        import argparse
         argparser = argparse.ArgumentParser()
         argparser.add_argument('env')
         subparsers = argparser.add_subparsers()
 
-        execute_parser = subparsers.add_parser('ansible-execute')
-        execute_parser.add_argument('host_pattern')
-        execute_parser.add_argument('--module', '-m', default='ping')
-        execute_parser.add_argument('--args', '-a')
-        execute_parser.set_defaults(parser_func=self.execute)
+        # common vault arguments
+        vault_parser = argparse.ArgumentParser(add_help=False)
+        vault_parser.add_argument('--az-vault', default='')
+        vault_parser.add_argument('--az-vault-key', default='')
 
-        playbook_parser = subparsers.add_parser('ansible-playbook')
+        playbook_parser = subparsers.add_parser('ansible-playbook', parents=[vault_parser])
         playbook_parser.add_argument('path')
         playbook_parser.add_argument('--debug', action='store_true')
         playbook_parser.add_argument('--verbose', '-v', action='count', default=0)
-        playbook_parser.add_argument('--tags')
-        playbook_parser.add_argument('--limit')
-        playbook_parser.add_argument('--check', action="store_true")
-        playbook_parser.add_argument('--start-at-task')
-        playbook_parser.set_defaults(parser_func=self.playbook)
+        playbook_parser.add_argument('--tags', default='')
+        playbook_parser.add_argument('--limit', default='')
+        playbook_parser.add_argument('--check', action='store_true')
+        playbook_parser.add_argument('--start-at-task', default='')
+        playbook_parser.set_defaults(func=self.playbook)
 
-        vault_edit_parser = subparsers.add_parser('ansible-vault-edit')
-        vault_edit_parser.add_argument('path')
-        vault_edit_parser.set_defaults(parser_func=self.vault_edit)
+        execute_parser = subparsers.add_parser('ansible-execute', parents=[vault_parser])
+        execute_parser.add_argument('host_pattern')
+        execute_parser.add_argument('--module', '-m', default='ping')
+        execute_parser.add_argument('--args', '-a', default='')
+        execute_parser.set_defaults(func=self.execute)
 
-        vault_encrypt_parser = subparsers.add_parser('ansible-vault-encrypt')
-        vault_encrypt_parser.add_argument('--name', '-n',
-                                          help='converted to --stdin-name if --string not given')
-        vault_encrypt_parser.add_argument('--string')
-        vault_encrypt_parser.add_argument('--encrypt-raw-stdin', '-r', action='store_true')
-        vault_encrypt_parser.set_defaults(parser_func=self.vault_encrypt)
+        vault_encrypt_parser = subparsers.add_parser('ansible-vault-encrypt', parents=[vault_parser])
+        vault_encrypt_parser.add_argument('--path', default='')
+        vault_encrypt_parser.set_defaults(func=self.vault_encrypt)
 
-        vault_decrypt_parser = subparsers.add_parser('ansible-vault-decrypt')
-        vault_decrypt_parser.add_argument('--path')
-        vault_decrypt_parser.set_defaults(parser_func=self.vault_decrypt)
+        vault_decrypt_parser = subparsers.add_parser('ansible-vault-decrypt', parents=[vault_parser])
+        vault_decrypt_parser.add_argument('--path', default='')
+        vault_decrypt_parser.set_defaults(func=self.vault_decrypt)
 
-        vault_view_parser = subparsers.add_parser('ansible-vault-view')
-        vault_view_parser.add_argument('path')
-        vault_view_parser.set_defaults(parser_func=self.vault_view)
+        vault_decrypt_key_parser = subparsers.add_parser('ansible-vault-decrypt-key', parents=[vault_parser])
+        vault_decrypt_key_parser.add_argument('yaml_file')
+        vault_decrypt_key_parser.add_argument('key')
+        vault_decrypt_key_parser.set_defaults(func=self.vault_decrypt_key)
 
         args = argparser.parse_args()
 
-        if 'parser_func' not in vars(args):
+        if 'func' not in vars(args):
             # no environment given
             sys.stderr.write('no sub-command given\n\n')
             argparser.print_help()
             exit(1)
 
+        az_vault_args = [args.az_vault, args.az_vault_key]
+        if any(az_vault_args) and not all(az_vault_args):
+            raise Exception('--az-vault and --az-vault-key must be supplied together')
+
         self.env = args.env
-        args_ignore = set(['parser_func', 'env'])
-        kwargs = {k: v for k, v in vars(args).items() if k not in args_ignore}
-        args.parser_func(**kwargs)
+        args.func(args)
 
-    def playbook(self, path=None, tags=None, limit=None, check=False, debug=False, verbose=0, start_at_task=None):
-        if not path:
-            path = self.playbook_default
-
+    def playbook(self, args):
         base_cmd = ['ansible-playbook']
-        if debug:
+        if args.debug:
             base_cmd.append('-vvvv')
-        elif verbose > 0:
-            base_cmd.append('-' + 'v'*verbose)
-        base_cmd.append(path)
-        vault_args = self._ansible_vault_credentials()
+        elif args.verbose > 0:
+            base_cmd.append('-' + 'v'*args.verbose)
+        base_cmd.append(args.path)
+        vault_args = self._ansible_vault_args(args)
         inv_args = self._inventory_args()
         user_args = self._ssh_user_args()
         ssh_common_args = self._ssh_common_args()
         extra_args = []
-        if check:
+        if args.check:
             extra_args.append('--check')
-        if tags:
+        if args.tags:
             extra_args.append('--tags')
-            extra_args.append(tags)
-        if limit:
+            extra_args.append(args.tags)
+        if args.limit:
             extra_args.append('--limit')
-            extra_args.append(limit)
-        if start_at_task:
+            extra_args.append(args.limit)
+        if args.start_at_task:
             extra_args.append('--start-at-task')
-            extra_args.append(start_at_task)
+            extra_args.append(args.start_at_task)
         cmd = itertools.chain(
             base_cmd,
             vault_args,
@@ -122,22 +125,17 @@ class Ansible(object):
             ssh_common_args,
             extra_args
         )
-        rc = self._exec_cmd(*cmd)
+        rc = self._exec_cmd(*cmd, env=os.environ | _add_env_vars(args))
         exit(rc)
 
-    def execute(self, host_pattern=None, module=None, args=None):
-        if host_pattern is None:
-            raise Exception('host_pattern not provided')
-        if module is None:
-            raise Exception('module not provided')
-
+    def execute(self, args):
         base_cmd = ['ansible']
-        vault_args = self._ansible_vault_credentials()
+        vault_args = self._ansible_vault_args(args)
         inv_args = self._inventory_args()
         user_args = self._ssh_user_args()
         ssh_common_args = self._ssh_common_args()
-        host_args = [host_pattern]
-        module_args = ['-m', module]
+        host_args = [args.host_pattern]
+        module_args = ['-m', args.module]
         args_args = []
         if args:
             args_args = args
@@ -151,111 +149,57 @@ class Ansible(object):
             module_args,
             args_args
         )
-        rc = self._exec_cmd(*cmd)
+        rc = self._exec_cmd(*cmd, env=os.environ | _add_env_vars(args))
         exit(rc)
 
-    def vault_edit(self, path=None):
-        if path is None:
-            raise Exception('path not provided')
-        vault_args = self._ansible_vault_credentials()
-
-        vault_action = 'edit'
-        if not os.path.exists(path):
-            vault_action = 'create'
-
-        cmd = ['ansible-vault',
-               vault_action,
-               *vault_args,
-               path]
-        rc = self._exec_cmd(*cmd)
-        exit(rc)
-
-    def vault_view(self, path=None):
-        if path is None:
-            raise Exception('path not provided')
-        vault_args = self._ansible_vault_credentials()
-
-        vault_action = 'view'
-        cmd = ['ansible-vault',
-               vault_action,
-               *vault_args,
-               path]
-        rc = self._exec_cmd(*cmd)
-        exit(rc)
-
-    def vault_encrypt(self, name=None, string=None, encrypt_raw_stdin=False):
-        # Only check encrypt_raw_stdin when no string is provided.
-        if string is None and not encrypt_raw_stdin:
-            # Remove indenting and strip any trailing newline from input text to make strings
-            # encrypted using pipes more user friendly in general.
-            with tempfile.NamedTemporaryFile(mode='w') as f:
-                raw = sys.stdin.read()
-                cleartext = textwrap.dedent(raw).rstrip('\n')
-                f.write(cleartext)
-                f.flush()
-                self._vault_encrypt_path(f.name, name=name)
-                return
-
-        base_cmd = ['ansible-vault']
-        sub_cmd = ['encrypt_string']
-        if name is not None:
-            flag = '--name'
-            if string is None:
-                flag = '--stdin-name'
-            sub_cmd.extend([flag, name])
-        if string is not None:
-            sub_cmd.append(str(string))
-        cmd = itertools.chain(
-            base_cmd,
-            sub_cmd,
-            self._ansible_vault_credentials(),
-        )
-        rc = self._exec_cmd(*cmd)
-        exit(rc)
-
-    def _vault_encrypt_path(self, path, name=None):
-        base_cmd = ['ansible-vault']
-        sub_cmd = ['encrypt_string']
-        if name is not None:
-            sub_cmd.extend(['--stdin-name', name])
-
-        cmd = itertools.chain(
-            base_cmd,
-            sub_cmd,
-            self._ansible_vault_credentials(),
-        )
-        rc = self._exec_script(cmd, stdin_file=path)
-        exit(rc)
-
-    def vault_decrypt(self, path=None):
-        if path is not None:
-            self._vault_decrypt(path)
+    def vault_encrypt(self, args):
+        encryption_key = self._get_encryption_key(args)
+        if args.path:
+            with open(args.path) as f:
+                secret = f.read()
         else:
-            # Indenting whitespace needs to be removed in order for ansible-vault to be decrypt
-            # single variables that have been encrypted using vault_encrypt.
-            with tempfile.NamedTemporaryFile(mode='w') as f:
-                raw = sys.stdin.read()
-                # remove leading line with YAML label and vault header if present
-                raw = re.sub("[^\n]+!vault \|\n", "", raw)
-                encrypted = textwrap.dedent(raw)
-                f.write(encrypted)
-                f.flush()
-                self._vault_decrypt(f.name)
+            if not stdin_pipe():
+                raise Exception('expected to read a secret from stdin')
+            secret = sys.stdin.read().rstrip('\n')
+        self._vault_encrypt(secret, encryption_key)
 
-    def _vault_decrypt(self, path):
-        base_cmd = ['ansible-vault']
-        sub_cmd = ['decrypt', '--output=-', path]
+    def _vault_encrypt(self, secret, encryption_key):
+        vault = vault_client(encryption_key)
+        encrypted = vault.encrypt(bytes(secret, 'utf-8'))
+        print(encrypted.decode('utf-8'))
 
-        cmd = itertools.chain(
-            base_cmd,
-            sub_cmd,
-            self._ansible_vault_credentials(),
-        )
-        rc = self._exec_cmd(*cmd)
-        exit(rc)
+    def _get_encryption_key(self, args):
+        if args.az_vault:
+            return keyvault.get_secret(args.az_vault, args.az_vault_key)
+        # fall back to password file
+        return self._ansible_vault_encryption_key()
+
+    def vault_decrypt_key(self, args):
+        encryption_key = self._get_encryption_key(args)
+        with open(args.yaml_file) as f:
+            encrypted_keys = yaml.load(f, Loader=VaultLoader)
+        encrypted = encrypted_keys[args.key]
+        self._vault_decrypt(encrypted, encryption_key)
+
+    def vault_decrypt(self, args):
+        encryption_key = self._get_encryption_key(args)
+        if args.path:
+            with open(args.path) as f:
+                encrypted = f.read()
+            self._vault_decrypt(encrypted, encryption_key, filename=args.path)
+        else:
+            if not stdin_pipe():
+                raise Exception('expected to read an encrypted secret from stdin')
+            encrypted = sys.stdin.read().rstrip('\n')
+            self._vault_decrypt(encrypted, encryption_key)
+
+    def _vault_decrypt(self, encrypted, encryption_key, filename=None):
+        vault = vault_client(encryption_key)
+        secret = vault.decrypt(bytes(encrypted, 'utf-8'), filename)
+        print(secret.decode('utf-8'))
 
     def _read_inventory_config(self):
-        if self.inventory_config is not None:
+        if self.inventory_config:
             # don't read again
             return
         config_path = os.path.join('inventories', self.env, 'mars.yaml')
@@ -266,7 +210,15 @@ class Ansible(object):
                 config.update(yaml.load(f, Loader=yaml.FullLoader))
         self.inventory_config = config
 
-    def _ansible_vault_credentials(self):
+    def _ansible_vault_encryption_key(self):
+        if self.vault_password_file is None:
+            self.vault_password_file = self._find_ansible_vault_password_file()
+        with open(self.vault_password_file) as f:
+            return f.read()
+
+    def _ansible_vault_args(self, args):
+        if args.az_vault:
+            return ['--vault-id', '/opt/mars/vault-az-keyvault.py']
         if self.vault_password_file is None:
             self.vault_password_file = self._find_ansible_vault_password_file()
         return ['--vault-password-file', self.vault_password_file]
@@ -277,7 +229,7 @@ class Ansible(object):
         if os.path.exists(default_file):
             files.append(default_file)
         if len(files) == 0:
-            raise Exception('vault password file could not be located')
+            raise Exception('no remote vault key supplied and vault password file could not be located')
         if len(files) > 1:
             raise Exception('unable to determine vault password file from ambiguous entries {}'.format(files))
         return files[0]
@@ -328,6 +280,30 @@ class Ansible(object):
     def _shell_command(self, *cmdargs):
         return ' '.join(shlex.quote(a) for a in cmdargs)
 
+def stdin_pipe():
+    return stat.S_ISFIFO(os.fstat(sys.stdin.fileno()).st_mode)
+
+def vault_client(encryption_key):
+    return VaultLib([
+        (DEFAULT_VAULT_ID_MATCH,
+         VaultSecret(bytes(encryption_key, 'utf-8')))
+    ])
+
+def _add_env_vars(args):
+    if args.az_vault:
+        return {
+            "AZ_KEYVAULT_NAME": args.az_vault,
+            "AZ_KEYVAULT_KEY": args.az_vault_key,
+        }
+    return {}
+
+class VaultLoader(yaml.SafeLoader):
+    pass
+
+def _yaml_vault_constructor(loader, node):
+    return loader.construct_scalar(node)
+
+yaml.add_constructor('!vault', _yaml_vault_constructor, VaultLoader)
 
 if __name__ == '__main__':
     ans = Ansible()
