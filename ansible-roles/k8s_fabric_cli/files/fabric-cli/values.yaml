@@ -26,7 +26,6 @@ dlt:
 
 image:
   repository: hyperledger/fabric-tools
-  arch: amd64
   pullPolicy: IfNotPresent
 
 substrate:
