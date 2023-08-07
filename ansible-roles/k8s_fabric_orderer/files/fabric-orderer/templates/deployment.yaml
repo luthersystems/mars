@@ -47,7 +47,7 @@ spec:
         {{- end }}
       containers:
         - name: {{ .Chart.Name }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.arch }}-{{ .Values.global.hyperledger.fabricVersion }}{{- if .Values.dlt.hcs }}-hcs{{- end }}"
+          image: "{{ .Values.image.repository }}:{{ .Values.global.hyperledger.fabricVersion }}{{- if .Values.dlt.hcs }}-hcs{{- end }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- if .Values.startService }}
           args:
