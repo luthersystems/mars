@@ -73,9 +73,9 @@ if [ -z "$(docker ps | grep pinata-sshd)" ]; then
     pinata-ssh-forward
 fi
 
-DOCKER_TERM_VARS=''
-if [ -t 1 -a -p /dev/stdin ]; then
-    DOCKER_TERM_VARS=-i
+DOCKER_TERM_VARS=-i
+if [ -t 1 -a ! -p /dev/stdin ]; then
+    DOCKER_TERM_VARS=-it
 fi
 
 docker volume create "$ANSIBLE_INVENTORY_CACHE_VOL" >/dev/null
