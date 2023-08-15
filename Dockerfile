@@ -119,3 +119,7 @@ RUN mkdir -p /opt/tfenv/versions && chmod -R a+w /opt/tfenv/versions && echo 'tr
 ENV PATH="/opt/tfenv/bin:/opt/bin:${PATH}"
 
 COPY --from=downloader /usr/local/bin/helm /opt/bin/helm
+
+RUN curl -fsSL https://dl.k8s.io/apt/doc/apt-key.gpg | gpg --batch --yes --dearmor -o /etc/apt/keyrings/kubernetes-archive-keyring.gpg
+RUN echo "deb [signed-by=/etc/apt/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" > /etc/apt/sources.list.d/kubernetes.list
+RUN apt-get update && apt-get install -y kubectl
