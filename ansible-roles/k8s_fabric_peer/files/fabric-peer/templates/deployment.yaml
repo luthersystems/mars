@@ -96,7 +96,13 @@ spec:
             - name: CORE_PEER_GOSSIP_ORGLEADER
               value: "false"
             {{- else }}
+            - name: CORE_PEER_GOSSIP_ORGLEADER
+              value: "true"
             - name: CORE_PEER_GOSSIP_USELEADERELECTION
+              value: "false"
+            - name: CORE_PEER_GOSSIP_STATE_ENABLED
+              value: "false"
+            - name: CORE_PEER_DELIVERYCLIENT_BLOCKGOSSIP_ENABLED
               value: "false"
             {{- end }}
             - name: CORE_PEER_ID

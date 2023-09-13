@@ -32,9 +32,9 @@ spec:
       protocol: TCP
       name: https
     - port: {{ .Values.internal.container.operationsPort }}
-      targetPort: op-http
+      targetPort: http-op
       protocol: TCP
-      name: op-http
+      name: http-op
   selector:
     app.kubernetes.io/name: {{ include "fabric-ca.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}

@@ -40,17 +40,17 @@ spec:
             - name: https
               containerPort: {{ .Values.internal.container.servicePort }}
               protocol: TCP
-            - name: op-http
+            - name: http-op
               containerPort: {{ .Values.internal.container.operationsPort }}
               protocol: TCP
           livenessProbe:
             httpGet:
               path: /healthz
-              port: op-http
+              port: http-op
           readinessProbe:
             httpGet:
               path: /healthz
-              port: op-http
+              port: http-op
           env:
             - name: FABRIC_CA_HOME
               value: /etc/hyperledger/fabric-ca-server
