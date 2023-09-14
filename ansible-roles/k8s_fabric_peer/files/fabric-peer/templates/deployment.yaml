@@ -84,6 +84,10 @@ spec:
               value: {{ include "fabric-peer.self-fqdn" . }}:{{ .Values.internal.container.gossipPort }}
             - name: CORE_PEER_KEEPALIVE_MININTERVAL
               value: {{ .Values.internal.container.keepaliveMinInterval }}
+            - name: CORE_PEER_KEEPALIVE_CLIENT_INTERVAL
+              value: {{ .Values.internal.container.keepaliveClientInterval }}
+            - name: CORE_PEER_KEEPALIVE_DELIVERYCLIENT_INTERVAL
+              value: {{ .Values.internal.container.keepaliveDeliveryClientInterval }}
             - name: CORE_PEER_GOSSIP_EXTERNALENDPOINT
               value: {{ include "fabric-peer.self-fqdn" . }}:{{ .Values.internal.container.gossipPort }}
             - name: CORE_PEER_GOSSIP_BOOTSTRAP
