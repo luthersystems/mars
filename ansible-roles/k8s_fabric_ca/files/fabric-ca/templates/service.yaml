@@ -20,7 +20,7 @@ metadata:
     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
     service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: Project={{ .Values.global.lutherProjectID }},Environment={{ .Values.global.lutherEnv }},Organization={{ .Values.dlt.organization }},Component={{.Values.dlt.component}},Resource=elb
     service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: http
-    service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: http-op
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: {{ .Values.internal.container.operationsPort | quote }}
     service.beta.kubernetes.io/aws-load-balancer-healthcheck-path: /healthz
     {{- end }}
 spec:
