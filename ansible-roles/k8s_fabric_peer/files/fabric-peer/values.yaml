@@ -55,6 +55,8 @@ internal:
     gossipPort: 7051
     operationsPort: 9443
     keepaliveMinInterval: 30s
+    keepaliveClientInterval: 30s
+    keepaliveDeliveryClientInterval: 30s
     invokeTimeout: 30s
 
 persistentVolume:

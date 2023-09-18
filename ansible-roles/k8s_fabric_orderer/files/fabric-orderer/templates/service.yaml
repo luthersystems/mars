@@ -19,6 +19,9 @@ metadata:
     service.beta.kubernetes.io/aws-load-balancer-internal: "true"
     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
     service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: Project={{ .Values.global.lutherProjectID }},Environment={{ .Values.global.lutherEnv }},Organization={{ .Values.dlt.organization }},Component={{.Values.dlt.component}},Resource=elb
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: http
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: {{ .Values.internal.container.operationsPort | quote }}
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-path: /healthz
     {{- end }}
 spec:
   type: {{ .Values.service.type }}
@@ -32,9 +35,9 @@ spec:
       protocol: TCP
       name: grpc
     - port: {{ .Values.internal.container.operationsPort }}
-      targetPort: op-http
+      targetPort: http-op
       protocol: TCP
-      name: op-http
+      name: http-op
   selector:
     app.kubernetes.io/name: {{ include "fabric-orderer.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}

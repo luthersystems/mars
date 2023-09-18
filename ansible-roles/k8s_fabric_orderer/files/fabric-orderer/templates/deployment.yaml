@@ -126,26 +126,26 @@ spec:
             - name: grpc
               containerPort: {{ .Values.internal.container.servicePort }}
               protocol: TCP
-            - name: op-http
+            - name: http-op
               containerPort: {{ .Values.internal.container.operationsPort }}
               protocol: TCP
           {{- if .Values.startService }}
           livenessProbe:
             httpGet:
               path: /healthz
-              port: op-http
+              port: http-op
             failureThreshold: 1
             periodSeconds: 10
           readinessProbe:
             httpGet:
               path: /healthz
-              port: op-http
+              port: http-op
             initialDelaySeconds: 5
             periodSeconds: 5
           startupProbe:
             httpGet:
               path: /healthz
-              port: op-http
+              port: http-op
             failureThreshold: 30
             periodSeconds: 10
           {{- end }}
