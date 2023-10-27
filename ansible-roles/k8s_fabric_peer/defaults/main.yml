@@ -9,6 +9,7 @@ k8s_fabric_peer_namespace: fabric-{{k8s_fabric_peer_org}}
 k8s_fabric_peer_helm_chart_path: "{{kubectl_asset_root_path}}/fabric-peer"
 k8s_fabric_peer_image_repository: hyperledger/fabric-peer
 k8s_fabric_peer_start_service: true
+k8s_fabric_peer_start_probes: true
 k8s_fabric_peer_chaincode_invoke_timeout: 5s
 k8s_fabric_peer_chaincode_memory_limit: 4294967296 # 4Gi
 k8s_fabric_peer_storage_size: 10Gi

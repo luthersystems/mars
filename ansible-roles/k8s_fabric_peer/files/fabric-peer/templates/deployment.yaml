@@ -172,7 +172,7 @@ spec:
             - name: http-op
               containerPort: {{ .Values.internal.container.operationsPort }}
               protocol: TCP
-          {{- if .Values.startService }}
+          {{- if and .Values.startProbes .Values.startService }}
           livenessProbe:
             httpGet:
               path: /healthz
