@@ -70,6 +70,8 @@ spec:
             - while true; do sleep 10; done
           {{- end }}
           env:
+            - name: FABRIC_CFG_PATH
+              value: /etc/hyperledger/fabric/
             {{- if .Values.logGrpc }}
             - name: GRPC_GO_LOG_VERBOSITY_LEVEL
               value: 99
@@ -172,15 +174,25 @@ spec:
             - name: http-op
               containerPort: {{ .Values.internal.container.operationsPort }}
               protocol: TCP
-          {{- if .Values.startService }}
+          {{- if and .Values.startProbes .Values.startService }}
           livenessProbe:
             httpGet:
               path: /healthz
               port: http-op
+            failureThreshold: 1
+            periodSeconds: 10
           readinessProbe:
             httpGet:
               path: /healthz
               port: http-op
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http-op
+            failureThreshold: 30
+            periodSeconds: 10
           {{- end }}
           volumeMounts:
             {{- if .Values.externalChaincode }}
