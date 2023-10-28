@@ -71,7 +71,7 @@ spec:
           {{- end }}
           env:
             - name: FABRIC_CFG_PATH
-              value: /etc/hyperledger/fabric/core.yaml
+              value: /etc/hyperledger/fabric/
             {{- if .Values.logGrpc }}
             - name: GRPC_GO_LOG_VERBOSITY_LEVEL
               value: 99
