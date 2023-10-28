@@ -70,6 +70,8 @@ spec:
             - while true; do sleep 10; done
           {{- end }}
           env:
+            - name: FABRIC_CFG_PATH
+              value: /etc/hyperledger/fabric/core.yaml
             {{- if .Values.logGrpc }}
             - name: GRPC_GO_LOG_VERBOSITY_LEVEL
               value: 99
