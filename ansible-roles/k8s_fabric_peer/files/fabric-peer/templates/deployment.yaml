@@ -179,10 +179,20 @@ spec:
             httpGet:
               path: /healthz
               port: http-op
+            failureThreshold: 1
+            periodSeconds: 10
           readinessProbe:
             httpGet:
               path: /healthz
               port: http-op
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http-op
+            failureThreshold: 30
+            periodSeconds: 10
           {{- end }}
           volumeMounts:
             {{- if .Values.externalChaincode }}
