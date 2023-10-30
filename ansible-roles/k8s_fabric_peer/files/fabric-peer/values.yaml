@@ -109,6 +109,8 @@ affinity: {}
 
 startService: true
 
+startProbes: true
+
 logLevel: INFO
 
 logGrpc: false

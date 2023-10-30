@@ -50,6 +50,7 @@
       image:
         repository: "{{k8s_fabric_peer_image_repository}}"
       startService: "{{k8s_fabric_peer_start_service}}"
+      startProbes: "{{k8s_fabric_peer_start_probes}}"
       internal:
         container:
           invokeTimeout: "{{k8s_fabric_peer_chaincode_invoke_timeout}}"
