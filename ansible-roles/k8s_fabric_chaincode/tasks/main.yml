@@ -28,6 +28,16 @@
   tags:
   - prepare_chaincode_upgrade
 
+ - name: Convert version string to number and generate timestamp
+   set_fact:
+     cc_stripped_version: "{{ k8s_fabric_chaincode_version | replace('v', '') }}"
+     cc_version_parts: "{{ cc_stripped_version.split('.') }}"
+     cc_major: "{{ cc_version_parts[0]|int }}"
+     cc_minor: "{{ cc_version_parts[1]|int }}"
+     cc_patch: "{{ cc_version_parts[2]|int }}"
+     cc_version_number: "{{ cc_major * 1000000 + cc_minor * 1000 + cc_patch }}"
+     cc_timestamp: "{{ '%Y-%m-%dT%H:%M:%SZ' | strftime((1451606400 | int) + cc_version_number) }}"
+
 - name: Install chaincode on peers
   command:
     argv:
@@ -38,7 +48,7 @@
       - "{{ k8s_fabric_chaincode_version }}"
       # e.g. substrate-2-164-0
       - "substrate-{{ cc_dash_ver }}"
-      - "{{ ansible_date_time.iso8601 }}"
+      - "{{ cc_timestamp }}"
       - "{{ k8s_fabric_chaincode_external }}"
     chdir: "{{ k8s_fabric_scripts_workdir }}"
   environment: "{{ kubectl_env }}"
