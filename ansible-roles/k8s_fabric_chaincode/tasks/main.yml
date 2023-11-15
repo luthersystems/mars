@@ -38,7 +38,7 @@
       - "{{ k8s_fabric_chaincode_version }}"
       # e.g. substrate-2-164-0
       - "substrate-{{ cc_dash_ver }}"
-      - "{{ ansible_date_time.iso8601 }}"
+      - "2016-01-01T00:00:00Z" # PLT-220: deterministic timestamp
       - "{{ k8s_fabric_chaincode_external }}"
     chdir: "{{ k8s_fabric_scripts_workdir }}"
   environment: "{{ kubectl_env }}"
