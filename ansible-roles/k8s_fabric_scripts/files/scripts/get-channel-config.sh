@@ -31,4 +31,4 @@ pod_exec "$pod" peer channel fetch config "$REMOTE_BLOCK_PATH" -o "$ORDERER" -c 
 
 pod_exec "$pod" configtxlator proto_decode --input "$REMOTE_BLOCK_PATH" --output "$REMOTE_BLOCK_JSON" --type common.Block
 
-pod_exec "$pod" jq .data.data[0].payload.data.config "$REMOTE_BLOCK_JSON" > "$CONFIG_PATH"
+pod_exec "$pod" jq .data.data[0].payload.data.config "$REMOTE_BLOCK_JSON" > ${CONFIG_PATH}

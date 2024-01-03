@@ -16,35 +16,27 @@ pod="$(select_first_cli_pod "$ORG" 0)"
 WORKDIR=/opt/blocks/update-anchor-peers-$(date +%s)
 echo "WORKDIR=$WORKDIR"
 
+LOCAL_CONFIG_JSON=/tmp/$CHANNELBLOCK.json
+
 pod_exec "$pod" mkdir -p $WORKDIR
 
-pod_exec "$pod" \
-    peer channel fetch oldest "$WORKDIR/$CHANNELBLOCK" -c "$CHANNEL"
-
+"${BASH_SOURCE%/*}/get-channel-config.sh" "$ORG" "$LOCAL_CONFIG_JSON"
 if [[ $? -ne 0 ]]; then
-    echo "Unable to retrieve latest channel block" >&2
+    echo "Error: Failed to get channel config" >&2
     exit 1
 fi
 
-pod_exec "$pod" \
-    configtxlator proto_decode --type common.Block --input "$WORKDIR/$CHANNELBLOCK" --output "$WORKDIR/$CHANNELBLOCK.json"
-
-if [[ $? -ne 0 ]]; then
-    echo "Unable to decode channel block: $WORKDIR/$CHANNELBLOCK" >&2
+if ! anchor_peers_set=$(jq -r ".channel_group.groups.Application.groups.${MSP}.values.AnchorPeers.value.anchor_peers | length" ${LOCAL_CONFIG_JSON}); then
+    echo "Error: Failed to parse JSON using jq" >&2
     exit 1
 fi
 
-# FIXME:  This jq query does not correctly detect anchor peers for $MSP. It
-# only works directly after anchor peers have been added.
-#
-#pod_exec "$pod" \
-#    jq -r ".data.data[0].payload.data.config.channel_group.groups.Application.groups.$MSP.values.AnchorPeers.value.anchor_peers[].host" "$CHANNELBLOCK.json"
-#
-#if [[ $? -eq 0 ]]; then
-#    echo "Anchor peers have been initialized" >&2
-#    exit 0
-#fi
+if [[ $anchor_peers_set -ne 0 ]]; then
+    echo "Anchor peers have already been initialized for $MSP" >&2
+    exit 0
+fi
 
+# Update the anchor peers
 pod_exec "$pod" \
     peer channel update \
     -f "$ANCHORTX" \
@@ -52,11 +44,7 @@ pod_exec "$pod" \
     --tls --cafile "$ORDERER_CA"
 # TODO: --clientauth --certfile "$CORE_PEER_TLS_CERT_FILE" --keyfile "$CORE_PEER_TLS_KEY_FILE"
 
-echo
-# FIXME: Because we can't correctly detect above whether the anchor peers have
-# already been added the `channel update` transaction may fail.
-#
-#if [[ $? -ne 0 ]]; then
-#    echo "Unable to set anchor peers" >&2
-#    exit 1
-#fi
+if [[ $? -ne 0 ]]; then
+    echo "Unable to set anchor peers for $MSP" >&2
+    exit 1
+fi
