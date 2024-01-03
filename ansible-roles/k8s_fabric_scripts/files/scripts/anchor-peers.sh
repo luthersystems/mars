@@ -26,14 +26,10 @@ if [[ $? -ne 0 ]]; then
     exit 1
 fi
 
-ANCHOR_PEERS_COUNT=/tmp/anchor_peers_count.txt
-
-jq -r ".channel_group.groups.Application.groups.${MSP}.values.AnchorPeers.value.anchor_peers | length" ${LOCAL_CONFIG_JSON} > ${ANCHOR_PEERS_COUNT}
-if [[ $? -ne 0 ]]; then
+if ! anchor_peers_set=$(jq -r ".channel_group.groups.Application.groups.${MSP}.values.AnchorPeers.value.anchor_peers | length" ${LOCAL_CONFIG_JSON}); then
     echo "Error: Failed to parse JSON using jq" >&2
     exit 1
 fi
-anchor_peers_set=$(cat ${ANCHOR_PEERS_COUNT})
 
 if [[ $anchor_peers_set -ne 0 ]]; then
     echo "Anchor peers have already been initialized for $MSP" >&2
