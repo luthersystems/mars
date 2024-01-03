@@ -21,10 +21,14 @@ LOCAL_CONFIG_JSON=/tmp/$CHANNELBLOCK.json
 pod_exec "$pod" mkdir -p $WORKDIR
 
 "${BASH_SOURCE%/*}/get-channel-config.sh" "$ORG" "$LOCAL_CONFIG_JSON"
+if [[ $? -ne 0 ]]; then
+    echo "Error: Failed to get channel config" >&2
+    exit 1
+fi
 
 ANCHOR_PEERS_COUNT=/tmp/anchor_peers_count.txt
 
-jq -r '.channel_group.groups.Application.groups.Org1MSP.values.AnchorPeers.value.anchor_peers | length' ${LOCAL_CONFIG_JSON} > ${ANCHOR_PEERS_COUNT}
+jq -r ".channel_group.groups.Application.groups.${MSP}.values.AnchorPeers.value.anchor_peers | length" ${LOCAL_CONFIG_JSON} > ${ANCHOR_PEERS_COUNT}
 if [[ $? -ne 0 ]]; then
     echo "Error: Failed to parse JSON using jq" >&2
     exit 1
