@@ -6,13 +6,16 @@
 
 - name: Release archive exists
   aws_s3:
-      mode: get
-      overwrite: different
-      dest: "{{prometheus_node_exporter_archive}}"
-      region: eu-west-2
-      bucket: "{{prometheus_node_exporter_s3_bucket}}"
-      object: "{{prometheus_node_exporter_s3_key}}"
-      ignore_nonexistent_bucket: true
+    mode: get
+    overwrite: different
+    dest: "{{prometheus_node_exporter_archive}}"
+    region: eu-west-2
+    bucket: "{{prometheus_node_exporter_s3_bucket}}"
+    object: "{{prometheus_node_exporter_s3_key}}"
+    ignore_nonexistent_bucket: true
+    aws_access_key: "{{kubectl_aws_access_key_id}}"
+    aws_secret_key: "{{kubectl_aws_secret_access_key}}"
+    security_token: "{{kubectl_aws_session_token}}"
   tags:
       - prometheus
 

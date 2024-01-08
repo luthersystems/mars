@@ -39,5 +39,3 @@ prometheus_node_exporter_systemd_service: node_exporter.service
 # release archive source information
 prometheus_node_exporter_s3_bucket: luther-common-ln-common-static-s3-b5oc
 prometheus_node_exporter_s3_key: "prometheus/node_exporter/{{prometheus_node_exporter_archive_name}}"
-prometheus_node_exporter_aws_access_key: "{{lookup('env', 'AWS_ACCESS_KEY_ID')}}"
-prometheus_node_exporter_aws_secret_key: "{{lookup('env', 'AWS_SECRET_ACCESS_KEY')}}"
