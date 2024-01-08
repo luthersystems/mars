@@ -23,6 +23,9 @@
     object: "{{authorized_key_sync_release_s3_key}}"
     dest: "{{authorized_key_sync_release_archive_path}}"
     ignore_nonexistent_bucket: yes
+    aws_access_key: "{{kubectl_aws_access_key_id}}"
+    aws_secret_key: "{{kubectl_aws_secret_access_key}}"
+    security_token: "{{kubectl_aws_session_token}}"
   tags:
     - authorized_key_sync
 
