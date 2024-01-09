@@ -38,7 +38,6 @@
         zoneType: public
       rbac:
         create: true
-        pspEnabled: true
     default_values: "{{default_base_values | combine(service_account, recursive=True)}}"
 
 - name: Install private external-dns release
@@ -78,7 +77,6 @@
           - Environment={{luther_env}}
       rbac:
         create: true
-        pspEnabled: true
     default_values: "{{default_base_values | combine(service_account, recursive=True)}}"
 
 - name: Purge old values files
