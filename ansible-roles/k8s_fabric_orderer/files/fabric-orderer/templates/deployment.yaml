@@ -101,7 +101,7 @@ spec:
             - name: ORDERER_GENERAL_CLUSTER_ROOTCAS
               value: '[/var/hyperledger/orderer/tls/ca.crt]'
             - name: ORDERER_GENERAL_CLUSTER_SENDBUFFERSIZE
-              value: "50"
+              value: "100"
             # NOTE General.Cluster.ListenPort, General.Cluster.ListenAddress,
             # General.Cluster.ServerCertificate, and General.Cluster.ServerPrivateKey
             # are inherited from the orderer's General.TLS configuration.  None
