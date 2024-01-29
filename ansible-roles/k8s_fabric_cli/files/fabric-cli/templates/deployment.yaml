@@ -38,9 +38,11 @@ spec:
           emptyDir: {}
         - name: collections-config
           emptyDir: {}
+        {{- if ne .Values.dlt.organization "orderer" }}
         - name: config
           configMap:
             name: {{ .Values.coreConfigMap }}
+        {{- end }}
         {{- if .Values.dlt.cryptoConfigSecret }}
         - name: fabric-crypto-config
           secret:
@@ -65,8 +67,10 @@ spec:
             - -c
             - while true; do sleep 10; done
           env:
+            {{- if ne .Values.dlt.organization "orderer" }}
             - name: FABRIC_CFG_PATH
               value: /etc/hyperledger/fabric/
+            {{- end }}
             - name: FABRIC_LOGGING_SPEC
               value: INFO
             - name: CORE_PEER_ADDRESS
@@ -100,9 +104,11 @@ spec:
               mountPath: /opt/blocks
             - name: orderertls
               mountPath: /etc/hyperledger/fabric/orderertls
+            {{- if ne .Values.dlt.organization "orderer" }}
             - name: config
               subPath: core.yaml
               mountPath: /etc/hyperledger/fabric/core.yaml
+            {{- end }}
             - name: msp
               mountPath: /etc/hyperledger/fabric/msp
             - name: tls
