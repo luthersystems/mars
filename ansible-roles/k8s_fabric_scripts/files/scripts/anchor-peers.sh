@@ -13,12 +13,11 @@ ANCHORTX=./channel-artifacts/${MSP}anchors.tx
 
 pod="$(select_first_cli_pod "$ORG" 0)"
 
-WORKDIR=/opt/blocks/update-anchor-peers-$(date +%s)
-echo "WORKDIR=$WORKDIR"
-
-LOCAL_CONFIG_JSON=/tmp/$CHANNELBLOCK.json
-
-pod_exec "$pod" mkdir -p $WORKDIR
+LOCAL_CONFIG_JSON="$(mktemp "/tmp/${CHANNELBLOCK}.json.XXXXXX")"
+function cleanup {
+    rm -f "$LOCAL_CONFIG_JSON"
+}
+trap cleanup EXIT INT QUIT TERM
 
 "${BASH_SOURCE%/*}/get-channel-config.sh" "$ORG" "$LOCAL_CONFIG_JSON"
 if [[ $? -ne 0 ]]; then
