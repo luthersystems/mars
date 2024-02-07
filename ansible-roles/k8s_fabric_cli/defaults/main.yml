@@ -24,3 +24,5 @@ k8s_fabric_cli_channel_artifacts_configmap_name: ""
 
 k8s_fabric_cli_collections: ""
 k8s_fabric_cli_collections_configmap_name: ""
+
+k8s_fabric_cli_version: "{{k8s_fabric_version}}"

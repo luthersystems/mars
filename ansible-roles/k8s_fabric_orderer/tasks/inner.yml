@@ -23,7 +23,7 @@
         lutherProjectID: "{{luther_project_id}}"
         lutherEnv: "{{luther_env}}"
         hyperledger:
-          fabricVersion: "{{k8s_fabric_version}}"
+          fabricVersion: "{{k8s_fabric_orderer_version}}"
         aws:
           region: "{{k8s_fabric_orderer_cert_bucket_region or shiro_phylum_s3_region | default('')}}"
           staticBucket: "{{k8s_fabric_orderer_cert_bucket or shiro_phylum_s3_bucket | default('')}}"
