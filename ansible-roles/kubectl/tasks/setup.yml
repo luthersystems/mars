@@ -6,7 +6,9 @@
 
 - name: Add an apt signing key for Kubernetes
   ansible.builtin.apt_key:
-    url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+    # the signing key is shared across versions
+    url: "https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key"
+    id: DE15B14486CD377B9E876E1A234654DA9A296436
     state: present
   when:
     - not kubectl_setup
@@ -18,11 +20,19 @@
   when:
     - not kubectl_setup
 
-- name: Adding apt repository for Kubernetes
+- name: Remove old Kubernetes repository
   ansible.builtin.apt_repository:
     repo: deb https://apt.kubernetes.io/ kubernetes-xenial main
-    state: present
+    state: absent
     filename: kubernetes.list
+  when:
+    - not kubectl_setup
+
+- name: Adding apt repository for Kubernetes
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=DE15B14486CD377B9E876E1A234654DA9A296436] https://pkgs.k8s.io/core:/stable:/v{{kubectl_version}}/deb/ /"
+    state: present
+    filename: kubernetes
   when:
     - not kubectl_setup
 
