@@ -61,7 +61,7 @@
   tags:
   - prepare_chaincode_upgrade
 
-- name: Helm Chart is installed
+- name: External chaincode is installed
   kubernetes.core.helm:
     chart_ref: "{{k8s_fabric_chaincode_helm_chart_path}}"
     name: "substrate-{{ cc_dash_ver }}-peer{{ item.1 }}"
