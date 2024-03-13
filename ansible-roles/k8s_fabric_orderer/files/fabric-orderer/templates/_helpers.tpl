@@ -53,6 +53,7 @@ app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/component: {{ .Values.dlt.component }}
 app.kubernetes.io/part-of: {{ .Values.global.partOf }}
+fabric/organization: {{ .Values.dlt.organization }}
 fabric/organization-index: {{ .Values.dlt.organizationIndex | print | toJson }}
 {{- end -}}
 
