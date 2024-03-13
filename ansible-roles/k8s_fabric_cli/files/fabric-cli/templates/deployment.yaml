@@ -241,10 +241,20 @@ spec:
         {{- end }}
       nodeSelector:
         topology.kubernetes.io/zone: {{ .Values.availabilityZone }}
-      {{- with .Values.affinity }}
       affinity:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "fabric/organization"
+                    operator: In
+                    values:
+                      - {{ .Values.dlt.organization }}
+                  - key: "fabric/organization-index"
+                    operator: In
+                    values:
+                      - {{ .Values.dlt.peerIndex | print | toJson }}
+              topologyKey: "kubernetes.io/hostname"
       {{- with .Values.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
