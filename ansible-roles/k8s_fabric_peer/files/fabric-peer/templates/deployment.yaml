@@ -74,7 +74,7 @@ spec:
               value: /etc/hyperledger/fabric/
             {{- if .Values.logGrpc }}
             - name: GRPC_GO_LOG_VERBOSITY_LEVEL
-              value: 99
+              value: "99"
             - name: GRPC_GO_LOG_SEVERITY_LEVEL
               value: info
             {{- end }}
@@ -95,7 +95,7 @@ spec:
             - name: CORE_PEER_GOSSIP_BOOTSTRAP
               value: {{ list 0 . | include "fabric-peer.fqdn" }}:{{ .Values.internal.container.gossipPort }}
             - name: CORE_PEER_CHAINCODELISTENADDRESS
-              value: localhost:{{ .Values.internal.container.chaincodePort }}
+              value: "localhost:{{ .Values.internal.container.chaincodePort }}"
             {{- if .Values.dlt.hcs }}
             - name: CORE_PEER_GOSSIP_USELEADERELECTION
               value: "true"
@@ -150,7 +150,7 @@ spec:
             {{- end }}
             {{- end }}
             - name: CORE_OPERATIONS_LISTENADDRESS
-              value: 0.0.0.0:{{ .Values.internal.container.operationsPort }}
+              value: "0.0.0.0:{{ .Values.internal.container.operationsPort }}"
             - name: CORE_METRICS_PROVIDER
               value: prometheus
             - name: CORE_CHAINCODE_EXECUTETIMEOUT
