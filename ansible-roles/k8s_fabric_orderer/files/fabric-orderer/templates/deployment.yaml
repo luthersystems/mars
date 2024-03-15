@@ -62,14 +62,14 @@ spec:
           env:
             {{- if .Values.logGrpc }}
             - name: GRPC_GO_LOG_VERBOSITY_LEVEL
-              value: 99
+              value: "99"
             - name: GRPC_GO_LOG_SEVERITY_LEVEL
               value: info
             {{- end }}
             - name: FABRIC_LOGGING_SPEC
               value: {{ .Values.logLevel }}
             - name: ORDERER_OPERATIONS_LISTENADDRESS
-              value: 0.0.0.0:{{ .Values.internal.container.operationsPort }}
+              value: "0.0.0.0:{{ .Values.internal.container.operationsPort }}"
             - name: ORDERER_METRICS_PROVIDER
               value: prometheus
             - name: ORDERER_GENERAL_GENESISFILE
