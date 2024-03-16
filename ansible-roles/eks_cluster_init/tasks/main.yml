@@ -26,18 +26,37 @@
     - eks_cluster_init_eks_worker_iam_role_arn is defined
     - eks_cluster_init_k8s_admin_role_arn is defined
 
+- name: Get all StorageClasses
+  kubernetes.core.k8s_info:
+    kind: StorageClass
+    api_version: storage.k8s.io/v1
+  register: storage_classes
+  environment: "{{ kubectl_env }}"
+
+- name: Remove default annotation from all StorageClasses
+  kubernetes.core.k8s:
+    kind: StorageClass
+    name: "{{ item.metadata.name }}"
+    definition:
+      metadata:
+        annotations:
+          storageclass.kubernetes.io/is-default-class: "false"
+  loop: "{{ storage_classes.resources }}"
+  when: eks_cluster_init_storage_kms_key_id is defined
+  environment: "{{ kubectl_env }}"
+
 - name: Create default encrypted StorageClass
   kubernetes.core.k8s:
     api_version: storage.k8s.io/v1
     kind: StorageClass
-    name: "{{ eks_cluster_init_encrypted_storageclass }}"
+    name: "{{ eks_cluster_init_encrypted_storageclass }}-encrypted"
     definition:
       metadata:
         annotations:
           storageclass.kubernetes.io/is-default-class: "true"
       provisioner: kubernetes.io/aws-ebs
       parameters:
-        type: gp2
+        type: "{{ eks_cluster_init_encrypted_storageclass }}"
         fsType: ext4
         encrypted: "true"
         kmsKeyId: "{{ eks_cluster_init_storage_kms_key_id }}"
@@ -47,22 +66,11 @@
   environment: "{{ kubectl_env }}"
   when: eks_cluster_init_storage_kms_key_id is defined
 
-- name: Annotate non-default StorageClass objects
+- name: Enable volume resizing on all StorageClass objects
   kubernetes.core.k8s:
     kind: StorageClass
-    name: "{{item}}"
-    definition:
-      metadata:
-        annotations:
-          storageclass.kubernetes.io/is-default-class: "false"
-  loop: "{{eks_cluster_init_nondefault_storageclasses}}"
-  environment: "{{ kubectl_env }}"
-
-- name: Enable volume resizing on StorageClass objects
-  kubernetes.core.k8s:
-    kind: StorageClass
-    name: "{{item}}"
+    name: "{{ item.metadata.name }}"
     definition:
       allowVolumeExpansion: true
-  loop: "{{eks_cluster_init_enable_resize_storageclasses}}"
+  loop: "{{ storage_classes.resources }}"
   environment: "{{ kubectl_env }}"

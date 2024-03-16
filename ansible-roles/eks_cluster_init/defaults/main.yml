@@ -1,17 +1,7 @@
 ---
 # defaults file for eks_cluster_init
 
-# The role will loop through eks_cluster_init_nondefault_storageclasses and
-# ensure they are annotated such that
-# storageclass.kubernetes.io/is-default-class is false.
-eks_cluster_init_nondefault_storageclasses:
-  - gp2
-
-# The sole will update the supplied classes to set allowVolumeExpansion to true
-eks_cluster_init_enable_resize_storageclasses:
-  - gp2
-
-eks_cluster_init_encrypted_storageclass: gp2-encrypted
+eks_cluster_init_encrypted_storageclass: gp3
 
 # eks_cluster_init_eks_worker_iam_role_arn: ""
 # eks_cluster_init_k8s_admin_role_arn: ""
