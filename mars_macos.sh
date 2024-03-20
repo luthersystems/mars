@@ -85,6 +85,11 @@ if [[ "$MARS_SHELL" == "true" ]]; then
     SHELL_OPTS="--entrypoint /bin/bash"
 fi
 
+# include GitHub credentials if available
+if type -ap gh &> /dev/null; then
+    export GITHUB_TOKEN="$(gh auth token)"
+fi
+
 mkdir -p $TFENV_CACHE_PATH
 mkdir -p $TF_PLUGIN_CACHE_DIR
 docker run --rm $DOCKER_TERM_VARS \
@@ -93,6 +98,7 @@ docker run --rm $DOCKER_TERM_VARS \
     -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY \
     -e AWS_SECURITY_TOKEN -e AWS_SESSION_TOKEN \
     -e TF_PLUGIN_CACHE_DIR=/opt/tf-plugin-cache-dir \
+    -e GITHUB_TOKEN \
     $ENV_VARS \
     $DEV_MOUNTS \
     -v "$ANSIBLE_INVENTORY_CACHE_VOL:$ANSIBLE_INVENTORY_CACHE_MOUNT" \
