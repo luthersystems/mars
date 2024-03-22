@@ -19,7 +19,9 @@ fullpath() {
 }
 
 getroot() {
-    GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+    if ! GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null); then
+        return
+    fi
     if [ -z "$PROJECT_PATH"]; then
         if [ -n "$GIT_ROOT" ]; then
             PROJECT_PATH="$GIT_ROOT"
