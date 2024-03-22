@@ -19,7 +19,9 @@ fullpath() {
 }
 
 getroot() {
-    GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+    if ! GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null); then
+        return
+    fi
     if [ -z "$PROJECT_PATH"]; then
         if [ -n "$GIT_ROOT" ]; then
             PROJECT_PATH="$GIT_ROOT"
@@ -68,9 +70,14 @@ if [ -n "${TF_LOG+x}" ]; then
     ENV_VARS="-e TF_LOG=$TF_LOG $ENV_VARS"
 fi
 
-if [ -z "$(docker ps | grep pinata-sshd)" ]; then
-    echo 2>&1 "pinata-sshd not found;  starting..."
-    pinata-ssh-forward
+
+PINATA_OPTS=""
+if command -v pinata-ssh-forward > /dev/null; then
+    PINATA_OPTS="$(pinata-ssh-mount)"
+    if [ -z "$(docker ps | grep pinata-sshd)" ]; then
+        echo 2>&1 "pinata-sshd not found;  starting..."
+        pinata-ssh-forward
+    fi
 fi
 
 DOCKER_TERM_VARS=-i
@@ -86,7 +93,7 @@ if [[ "$MARS_SHELL" == "true" ]]; then
 fi
 
 # include GitHub credentials if available
-if type -ap gh &> /dev/null; then
+if command -v gh > /dev/null; then
     export GITHUB_TOKEN="$(gh auth token)"
 fi
 
@@ -111,5 +118,5 @@ docker run --rm $DOCKER_TERM_VARS \
     -e ANSIBLE_LOAD_CALLBACK_PLUGINS=yes \
     -e ANSIBLE_STDOUT_CALLBACK=yaml \
     $SHELL_OPTS \
-    $(pinata-ssh-mount) \
+    $PINATA_OPTS \
     "$DOCKER_IMAGE:$MARS_VERSION" "$@"
