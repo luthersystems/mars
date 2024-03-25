@@ -35,6 +35,8 @@
     k8s_pvc_component: fabric
     k8s_pvc_part_of: bcca
     k8s_pvc_storage_size: "{{k8s_fabric_ca_storage_size}}"
+    k8s_pvc_storage_class: "{{k8s_fabric_ca_storage_class}}"
+    k8s_pvc_volume_type_override: "{{k8s_fabric_ca_volume_type_override}}"
   when: k8s_fabric_ca_separate_pvc
 
 - name: Fabric crypto-config secrets exists
@@ -75,6 +77,8 @@
       persistentVolume:
         create: "{{not k8s_fabric_ca_separate_pvc}}"
         storageSize: "{{k8s_fabric_ca_storage_size}}"
+        storageClassName: "{{k8s_fabric_ca_storage_class}}"
+        typeOverride: "{{k8s_fabric_ca_volume_type_override}}"
       availabilityZone: "{{availability_zones[0]}}"
       service:
         type: "{{k8s_fabric_ca_service_type}}"

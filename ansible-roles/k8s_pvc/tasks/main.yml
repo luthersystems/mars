@@ -19,4 +19,6 @@
       component: "{{k8s_pvc_component}}"
       partOf: "{{k8s_pvc_part_of}}"
       storageSize: "{{k8s_pvc_storage_size}}"
+      storageClassName: "{{k8s_pvc_storage_class}}"
+      volumeTypeOverride: "{{k8s_pvc_volume_type_override}}"
   environment: "{{ kubectl_env }}"

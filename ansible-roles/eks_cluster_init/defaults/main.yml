@@ -7,6 +7,11 @@ eks_cluster_init_encrypted_storageclass: gp3
 # eks_cluster_init_k8s_admin_role_arn: ""
 # eks_cluster_init_storage_kms_key_id: ""
 
+eks_cluster_init_available_encrypted_storage_types:
+  - gp2
+  - gp3
+  - sc1
+
 eks_cluster_init_volume_reclaim_policy: Delete
 
 eks_cluster_init_configure_aws_auth: yes

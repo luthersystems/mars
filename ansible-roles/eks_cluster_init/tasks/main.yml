@@ -45,27 +45,6 @@
   when: eks_cluster_init_storage_kms_key_id is defined
   environment: "{{ kubectl_env }}"
 
-- name: Create default encrypted StorageClass
-  kubernetes.core.k8s:
-    api_version: storage.k8s.io/v1
-    kind: StorageClass
-    name: "{{ eks_cluster_init_encrypted_storageclass }}-encrypted"
-    definition:
-      metadata:
-        annotations:
-          storageclass.kubernetes.io/is-default-class: "true"
-      provisioner: kubernetes.io/aws-ebs
-      parameters:
-        type: "{{ eks_cluster_init_encrypted_storageclass }}"
-        fsType: ext4
-        encrypted: "true"
-        kmsKeyId: "{{ eks_cluster_init_storage_kms_key_id }}"
-      reclaimPolicy: "{{ eks_cluster_init_volume_reclaim_policy }}"
-      volumeBindingMode: WaitForFirstConsumer
-      allowVolumeExpansion: true
-  environment: "{{ kubectl_env }}"
-  when: eks_cluster_init_storage_kms_key_id is defined
-
 - name: Enable volume resizing on all StorageClass objects
   kubernetes.core.k8s:
     kind: StorageClass
@@ -73,4 +52,26 @@
     definition:
       allowVolumeExpansion: true
   loop: "{{ storage_classes.resources }}"
+  environment: "{{ kubectl_env }}"
+
+- name: Create encrypted StorageClasses and set default
+  kubernetes.core.k8s:
+    api_version: storage.k8s.io/v1
+    kind: StorageClass
+    name: "{{ item }}-encrypted"
+    definition:
+      provisioner: kubernetes.io/aws-ebs
+      parameters:
+        type: "{{ item }}"
+        fsType: ext4
+        encrypted: "true"
+        kmsKeyId: "{{ eks_cluster_init_storage_kms_key_id }}"
+      reclaimPolicy: "{{ eks_cluster_init_volume_reclaim_policy }}"
+      volumeBindingMode: WaitForFirstConsumer
+      allowVolumeExpansion: true
+      metadata:
+        annotations:
+          storageclass.kubernetes.io/is-default-class: "{{ 'true' if item == eks_cluster_init_encrypted_storageclass else 'false' }}"
+  loop: "{{ eks_cluster_init_available_encrypted_storage_types }}"
+  when: eks_cluster_init_storage_kms_key_id is defined
   environment: "{{ kubectl_env }}"
