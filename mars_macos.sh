@@ -70,22 +70,10 @@ if [ -n "${TF_LOG+x}" ]; then
     ENV_VARS="-e TF_LOG=$TF_LOG $ENV_VARS"
 fi
 
-
-PINATA_OPTS=""
-if command -v pinata-ssh-forward > /dev/null; then
-    PINATA_OPTS="$(pinata-ssh-mount)"
-    if [ -z "$(docker ps | grep pinata-sshd)" ]; then
-        echo 2>&1 "pinata-sshd not found;  starting..."
-        pinata-ssh-forward
-    fi
-fi
-
 DOCKER_TERM_VARS=-i
 if [ -t 1 -a ! -p /dev/stdin ]; then
     DOCKER_TERM_VARS=-it
 fi
-
-docker volume create "$ANSIBLE_INVENTORY_CACHE_VOL" >/dev/null
 
 SHELL_OPTS=
 if [[ "$MARS_SHELL" == "true" ]]; then
@@ -99,6 +87,23 @@ fi
 
 mkdir -p $TFENV_CACHE_PATH
 mkdir -p $TF_PLUGIN_CACHE_DIR
+
+if ! command -v docker > /dev/null; then
+    echo >&2 "Unable to locate docker.  Please install docker first."
+    exit 1
+fi
+
+PINATA_OPTS=""
+if command -v pinata-ssh-forward > /dev/null; then
+    PINATA_OPTS="$(pinata-ssh-mount)"
+    if [ -z "$(docker ps | grep pinata-sshd)" ]; then
+        echo 2>&1 "pinata-sshd not found;  starting..."
+        pinata-ssh-forward
+    fi
+fi
+
+docker volume create "$ANSIBLE_INVENTORY_CACHE_VOL" >/dev/null
+
 docker run --rm $DOCKER_TERM_VARS \
     -e USER_ID=$(id -u $USER) \
     -e GROUP_ID=$(id -g $USER) \
