@@ -82,7 +82,7 @@ fi
 
 # include GitHub credentials if available
 if command -v gh > /dev/null; then
-    export GITHUB_TOKEN="$(gh auth token)"
+    export GITHUB_TOKEN="$(gh auth token 2>/dev/null)"
 fi
 
 mkdir -p $TFENV_CACHE_PATH
