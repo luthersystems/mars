@@ -4,12 +4,8 @@ Luther Systems infrastructure management tool.
 
 # Installation
 
-Clone this repository.  For ease of access, alias the name `mars` to the
-`mars_macos.sh` script in this repo.  Add the following snippet to your shell
-configuration, substituting the correct path to this repository:
-
 ```
-alias mars="$HOME/mars/mars_macos.sh"
+brew install luthersystems/repo/mars
 ```
 
 ## Additional requirements for ansible
