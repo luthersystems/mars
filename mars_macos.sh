@@ -70,6 +70,28 @@ if [ -n "${TF_LOG+x}" ]; then
     ENV_VARS="-e TF_LOG=$TF_LOG $ENV_VARS"
 fi
 
+DOCKER_TERM_VARS=-i
+if [ -t 1 -a ! -p /dev/stdin ]; then
+    DOCKER_TERM_VARS=-it
+fi
+
+SHELL_OPTS=
+if [[ "$MARS_SHELL" == "true" ]]; then
+    SHELL_OPTS="--entrypoint /bin/bash"
+fi
+
+# include GitHub credentials if available
+if command -v gh > /dev/null; then
+    export GITHUB_TOKEN="$(gh auth token 2>/dev/null)"
+fi
+
+mkdir -p $TFENV_CACHE_PATH
+mkdir -p $TF_PLUGIN_CACHE_DIR
+
+if ! command -v docker > /dev/null; then
+    echo >&2 "Unable to locate docker.  Please install docker first."
+    exit 1
+fi
 
 PINATA_OPTS=""
 if command -v pinata-ssh-forward > /dev/null; then
@@ -80,25 +102,8 @@ if command -v pinata-ssh-forward > /dev/null; then
     fi
 fi
 
-DOCKER_TERM_VARS=-i
-if [ -t 1 -a ! -p /dev/stdin ]; then
-    DOCKER_TERM_VARS=-it
-fi
-
 docker volume create "$ANSIBLE_INVENTORY_CACHE_VOL" >/dev/null
 
-SHELL_OPTS=
-if [[ "$MARS_SHELL" == "true" ]]; then
-    SHELL_OPTS="--entrypoint /bin/bash"
-fi
-
-# include GitHub credentials if available
-if command -v gh > /dev/null; then
-    export GITHUB_TOKEN="$(gh auth token)"
-fi
-
-mkdir -p $TFENV_CACHE_PATH
-mkdir -p $TF_PLUGIN_CACHE_DIR
 docker run --rm $DOCKER_TERM_VARS \
     -e USER_ID=$(id -u $USER) \
     -e GROUP_ID=$(id -g $USER) \
