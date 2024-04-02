@@ -97,5 +97,5 @@
   when:
     - eks_cluster_init_default_storageclass is defined
     - eks_cluster_init_default_storageclass | length > 0
-    - current_default_sc != eks_cluster_init_default_storageclass
+    - current_default_sc | default('') != eks_cluster_init_default_storageclass
   environment: "{{ kubectl_env }}"
