@@ -5,6 +5,10 @@ metadata:
   name: {{ .Release.Name }}
   labels:
     {{- include "pvc.labels" . | nindent 4 }}
+  {{- if .Values.volumeTypeOverride }}
+  annotations:
+    ebs.csi.aws.com/volumeType: {{ .Values.volumeTypeOverride }}
+  {{- end }}
 spec:
   storageClassName: {{ .Values.storageClassName }}
   accessModes:

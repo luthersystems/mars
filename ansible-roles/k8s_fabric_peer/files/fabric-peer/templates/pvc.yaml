@@ -6,6 +6,10 @@ metadata:
   name: {{ list "storage" . | include "fabric-peer.pvc" }}
   labels:
     {{- include "fabric-peer.labels" . | nindent 4 }}
+  {{- if .Values.persistentVolume.typeOverride }}
+  annotations:
+    ebs.csi.aws.com/volumeType: {{ .Values.persistentVolume.typeOverride }}
+  {{- end }}
 spec:
   selector:
     matchLabels:
@@ -28,6 +32,10 @@ metadata:
   name: {{ list "dockerstorage" . | include "fabric-peer.pvc" }}
   labels:
     {{- include "fabric-peer.labels" . | nindent 4 }}
+  {{- if .Values.persistentVolume.typeOverride }}
+  annotations:
+    ebs.csi.aws.com/volumeType: {{ .Values.persistentVolume.typeOverride }}
+  {{- end }}
 spec:
   selector:
     matchLabels:

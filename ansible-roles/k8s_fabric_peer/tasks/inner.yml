@@ -10,6 +10,8 @@
     k8s_pvc_component: fabric
     k8s_pvc_part_of: bcpeer
     k8s_pvc_storage_size: "{{k8s_fabric_peer_storage_size}}"
+    k8s_pvc_storage_class: "{{k8s_fabric_peer_storage_class}}"
+    k8s_pvc_volume_type_override: "{{k8s_fabric_peer_volume_type_override}}"
   when: k8s_fabric_peer_separate_pvc
 
 - name: Create docker storage PVC
@@ -21,7 +23,7 @@
     k8s_pvc_component: fabric
     k8s_pvc_part_of: bcpeer
     k8s_pvc_storage_size: "{{k8s_fabric_peer_dockerstorage_size}}"
-  when: k8s_fabric_peer_separate_pvc
+  when: k8s_fabric_peer_separate_pvc and k8s_fabric_peer_chaincode_docker
 
 - name: Helm Chart is installed
   kubernetes.core.helm:
@@ -60,7 +62,9 @@
       persistentVolume:
         create: "{{not k8s_fabric_peer_separate_pvc}}"
         storageSize: "{{k8s_fabric_peer_storage_size}}"
+        storageClassName: "{{k8s_fabric_peer_storage_class}}"
         dockerStorageSize: "{{k8s_fabric_peer_dockerstorage_size}}"
+        typeOverride: "{{k8s_fabric_peer_volume_type_override}}"
       logLevel: "{{k8s_fabric_peer_log_level}}"
       availabilityZone: "{{availability_zones[item]}}"
       service:
@@ -71,7 +75,7 @@
       dockerChaincode: "{{k8s_fabric_peer_chaincode_docker}}"
       buildpackImage:
         version: "{{k8s_fabric_peer_buildpack_version}}"
-      logGrpc:  "{{k8s_fabric_peer_log_grpc}}"
+      logGrpc: "{{k8s_fabric_peer_log_grpc}}"
   environment: "{{ kubectl_env }}"
   vars:
     availability_zones: "{{k8s_fabric_peer_azs or k8s_pv_data_replica_azs}}"
@@ -80,7 +84,7 @@
   when: is_fabric_upgrade | bool
   command:
     argv:
-    - "{{k8s_fabric_scripts_dir}}/upgrade-pauser.sh"
+      - "{{k8s_fabric_scripts_dir}}/upgrade-pauser.sh"
     chdir: "{{k8s_fabric_scripts_workdir}}"
   environment: "{{ kubectl_env | combine(extra_env_vars) }}"
   vars:

@@ -6,3 +6,5 @@ fullnameOverride: ""
 
 storageClassName: gp2-encrypted
 storageSize: 5Gi
+
+volumeTypeOverride: ""

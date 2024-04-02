@@ -7,3 +7,7 @@ k8s_pvc_component: ""
 k8s_pvc_part_of: ""
 
 k8s_pvc_helm_chart_path: "{{kubectl_asset_root_path}}/pvc"
+k8s_pvc_storage_class: "gp2-encrypted"
+k8s_pvc_storage_size: "5Gi"
+
+k8s_pvc_volume_type_override: ""

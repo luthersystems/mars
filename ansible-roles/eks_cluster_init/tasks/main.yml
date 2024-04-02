@@ -26,43 +26,76 @@
     - eks_cluster_init_eks_worker_iam_role_arn is defined
     - eks_cluster_init_k8s_admin_role_arn is defined
 
-- name: Create default encrypted StorageClass
+- name: Get all StorageClasses
+  kubernetes.core.k8s_info:
+    kind: StorageClass
+    api_version: storage.k8s.io/v1
+  register: storage_classes
+  environment: "{{ kubectl_env }}"
+
+- name: Set current default StorageClass variable
+  set_fact:
+    current_default_sc: "{{ item.metadata.name }}"
+  loop: "{{ storage_classes.resources }}"
+  when: item.metadata.annotations['storageclass.kubernetes.io/is-default-class'] | default('false') == 'true'
+  no_log: true
+
+- name: Enable volume resizing on StorageClass objects if not already enabled
   kubernetes.core.k8s:
     api_version: storage.k8s.io/v1
     kind: StorageClass
-    name: "{{ eks_cluster_init_encrypted_storageclass }}"
+    name: "{{ item.metadata.name }}"
     definition:
-      metadata:
-        annotations:
-          storageclass.kubernetes.io/is-default-class: "true"
+      allowVolumeExpansion: true
+  loop: "{{ storage_classes.resources }}"
+  when: item.allowVolumeExpansion is not defined or item.allowVolumeExpansion == false
+  environment: "{{ kubectl_env }}"
+
+- name: Create encrypted StorageClasses
+  kubernetes.core.k8s:
+    api_version: storage.k8s.io/v1
+    kind: StorageClass
+    name: "{{ item }}-encrypted"
+    definition:
       provisioner: kubernetes.io/aws-ebs
       parameters:
-        type: gp2
+        type: "{{ item }}"
         fsType: ext4
         encrypted: "true"
         kmsKeyId: "{{ eks_cluster_init_storage_kms_key_id }}"
       reclaimPolicy: "{{ eks_cluster_init_volume_reclaim_policy }}"
       volumeBindingMode: WaitForFirstConsumer
       allowVolumeExpansion: true
-  environment: "{{ kubectl_env }}"
+  loop: "{{ eks_cluster_init_available_encrypted_storage_types }}"
   when: eks_cluster_init_storage_kms_key_id is defined
+  environment: "{{ kubectl_env }}"
 
-- name: Annotate non-default StorageClass objects
+- name: Remove default annotation from current default StorageClass
   kubernetes.core.k8s:
+    api_version: storage.k8s.io/v1
     kind: StorageClass
-    name: "{{item}}"
+    name: "{{ current_default_sc }}"
     definition:
       metadata:
         annotations:
           storageclass.kubernetes.io/is-default-class: "false"
-  loop: "{{eks_cluster_init_nondefault_storageclasses}}"
+  when:
+    - current_default_sc is defined
+    - current_default_sc | length > 0
+    - current_default_sc != eks_cluster_init_default_storageclass
   environment: "{{ kubectl_env }}"
 
-- name: Enable volume resizing on StorageClass objects
+- name: Set specific StorageClass as default if not already set
   kubernetes.core.k8s:
+    api_version: storage.k8s.io/v1
     kind: StorageClass
-    name: "{{item}}"
+    name: "{{ eks_cluster_init_default_storageclass }}"
     definition:
-      allowVolumeExpansion: true
-  loop: "{{eks_cluster_init_enable_resize_storageclasses}}"
+      metadata:
+        annotations:
+          storageclass.kubernetes.io/is-default-class: "true"
+  when:
+    - eks_cluster_init_default_storageclass is defined
+    - eks_cluster_init_default_storageclass | length > 0
+    - current_default_sc != eks_cluster_init_default_storageclass
   environment: "{{ kubectl_env }}"
