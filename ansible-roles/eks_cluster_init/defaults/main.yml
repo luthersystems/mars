@@ -1,7 +1,7 @@
 ---
 # defaults file for eks_cluster_init
 
-eks_cluster_init_encrypted_storageclass: gp3
+eks_cluster_init_default_storageclass: gp3-encrypted
 
 # eks_cluster_init_eks_worker_iam_role_arn: ""
 # eks_cluster_init_k8s_admin_role_arn: ""
