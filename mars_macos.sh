@@ -4,29 +4,30 @@ set -eo pipefail
 
 DEV_MOUNTS=''
 if [[ "$MARS_DEV" == "true" ]]; then
-    MARS_DEV_ROOT="$(dirname $(greadlink -f $0))"
-    DEV_MOUNTS="-v ${MARS_DEV_ROOT}/scripts:/opt/mars:ro \
+	DEFAULT_MARS_DEV_ROOT="$(dirname $(greadlink -f $(which mars)))"
+	MARS_DEV_ROOT=${MARS_DEV_ROOT:-DEFAULT_MARS_DEV_ROOT}
+	DEV_MOUNTS="-v ${MARS_DEV_ROOT}/scripts:/opt/mars:ro \
                 -v ${MARS_DEV_ROOT}/ansible-roles:/opt/ansible/roles:ro \
                 -v ${MARS_DEV_ROOT}/ansible-plugins:/opt/ansible/plugins:ro"
 fi
 
 if [[ "$MARS_DEBUG" == "true" ]]; then
-    set -x
+	set -x
 fi
 
 fullpath() {
-    cd "$1" && pwd
+	cd "$1" && pwd
 }
 
 getroot() {
-    if ! GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null); then
-        return
-    fi
-    if [ -z "$PROJECT_PATH"]; then
-        if [ -n "$GIT_ROOT" ]; then
-            PROJECT_PATH="$GIT_ROOT"
-        fi
-    fi
+	if ! GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null); then
+		return
+	fi
+	if [ -z "$PROJECT_PATH"]; then
+		if [ -n "$GIT_ROOT" ]; then
+			PROJECT_PATH="$GIT_ROOT"
+		fi
+	fi
 }
 
 # NOTE:  TFENV_CACHE_PATH is deliberately not the same path as tfenv's default
@@ -54,74 +55,74 @@ END_USER=$(id -u $USER):$(id -g $USER)
 DOCKER_PROJECT_PATH=/marsproject
 getroot
 PROJECT_PATH=$(fullpath ${PROJECT_PATH:-$(pwd)})
-WORK_REL_PATH="${PWD#$PROJECT_PATH}"  # Includes leading dir separator
+WORK_REL_PATH="${PWD#$PROJECT_PATH}" # Includes leading dir separator
 DOCKER_WORK_DIR="$DOCKER_PROJECT_PATH$WORK_REL_PATH"
 
 MARS_VERSION=latest
 if [ -f "$PROJECT_PATH/.mars-version" ]; then
-    MARS_VERSION=$(cat $PROJECT_PATH/.mars-version)
+	MARS_VERSION=$(cat $PROJECT_PATH/.mars-version)
 elif [ -f "$GIT_ROOT/.mars-version" ]; then
-    MARS_VERSION=$(cat $GIT_ROOT/.mars-version)
+	MARS_VERSION=$(cat $GIT_ROOT/.mars-version)
 fi
 
 ENV_VARS=
 if [ -n "${TF_LOG+x}" ]; then
-    # TF_LOG has been set.  Forward it to the docker env.
-    ENV_VARS="-e TF_LOG=$TF_LOG $ENV_VARS"
+	# TF_LOG has been set.  Forward it to the docker env.
+	ENV_VARS="-e TF_LOG=$TF_LOG $ENV_VARS"
 fi
 
 DOCKER_TERM_VARS=-i
 if [ -t 1 -a ! -p /dev/stdin ]; then
-    DOCKER_TERM_VARS=-it
+	DOCKER_TERM_VARS=-it
 fi
 
 SHELL_OPTS=
 if [[ "$MARS_SHELL" == "true" ]]; then
-    SHELL_OPTS="--entrypoint /bin/bash"
+	SHELL_OPTS="--entrypoint /bin/bash"
 fi
 
 # include GitHub credentials if available
-if command -v gh > /dev/null; then
-    export GITHUB_TOKEN="$(gh auth token 2>/dev/null)"
+if command -v gh >/dev/null; then
+	export GITHUB_TOKEN="$(gh auth token 2>/dev/null)"
 fi
 
 mkdir -p $TFENV_CACHE_PATH
 mkdir -p $TF_PLUGIN_CACHE_DIR
 
-if ! command -v docker > /dev/null; then
-    echo >&2 "Unable to locate docker.  Please install docker first."
-    exit 1
+if ! command -v docker >/dev/null; then
+	echo >&2 "Unable to locate docker.  Please install docker first."
+	exit 1
 fi
 
 PINATA_OPTS=""
-if command -v pinata-ssh-forward > /dev/null; then
-    PINATA_OPTS="$(pinata-ssh-mount)"
-    if [ -z "$(docker ps | grep pinata-sshd)" ]; then
-        echo 2>&1 "pinata-sshd not found;  starting..."
-        pinata-ssh-forward
-    fi
+if command -v pinata-ssh-forward >/dev/null; then
+	PINATA_OPTS="$(pinata-ssh-mount)"
+	if [ -z "$(docker ps | grep pinata-sshd)" ]; then
+		echo 2>&1 "pinata-sshd not found;  starting..."
+		pinata-ssh-forward
+	fi
 fi
 
 docker volume create "$ANSIBLE_INVENTORY_CACHE_VOL" >/dev/null
 
 docker run --rm $DOCKER_TERM_VARS \
-    -e USER_ID=$(id -u $USER) \
-    -e GROUP_ID=$(id -g $USER) \
-    -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY \
-    -e AWS_SECURITY_TOKEN -e AWS_SESSION_TOKEN \
-    -e TF_PLUGIN_CACHE_DIR=/opt/tf-plugin-cache-dir \
-    -e GITHUB_TOKEN \
-    $ENV_VARS \
-    $DEV_MOUNTS \
-    -v "$ANSIBLE_INVENTORY_CACHE_VOL:$ANSIBLE_INVENTORY_CACHE_MOUNT" \
-    -v "$TFENV_CACHE_PATH:/opt/tfenv/versions" \
-    -v "$TF_PLUGIN_CACHE_DIR:/opt/tf-plugin-cache-dir" \
-    -v "$HOME/.aws/:/opt/home/.aws" \
-    -v "$HOME/.azure/:/opt/home/.azure" \
-    -v "$PROJECT_PATH:$DOCKER_PROJECT_PATH" \
-    -w "$DOCKER_WORK_DIR" \
-    -e ANSIBLE_LOAD_CALLBACK_PLUGINS=yes \
-    -e ANSIBLE_STDOUT_CALLBACK=yaml \
-    $SHELL_OPTS \
-    $PINATA_OPTS \
-    "$DOCKER_IMAGE:$MARS_VERSION" "$@"
+	-e USER_ID=$(id -u $USER) \
+	-e GROUP_ID=$(id -g $USER) \
+	-e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY \
+	-e AWS_SECURITY_TOKEN -e AWS_SESSION_TOKEN \
+	-e TF_PLUGIN_CACHE_DIR=/opt/tf-plugin-cache-dir \
+	-e GITHUB_TOKEN \
+	$ENV_VARS \
+	$DEV_MOUNTS \
+	-v "$ANSIBLE_INVENTORY_CACHE_VOL:$ANSIBLE_INVENTORY_CACHE_MOUNT" \
+	-v "$TFENV_CACHE_PATH:/opt/tfenv/versions" \
+	-v "$TF_PLUGIN_CACHE_DIR:/opt/tf-plugin-cache-dir" \
+	-v "$HOME/.aws/:/opt/home/.aws" \
+	-v "$HOME/.azure/:/opt/home/.azure" \
+	-v "$PROJECT_PATH:$DOCKER_PROJECT_PATH" \
+	-w "$DOCKER_WORK_DIR" \
+	-e ANSIBLE_LOAD_CALLBACK_PLUGINS=yes \
+	-e ANSIBLE_STDOUT_CALLBACK=yaml \
+	$SHELL_OPTS \
+	$PINATA_OPTS \
+	"$DOCKER_IMAGE:$MARS_VERSION" "$@"
