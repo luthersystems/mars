@@ -67,6 +67,10 @@
     namespace: "{{k8s_fabric_cli_namespace}}"
     wait: true
     values:
+      serviceAccount:
+        create: true
+        annotations:
+          eks.amazonaws.com/role-arn: "{{k8s_fabric_cli_service_account_iam_role_arn}}"
       global:
         lutherEnv: "{{luther_env}}"
         hyperledger:

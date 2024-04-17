@@ -28,3 +28,4 @@ k8s_fabric_cli_collections_configmap_name: ""
 k8s_fabric_cli_version: "{{k8s_fabric_version}}"
 
 k8s_fabric_cli_aws_cli_version: latest
+k8s_fabric_cli_service_account_iam_role_arn: ""

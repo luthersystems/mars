@@ -121,3 +121,24 @@ logGrpc: false
 availabilityZone: ""
 
 awsCLIVersion: latest
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name:
+  # Automount API credentials for a Service Account.
+  automountServiceAccountToken: true
+  # List of image pull secrets to add to the Service Account.
+  imagePullSecrets:
+    # - name: docker
+
+fabricSnapshotArchiver:
+  enabled: false
+  image:
+    repository: luthersystems/fabric-snapshot-archiver
+    pullPolicy: IfNotPresent
+    version: v0.0.1
+  resources: {}

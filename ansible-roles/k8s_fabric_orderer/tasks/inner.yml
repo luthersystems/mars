@@ -21,6 +21,10 @@
     namespace: "{{k8s_fabric_orderer_namespace}}"
     wait: true
     values:
+      serviceAccount:
+        create: true
+        annotations:
+          eks.amazonaws.com/role-arn: "{{k8s_fabric_orderer_service_account_iam_role_arn}}"
       global:
         lutherProjectID: "{{luther_project_id}}"
         lutherEnv: "{{luther_env}}"
