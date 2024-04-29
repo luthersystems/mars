@@ -75,3 +75,5 @@ logLevel: INFO
 logGrpc: false
 
 availabilityZone: ""
+
+awsCLIVersion: latest

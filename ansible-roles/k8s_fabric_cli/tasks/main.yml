@@ -86,6 +86,7 @@
         version: "{{k8s_fabric_cli_substrate_version or shiro_phylum_substrate_version | default('')}}"
       dockerChaincode: "{{k8s_fabric_cli_chaincode_docker}}"
       availabilityZone: "{{availability_zones[item]}}"
+      awsCLIVersion: "{{k8s_fabric_cli_aws_cli_version}}"
   environment: "{{ kubectl_env }}"
   vars:
     availability_zones: "{{k8s_fabric_cli_azs}}"

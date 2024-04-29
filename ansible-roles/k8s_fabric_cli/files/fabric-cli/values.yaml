@@ -84,3 +84,5 @@ availabilityZone: ""
 tolerations: []
 
 affinity: {}
+
+awsCLIVersion: latest

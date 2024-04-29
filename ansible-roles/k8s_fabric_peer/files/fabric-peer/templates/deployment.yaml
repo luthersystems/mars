@@ -254,7 +254,7 @@ spec:
         # version of substrate (not the end of the world because substrate
         # upgrades still require downtime).
         - name: chaincode-archive-bootstrap
-          image: luthersystems/awscli:0.2.0
+          image: "amazon/aws-cli:{{ .Values.awsCLIVersion }}"
           env:
             - name: AWS_REGION
               value: {{ .Values.substrate.s3.region }}
@@ -298,7 +298,7 @@ spec:
               readOnly: true
         {{- else }}
         - name: config-fetch
-          image: luthersystems/awscli:0.2.0
+          image: "amazon/aws-cli:{{ .Values.awsCLIVersion }}"
           env:
             - name: AWS_REGION
               value: {{ .Values.global.aws.region }}
