@@ -25,13 +25,10 @@ k8s_fabric_orderer_service_type: ClusterIP
 k8s_fabric_orderer_azs: []
 k8s_fabric_orderer_cert_bucket: ""
 k8s_fabric_orderer_cert_bucket_region: ""
-
 k8s_fabric_orderer_version: "{{k8s_fabric_version}}"
-
 k8s_fabric_orderer_crypto_config: ""
 k8s_fabric_orderer_crypto_config_secret_name: ""
-
 k8s_fabric_orderer_log_grpc: false
-
 k8s_fabric_orderer_channel_artifacts: ""
 k8s_fabric_orderer_channel_artifacts_configmap_name: ""
+k8s_fabric_orderer_aws_cli_version: latest

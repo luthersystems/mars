@@ -20,8 +20,8 @@ k8s_fabric_ca_service_type: ClusterIP
 k8s_fabric_ca_az: ""
 k8s_fabric_ca_phylum_bucket: ""
 k8s_fabric_ca_phylum_bucket_region: ""
-
 k8s_fabric_ca_crypto_config: ""
 k8s_fabric_ca_crypto_config_secret_name: ""
 k8s_fabric_ca_cert_bucket_region: ""
 k8s_fabric_ca_cert_bucket: ""
+k8s_fabric_ca_aws_cli_version: latest
