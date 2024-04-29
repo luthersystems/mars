@@ -1,8 +1,0 @@
----
-# vars file for authorized_key_sync
-authorized_key_sync_release_root_path: "{{authorized_key_sync_root_path}}/releases"
-authorized_key_sync_release_path: "{{authorized_key_sync_root_path}}/releases/authorized_key_sync-{{authorized_key_sync_version}}"
-authorized_key_sync_release_archive_path: "{{authorized_key_sync_release_path}}/{{authorized_key_sync_release_archive}}"
-authorized_key_sync_release_executable_path: "{{authorized_key_sync_release_path}}/bin/authorized_key_sync"
-
-authorized_key_sync_systemd_unit_path: '/etc/systemd/system/{{authorized_key_sync_systemd_service}}'
