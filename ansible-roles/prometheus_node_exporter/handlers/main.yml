@@ -1,9 +1,0 @@
----
-- name: node_exporter enable
-  systemd: name={{prometheus_node_exporter_systemd_service}} enabled=yes daemon_reload=yes
-
-- name: node_exporter restart
-  service: name={{prometheus_node_exporter_systemd_service}} state=restarted
-
-- name: node_exporter start
-  service: name={{prometheus_node_exporter_systemd_service}} state=started
