@@ -77,9 +77,5 @@ orderer{{ .Values.dlt.organizationIndex }}.{{ .Values.dlt.domain }}
 Create the name of the fabric orderer service account to use
 */}}
 {{- define "fabric-orderer.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create -}}
-    {{ default (include "fabric-orderer.fullname" .) .Values.serviceAccount.name }}
-{{- else -}}
-    {{ default "default" .Values.serviceAccount.name }}
-{{- end -}}
+{{ default "default" .Values.serviceAccount.name }}
 {{- end -}}

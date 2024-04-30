@@ -85,9 +85,5 @@ fabric/organization-index: {{ .Values.dlt.peerIndex | print | toJson }}
 Create the name of the fabric cli service account to use
 */}}
 {{- define "fabric-cli.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create -}}
-    {{ default (include "fabric-cli.fullname" .) .Values.serviceAccount.name }}
-{{- else -}}
-    {{ default "default" .Values.serviceAccount.name }}
-{{- end -}}
+{{ default "default" .Values.serviceAccount.name }}
 {{- end -}}

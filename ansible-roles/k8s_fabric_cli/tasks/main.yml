@@ -50,6 +50,19 @@
   environment: "{{ kubectl_env }}"
   when: k8s_fabric_cli_collections
 
+- name: Create Fabric CLI Service Accounts
+  k8s:
+    namespace: "{{k8s_fabric_cli_namespace}}"
+    definition:
+      apiVersion: v1
+      kind: ServiceAccount
+      automountServiceAccountToken: true
+      metadata:
+        name: "{{ item.key }}"
+        annotations:
+          eks.amazonaws.com/role-arn: "{{ item.value }}"
+  loop: "{{ k8s_fabric_cli_service_account_iam_role_arns | dict2items }}"
+
 - name: Helm chart exists
   synchronize:
     src: fabric-cli/
@@ -68,9 +81,7 @@
     wait: true
     values:
       serviceAccount:
-        create: true
-        annotations:
-          eks.amazonaws.com/role-arn: "{{k8s_fabric_cli_service_account_iam_role_arn}}"
+        name: "{{k8s_fabric_cli_service_account}}"
       global:
         lutherEnv: "{{luther_env}}"
         hyperledger:

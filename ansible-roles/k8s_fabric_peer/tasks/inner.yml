@@ -33,9 +33,7 @@
     wait: true
     values:
       serviceAccount:
-        create: true
-        annotations:
-          eks.amazonaws.com/role-arn: "{{k8s_fabric_peer_service_account_iam_role_arn}}"
+        name: "{{k8s_fabric_peer_service_account}}"
       global:
         lutherProjectID: "{{luther_project_id}}"
         lutherEnv: "{{luther_env}}"
