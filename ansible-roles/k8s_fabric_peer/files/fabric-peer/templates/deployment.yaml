@@ -21,6 +21,7 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      serviceAccountName: {{ include "fabric-peer.serviceAccountName" . }}
       volumes:
         {{- if .Values.externalChaincode }}
         - name: buildpacks
@@ -40,6 +41,8 @@ spec:
         - name: orderertls
           emptyDir: {}
         - name: msp
+          emptyDir: {}
+        - name: adminmsp
           emptyDir: {}
         - name: tls
           emptyDir: {}
@@ -236,6 +239,61 @@ spec:
             - name: docker-tls
               mountPath: /docker-tls
         {{- end }}
+        {{- if .Values.fabricSnapshotArchiver.enabled }}
+        - name: fabric-snapshot-archiver
+          image: "{{ .Values.fabricSnapshotArchiver.image.repository }}:{{ .Values.fabricSnapshotArchiver.image.version }}"
+          imagePullPolicy: {{ .Values.fabricSnapshotArchiver.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - sleep infinity
+          env:
+            - name: AWS_REGION
+              value: {{ .Values.global.aws.region }}
+            - name: AWS_BUCKET
+              value: {{ .Values.global.aws.staticBucket }}
+            - name: AWS_BUCKET_PREFIX
+              value: "{{ .Values.global.lutherEnv }}/fabric-snapshots"
+            - name: FABRIC_CFG_PATH
+              value: /etc/hyperledger/fabric/
+            - name: FABRIC_LOGGING_SPEC
+              value: INFO
+            - name: CORE_PEER_ADDRESS
+              value: {{ include "fabric-peer.self-fqdn" . }}:{{ .Values.internal.container.gossipPort }}
+            - name: CORE_PEER_ID
+              value: fabric-snapshot-archiver
+            - name: CORE_PEER_LOCALMSPID
+              value: {{ .Values.dlt.mspID }}
+            - name: CORE_PEER_TLS_ENABLED
+              value: "true"
+            - name: CORE_PEER_TLS_CLIENTAUTHREQUIRED
+              value: "true"
+            - name: CORE_PEER_TLS_CERT_FILE
+              value: /etc/hyperledger/fabric/tls/server.crt
+            - name: CORE_PEER_TLS_KEY_FILE
+              value: /etc/hyperledger/fabric/tls/server.key
+            - name: CORE_PEER_TLS_CLIENTCERT_FILE
+              value: /etc/hyperledger/fabric/tls/server.crt
+            - name: CORE_PEER_TLS_CLIENTKEY_FILE
+              value: /etc/hyperledger/fabric/tls/server.key
+            - name: CORE_PEER_TLS_ROOTCERT_FILE
+              value: /etc/hyperledger/fabric/tls/ca.crt
+            - name: CORE_PEER_MSPCONFIGPATH
+              value: /etc/hyperledger/fabric/msp
+          volumeMounts:
+            - name: config
+              subPath: core.yaml
+              mountPath: /etc/hyperledger/fabric/core.yaml
+            - name: adminmsp
+              mountPath: /etc/hyperledger/fabric/msp
+            - name: tls
+              mountPath: /etc/hyperledger/fabric/tls
+            - name: storage
+              mountPath: /var/hyperledger/production
+          workingDir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+          resources:
+            {{- toYaml .Values.fabricSnapshotArchiver.resources | nindent 12 }}
+        {{- end }}
       initContainers:
         {{- if .Values.externalChaincode }}
         - name: install-buildpack
@@ -286,11 +344,14 @@ spec:
               mv ordererOrganizations/{{ .Values.dlt.domain }}/orderers/orderer0.{{ .Values.dlt.domain }}/msp/tlscacerts/* /orderertls
               mv peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ include "fabric-peer.self-fqdn" . }}/msp/* /msp
               mv peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ include "fabric-peer.self-fqdn" . }}/tls/* /tls
+              mv peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/users/Admin@{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/msp/* /adminmsp
           volumeMounts:
             - name: orderertls
               mountPath: /orderertls
             - name: msp
               mountPath: /msp
+            - name: adminmsp
+              mountPath: /adminmsp
             - name: tls
               mountPath: /tls
             - name: fabric-crypto-config
@@ -312,11 +373,14 @@ spec:
               aws s3 cp --recursive "s3://{{ .Values.global.aws.staticBucket }}/{{ .Values.global.lutherEnv }}/fabric-artifacts/crypto-config/ordererOrganizations/luther.systems/orderers/orderer0.luther.systems/msp/tlscacerts/" /orderertls
               aws s3 cp --recursive "s3://{{ .Values.global.aws.staticBucket }}/{{ .Values.global.lutherEnv }}/fabric-artifacts/crypto-config/peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ include "fabric-peer.self-fqdn" . }}/msp/" /msp
               aws s3 cp --recursive "s3://{{ .Values.global.aws.staticBucket }}/{{ .Values.global.lutherEnv }}/fabric-artifacts/crypto-config/peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ include "fabric-peer.self-fqdn" . }}/tls/" /tls
+              aws s3 cp --recursive "s3://{{ .Values.global.aws.staticBucket }}/{{ .Values.global.lutherEnv }}/fabric-artifacts/crypto-config/peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/users/Admin@{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/msp/" /adminmsp
           volumeMounts:
             - name: orderertls
               mountPath: /orderertls
             - name: msp
               mountPath: /msp
+            - name: adminmsp
+              mountPath: /adminmsp
             - name: tls
               mountPath: /tls
         {{- end }}

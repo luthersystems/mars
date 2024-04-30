@@ -121,3 +121,11 @@ logGrpc: false
 availabilityZone: ""
 
 awsCLIVersion: latest
+
+fabricSnapshotArchiver:
+  enabled: false
+  image:
+    repository: luthersystems/fabric-snapshot-archiver
+    pullPolicy: IfNotPresent
+    version: v0.0.1
+  resources: {}

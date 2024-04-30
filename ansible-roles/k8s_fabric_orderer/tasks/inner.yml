@@ -21,6 +21,8 @@
     namespace: "{{k8s_fabric_orderer_namespace}}"
     wait: true
     values:
+      serviceAccount:
+        name: "{{k8s_fabric_orderer_service_account}}"
       global:
         lutherProjectID: "{{luther_project_id}}"
         lutherEnv: "{{luther_env}}"

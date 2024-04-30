@@ -44,6 +44,20 @@
   environment: "{{ kubectl_env }}"
   when: k8s_fabric_orderer_channel_artifacts
 
+- name: Create Orderer Peer Service Accounts
+  k8s:
+    namespace: "{{k8s_fabric_orderer_namespace}}"
+    definition:
+      apiVersion: v1
+      kind: ServiceAccount
+      automountServiceAccountToken: true
+      metadata:
+        name: "{{ item.key }}"
+        annotations:
+          eks.amazonaws.com/role-arn: "{{ item.value }}"
+  environment: "{{ kubectl_env }}"
+  loop: "{{ k8s_fabric_orderer_service_account_iam_role_arns | dict2items }}"
+
 - name: Helm chart exists
   synchronize:
     src: fabric-orderer/

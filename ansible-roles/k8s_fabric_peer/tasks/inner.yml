@@ -32,6 +32,8 @@
     namespace: "{{k8s_fabric_peer_namespace}}"
     wait: true
     values:
+      serviceAccount:
+        name: "{{k8s_fabric_peer_service_account}}"
       global:
         lutherProjectID: "{{luther_project_id}}"
         lutherEnv: "{{luther_env}}"
@@ -77,6 +79,10 @@
         version: "{{k8s_fabric_peer_buildpack_version}}"
       logGrpc: "{{k8s_fabric_peer_log_grpc}}"
       awsCLIVersion: "{{k8s_fabric_peer_aws_cli_version}}"
+      fabricSnapshotArchiver:
+        image:
+          version: "{{k8s_fabric_peer_snapshot_archiver_version}}"
+        enabled: "{{k8s_fabric_peer_use_snapshot_archiver}}"
   environment: "{{ kubectl_env }}"
   vars:
     availability_zones: "{{k8s_fabric_peer_azs or k8s_pv_data_replica_azs}}"

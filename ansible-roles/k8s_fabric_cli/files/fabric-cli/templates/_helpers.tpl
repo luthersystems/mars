@@ -80,3 +80,10 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 fabric/organization: {{ .Values.dlt.organization }}
 fabric/organization-index: {{ .Values.dlt.peerIndex | print | toJson }}
 {{- end -}}
+
+{{/*
+Create the name of the fabric cli service account to use
+*/}}
+{{- define "fabric-cli.serviceAccountName" -}}
+{{ default "default" .Values.serviceAccount.name }}
+{{- end -}}

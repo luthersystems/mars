@@ -32,3 +32,5 @@ k8s_fabric_orderer_log_grpc: false
 k8s_fabric_orderer_channel_artifacts: ""
 k8s_fabric_orderer_channel_artifacts_configmap_name: ""
 k8s_fabric_orderer_aws_cli_version: latest
+k8s_fabric_orderer_service_account_iam_role_arns: {}
+k8s_fabric_orderer_service_account: default
