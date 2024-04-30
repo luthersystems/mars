@@ -246,7 +246,7 @@ spec:
           command:
             - /bin/sh
             - -c
-            - while true; do sleep 10; done
+            - sleep infinity
           env:
             - name: AWS_REGION
               value: {{ .Values.global.aws.region }}
