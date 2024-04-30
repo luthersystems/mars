@@ -55,6 +55,7 @@
         name: "{{ item.key }}"
         annotations:
           eks.amazonaws.com/role-arn: "{{ item.value }}"
+  environment: "{{ kubectl_env }}"
   loop: "{{ k8s_fabric_orderer_service_account_iam_role_arns | dict2items }}"
 
 - name: Helm chart exists
