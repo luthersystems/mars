@@ -1,0 +1,11 @@
+---
+# defaults file for shiroclient_cli
+
+shiroclient_cli_k8s_namespace: "shiroclient-cli"
+shiroclient_cli_helm_release: "shiroclient-cli"
+shiroclient_cli_helm_chart_path: "{{kubectl_asset_root_path}}/shiroclient-cli"
+shiroclient_cli_substrate_version: "2.50.0"
+shiroclient_cli_aws_cli_version: latest
+
+shiroclient_cli_service_account_iam_role_arns: {}
+shiroclient_cli_service_account: default

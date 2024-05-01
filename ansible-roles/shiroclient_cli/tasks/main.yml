@@ -1,0 +1,59 @@
+---
+# tasks file for shiroclient_cli
+
+- name: K8s namespace exists
+  k8s:
+    name: "{{shiroclient_cli_k8s_namespace}}"
+    api_version: v1
+    kind: Namespace
+    state: present
+  environment: "{{ kubectl_env }}"
+
+- name: Create Shiroclient CLI Service Accounts
+  k8s:
+    namespace: "{{shiroclient_cli_k8s_namespace}}"
+    definition:
+      apiVersion: v1
+      kind: ServiceAccount
+      automountServiceAccountToken: true
+      metadata:
+        name: "{{ item.key }}"
+        annotations:
+          eks.amazonaws.com/role-arn: "{{ item.value }}"
+  environment: "{{ kubectl_env }}"
+  loop: "{{ shiroclient_cli_service_account_iam_role_arns | dict2items }}"
+
+- name: Helm chart exists
+  synchronize:
+    src: shiroclient-cli/
+    dest: "{{shiroclient_cli_helm_chart_path}}"
+    delete: yes
+    recursive: yes
+    owner: no
+    group: no
+    use_ssh_args: yes
+
+- name: Helm Chart is installed
+  kubernetes.core.helm:
+    chart_ref: "{{shiroclient_cli_helm_chart_path}}"
+    name: "{{shiroclient_cli_helm_release}}"
+    namespace: "{{shiroclient_cli_k8s_namespace}}"
+    wait: true
+    values:
+      serviceAccount:
+        name: "{{shiroclient_cli_service_account}}"
+      global:
+        lutherEnv: "{{luther_env}}"
+      phylum:
+        version: "{{shiro_phylum_version}}"
+        name: "{{shiro_phylum_name}}"
+      runMode: cli
+      substrate:
+        version: "{{shiroclient_cli_substrate_version}}"
+      aws:
+        region: "{{shiro_phylum_s3_region}}"
+        staticBucket: "{{shiro_phylum_s3_bucket}}"
+      sdk:
+        peerResponseTimeout: "{{k8s_fabric_peer_chaincode_invoke_timeout}}"
+      awsCLIVersion: "{{shiroclient_cli_aws_cli_version}}"
+  environment: "{{ kubectl_env }}"
