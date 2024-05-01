@@ -21,10 +21,10 @@ spec:
         app.kubernetes.io/name: {{ include "shiroclient.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
+      serviceAccountName: {{ include "shiroclient.serviceAccountName" . }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
-      serviceAccountName: {{ include "shiroclient.serviceAccountName" . }}
       {{- end }}
       volumes:
         - name: phylum
