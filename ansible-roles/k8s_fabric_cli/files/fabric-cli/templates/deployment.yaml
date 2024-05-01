@@ -138,9 +138,8 @@ spec:
               value: {{ .Values.substrate.s3.region }}
             - name: S3_BUCKET
               value: {{ .Values.substrate.s3.bucket }}
+          command: ["sh", "-c"]
           args:
-            - sh
-            - -c
             - |
               set -xe;
               aws s3 cp "s3://{{ .Values.substrate.s3.bucket }}/chaincodes/com_luthersystems_chaincode_substrate01-{{ .Values.substrate.version }}.tar.gz" /chaincodes/com_luthersystems_chaincode_substrate01-{{ .Values.substrate.version }}.tar.gz
@@ -210,9 +209,8 @@ spec:
               value: {{ .Values.global.aws.region }}
             - name: S3_BUCKET
               value: {{ .Values.global.aws.staticBucket }}
+          command: ["sh", "-c"]
           args:
-            - sh
-            - -c
             - |
               set -euxo pipefail;
               ARTIFACT_ROOT=s3://{{ .Values.global.aws.staticBucket }}/{{ .Values.global.lutherEnv }}/fabric-artifacts

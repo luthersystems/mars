@@ -218,9 +218,8 @@ spec:
               value: {{ .Values.global.aws.staticBucket }}
             - name: LUTHER_ENV
               value: {{ .Values.global.lutherEnv }}
+          command: ["sh", "-c"]
           args:
-            - sh
-            - -c
             - |
               set -xe;
               aws s3 cp --recursive s3://$S3_BUCKET/$LUTHER_ENV/fabric-artifacts/channel-artifacts/ /channel-artifacts
