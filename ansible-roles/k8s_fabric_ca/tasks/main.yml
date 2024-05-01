@@ -16,6 +16,20 @@
     org_selector: "fabric/organization={{k8s_fabric_ca_org}}"
     k8s_pv_data_selectors: "{{k8s_fabric_ca_pv_selectors + [org_selector]}}"
 
+- name: Create Fabric CA Service Accounts
+  k8s:
+    namespace: "{{k8s_fabric_ca_namespace}}"
+    definition:
+      apiVersion: v1
+      kind: ServiceAccount
+      automountServiceAccountToken: true
+      metadata:
+        name: "{{ item.key }}"
+        annotations:
+          eks.amazonaws.com/role-arn: "{{ item.value }}"
+  environment: "{{ kubectl_env }}"
+  loop: "{{ k8s_fabric_ca_service_account_iam_role_arns | dict2items }}"
+
 - name: Helm chart exists
   synchronize:
     src: fabric-ca/
@@ -61,6 +75,8 @@
     namespace: "{{k8s_fabric_ca_namespace}}"
     wait: true
     values:
+      serviceAccount:
+        name: "{{k8s_fabric_ca_service_account}}"
       global:
         lutherProjectID: "{{luther_project_id}}"
         lutherEnv: "{{luther_env}}"

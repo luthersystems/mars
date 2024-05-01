@@ -68,3 +68,10 @@ The internal domain name of the ca service.
 {{- define "fabric-ca.service-fqdn" -}}
 ca.{{ .Values.dlt.domain }}
 {{- end -}}
+
+{{/*
+Create the name of the fabric ca service account to use
+*/}}
+{{- define "fabric-ca.serviceAccountName" -}}
+{{ default "default" .Values.serviceAccount.name }}
+{{- end -}}
