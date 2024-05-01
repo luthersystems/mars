@@ -40,6 +40,8 @@
     namespace: "{{shiroclient_cli_k8s_namespace}}"
     wait: true
     values:
+      image:
+        repository: "{{shiroclient_cli_image_repository}}"
       serviceAccount:
         name: "{{shiroclient_cli_service_account}}"
       global:
