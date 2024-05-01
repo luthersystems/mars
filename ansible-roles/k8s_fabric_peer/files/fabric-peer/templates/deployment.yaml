@@ -250,9 +250,9 @@ spec:
           env:
             - name: AWS_REGION
               value: {{ .Values.global.aws.region }}
-            - name: AWS_BUCKET
+            - name: S3_BUCKET
               value: {{ .Values.global.aws.staticBucket }}
-            - name: AWS_BUCKET_PREFIX
+            - name: S3_BUCKET_PREFIX
               value: "{{ .Values.global.lutherEnv }}/fabric-snapshots"
             - name: FABRIC_CFG_PATH
               value: /etc/hyperledger/fabric/

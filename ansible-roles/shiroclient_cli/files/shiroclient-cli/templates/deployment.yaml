@@ -1,0 +1,129 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "shiroclient.fullname" . }}
+  labels:
+{{ include "shiroclient.labels" . | indent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  {{- if eq .Values.runMode "cli" }}
+  strategy:
+    type: Recreate
+    rollingUpdate: !!null
+  {{- end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "shiroclient.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "shiroclient.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      serviceAccountName: {{ include "shiroclient.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: phylum
+          emptyDir: {}
+        - name: fabric-artifacts
+          emptyDir: {}
+        - name: msp
+          emptyDir: {}
+        - name: state-store
+          emptyDir: {}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.substrate.version }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if eq .Values.runMode "gateway" }}
+          args:
+            - --config=shiroclient.yaml
+            - --chaincode.version={{ .Values.substrate.version }}
+            - --phylum.version={{ .Values.phylum.version }}
+            - --enroll.org={{ .Values.dlt.organization }}
+            - --client.tx-timeout={{ .Values.sdk.txTimeout }}
+            - --client.tx-commit-timeout={{ .Values.sdk.txCommitTimeout }}
+            - --client.tx-retry-min-delay={{ .Values.sdk.txRetryMinDelay }}
+            - --client.tx-retry-max-delay={{ .Values.sdk.txRetryMaxDelay }}
+            - gateway
+            {{- if .Values.verbose }}
+            - --verbose
+            {{- end }}
+          {{- else if eq .Values.runMode "cli" }}
+          command:
+            - sh
+            - -c
+            - while true; do sleep 10; done
+          {{- end }}
+          workingDir: /tmp/fabric
+          volumeMounts:
+            - name: fabric-artifacts
+              mountPath: /tmp/fabric
+            - name: msp
+              mountPath: /tmp/msp
+            - name: state-store
+              mountPath: /tmp/state-store
+            - name: phylum
+              mountPath: /phylum
+          {{- if eq .Values.runMode "gateway" }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.ports.app }}
+              protocol: TCP
+            - name: metrics
+              containerPort: {{ .Values.ports.metrics }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      initContainers:
+        - name: config-fetch
+          image: "amazon/aws-cli:{{ .Values.awsCLIVersion }}"
+          env:
+            - name: AWS_REGION
+              value: {{ .Values.aws.region }}
+            - name: S3_BUCKET
+              value: {{ .Values.aws.staticBucket }}
+            - name: LUTHER_ENV
+              value: {{ .Values.global.lutherEnv }}
+            - name: APP_NAME
+              value: {{ .Values.phylum.name }}
+            - name: APP_VERSION
+              value: {{ .Values.phylum.version }}
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -xe;
+              aws s3 cp s3://$S3_BUCKET/phyla/$APP_NAME-$APP_VERSION/$APP_NAME.zip /opt/phylum/phylum.zip;
+              aws s3 cp s3://$S3_BUCKET/$LUTHER_ENV/config/config.json.b64 /opt/phylum/config.json.b64
+              aws s3 cp --recursive s3://$S3_BUCKET/$LUTHER_ENV/fabric-artifacts/ /fabric
+              sed 's/PEER_RESPONSE_TIMEOUT/{{.Values.sdk.peerResponseTimeout}}/' /fabric/fabric-client_template.yaml > /fabric/fabric-client.yaml
+          volumeMounts:
+            - name: phylum
+              mountPath: /opt/phylum
+            - name: fabric-artifacts
+              mountPath: /fabric
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
