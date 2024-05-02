@@ -9,7 +9,7 @@
     k8s_pvc_name: "storage-fabric-peer{{item}}-{{k8s_fabric_peer_org}}"
     k8s_pvc_component: fabric
     k8s_pvc_part_of: bcpeer
-    k8s_pvc_storage_size: "{{k8s_fabric_peer_storage_size}}"
+    k8s_pvc_storage_size: "{{ k8s_fabric_peer_storage_size_overrides[item] | default(k8s_fabric_peer_storage_size, true) }}"
     k8s_pvc_storage_class: "{{k8s_fabric_peer_storage_class}}"
     k8s_pvc_volume_type_override: "{{k8s_fabric_peer_volume_type_override}}"
   when: k8s_fabric_peer_separate_pvc
@@ -53,7 +53,7 @@
         version: "{{k8s_fabric_peer_substrate_version or shiro_phylum_substrate_version | default('')}}"
       image:
         repository: "{{k8s_fabric_peer_image_repository}}"
-      startService: "{{k8s_fabric_peer_start_service}}"
+      startService: "{{not recovery_mode}}"
       startProbes: "{{k8s_fabric_peer_start_probes}}"
       internal:
         container:
@@ -63,7 +63,7 @@
           memory: "{{k8s_fabric_peer_chaincode_memory_limit}}"
       persistentVolume:
         create: "{{not k8s_fabric_peer_separate_pvc}}"
-        storageSize: "{{k8s_fabric_peer_storage_size}}"
+        storageSize: "{{ storage_size }}"
         storageClassName: "{{k8s_fabric_peer_storage_class}}"
         dockerStorageSize: "{{k8s_fabric_peer_dockerstorage_size}}"
         typeOverride: "{{k8s_fabric_peer_volume_type_override}}"
@@ -86,6 +86,8 @@
   environment: "{{ kubectl_env }}"
   vars:
     availability_zones: "{{k8s_fabric_peer_azs or k8s_pv_data_replica_azs}}"
+    storage_size: "{{ k8s_fabric_peer_storage_size_overrides[item] | default(k8s_fabric_peer_storage_size, true) }}"
+    recovery_mode: "{{ k8s_fabric_peer_recovery_overrides[item] | default(not k8s_fabric_peer_start_service, true) }}"
 
 - name: Upgrade pauser has run
   when: is_fabric_upgrade | bool
