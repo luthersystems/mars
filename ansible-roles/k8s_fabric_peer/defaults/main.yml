@@ -51,3 +51,4 @@ k8s_fabric_peer_service_account_iam_role_arns: {}
 k8s_fabric_peer_service_account: default
 
 k8s_fabric_peer_storage_size_overrides: []
+k8s_fabric_peer_recovery_overrides: []
