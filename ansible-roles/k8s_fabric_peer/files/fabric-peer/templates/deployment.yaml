@@ -70,7 +70,7 @@ spec:
           command:
             - /bin/sh
             - -c
-            - while true; do sleep 10; done
+            - sleep infinity
           {{- end }}
           env:
             - name: FABRIC_CFG_PATH
