@@ -14,7 +14,7 @@
   changed_when: false
   failed_when: false
   tags:
-  - prepare_chaincode_upgrade
+    - prepare_chaincode_upgrade
 
 - name: Store committed facts
   set_fact:
@@ -26,7 +26,7 @@
     committed_json: "{{ query_committed.stdout | from_json }}"
     sequence: "{{ committed_json | json_query('sequence') }}"
   tags:
-  - prepare_chaincode_upgrade
+    - prepare_chaincode_upgrade
 
 - name: Install chaincode on peers
   command:
@@ -46,7 +46,7 @@
   register: install_result
   changed_when: '"peers have installed the chaincode" in install_result.stderr'
   tags:
-  - prepare_chaincode_upgrade
+    - prepare_chaincode_upgrade
 
 - name: Helm chart exists
   synchronize:
@@ -59,7 +59,7 @@
     use_ssh_args: yes
   when: k8s_fabric_chaincode_external
   tags:
-  - prepare_chaincode_upgrade
+    - prepare_chaincode_upgrade
 
 - name: External chaincode is installed
   kubernetes.core.helm:
@@ -72,7 +72,7 @@
         version: "{{k8s_fabric_chaincode_version}}"
       service:
         name: "substrate-{{ cc_dash_ver }}-peer{{ item.1 }}"
-      ccid: "{{install_result.results[index].stdout}}"
+      ccid: "{{ k8s_fabric_chaincode_ccid_override | default(install_result.results[index].stdout, true) }}"
       dlt:
         organization: "{{item.0 }}"
         peerIndex: "{{item.1}}"
@@ -85,7 +85,7 @@
   when:
     - k8s_fabric_chaincode_external | bool
   tags:
-  - prepare_chaincode_upgrade
+    - prepare_chaincode_upgrade
   environment: "{{ kubectl_env }}"
   vars:
     availability_zones: "{{k8s_fabric_chaincode_azs}}"
@@ -104,11 +104,11 @@
   environment: "{{ kubectl_env }}"
   when: not committed
   # TODO: only approve on luther orgs!
-  loop:  "{{ k8s_fabric_chaincode_orgs }}"
+  loop: "{{ k8s_fabric_chaincode_orgs }}"
   register: approve_result
   changed_when: '"has approved the chaincode" in approve_result.stderr'
   tags:
-  - prepare_chaincode_upgrade
+    - prepare_chaincode_upgrade
 
 - name: Generate approval script
   command:
@@ -124,7 +124,7 @@
   when: not committed
   register: approval_script
   tags:
-  - prepare_chaincode_upgrade
+    - prepare_chaincode_upgrade
 
 - name: Check chaincode approvals
   command:
@@ -142,17 +142,17 @@
   register: readiness_report
   changed_when: false
   tags:
-  - prepare_chaincode_upgrade
+    - prepare_chaincode_upgrade
 
 - name: Display approval information
   debug:
     msg:
-    - "{{readiness_report.stdout}}"
-    - "{{approval_script.stdout}}"
+      - "{{readiness_report.stdout}}"
+      - "{{approval_script.stdout}}"
   when: not committed
   loop: "{{ k8s_fabric_chaincode_orgs }}"
   tags:
-  - prepare_chaincode_upgrade
+    - prepare_chaincode_upgrade
 
 - name: Wait for chaincode approvals
   command:
