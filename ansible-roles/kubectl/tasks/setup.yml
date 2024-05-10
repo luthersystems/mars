@@ -42,6 +42,9 @@
       - kubectl={{kubectl_version}}*
     state: present
     update_cache: yes
+    allow_downgrade: yes
+  when:
+    - not kubectl_setup
 
 - name: Complete kubectl setup
   set_fact:
