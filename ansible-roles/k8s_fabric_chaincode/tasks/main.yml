@@ -20,7 +20,7 @@
   set_fact:
     committed: "{{ committed }}"
     next_sequence: "{{ (sequence | int) + 1 | default(1) }}"
-    cc_dash_ver: "{{ k8s_fabric_chaincode_version | replace('.', '-') }}"
+    cc_dash_ver: "{{ k8s_fabric_chaincode_version | replace('.', '-') | lower }}"
   vars:
     committed: "{{ query_committed.rc == 0 }}"
     committed_json: "{{ query_committed.stdout | from_json }}"
@@ -40,6 +40,7 @@
       - "substrate-{{ cc_dash_ver }}"
       - "2016-01-01T00:00:00Z" # PLT-220: deterministic timestamp
       - "{{ k8s_fabric_chaincode_external }}"
+      - "{{ k8s_fabric_chaincode_ccaas }}"
     chdir: "{{ k8s_fabric_scripts_workdir }}"
   environment: "{{ kubectl_env }}"
   loop: "{{ k8s_fabric_chaincode_orgs | org_peer_pairs }}"
@@ -57,7 +58,7 @@
     owner: no
     group: no
     use_ssh_args: yes
-  when: k8s_fabric_chaincode_external
+  when: k8s_fabric_chaincode_external or k8s_fabric_chaincode_ccaas
   tags:
     - prepare_chaincode_upgrade
 
@@ -82,8 +83,7 @@
   loop: "{{ k8s_fabric_chaincode_orgs | org_peer_pairs }}"
   loop_control:
     index_var: index
-  when:
-    - k8s_fabric_chaincode_external | bool
+  when: k8s_fabric_chaincode_external or k8s_fabric_chaincode_ccaas
   tags:
     - prepare_chaincode_upgrade
   environment: "{{ kubectl_env }}"
@@ -218,7 +218,7 @@
       - app.kubernetes.io/version != {{ k8s_fabric_chaincode_version }}
   environment: "{{ kubectl_env }}"
   register: chaincodes
-  when: k8s_fabric_chaincode_external
+  when: k8s_fabric_chaincode_external or k8s_fabric_chaincode_ccaas
 
 - name: Remove unused chaincodes
   kubernetes.core.helm:
@@ -228,4 +228,4 @@
     wait: true
   environment: "{{ kubectl_env }}"
   loop: "{{ chaincodes.resources }}"
-  when: k8s_fabric_chaincode_external
+  when: k8s_fabric_chaincode_external or k8s_fabric_chaincode_ccaas
