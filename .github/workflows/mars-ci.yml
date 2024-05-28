@@ -16,7 +16,7 @@ jobs:
         image:
           - mars
     steps:
-      - uses: actions/checkout@v3.5.0
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # include tags for VERSION detection
       - name: Build container
