@@ -23,7 +23,10 @@ if ccid="$(chaincodePackageID "$pod" "$CC_NAME" "$CC_VERSION")"; then
 	exit 0
 fi
 
-cat >/tmp/connection.json <<EOF
+local cc_type="external"
+if [ "$CCAAS" == "True" ]; then
+	cc_type="ccaas"
+	cat >/tmp/connection.json <<EOF
   {
     "address": "${CC_LABEL}-peer{{.index}}:80",
     "dial_timeout": "10s",
@@ -31,19 +34,23 @@ cat >/tmp/connection.json <<EOF
     "client_auth_required": false
   }
 EOF
+else
+	cat >/tmp/connection.json <<EOF
+  {
+    "dial_timeout": "10s",
+    "tls_required": false,
+    "client_auth_required": false
+  }
+EOF
+fi
 mkdir -p /tmp/metadata
 echo $CC_LABEL >/tmp/metadata/cc_label
 GZIP=-n tar -zcf /tmp/code.tar.gz -C /tmp --mtime=$TIMESTAMP connection.json metadata
 
-CC_TYPE="external"
-if [ "$CCAAS" == "True" ]; then
-	CC_TYPE="ccaas"
-fi
-
 cat >/tmp/metadata.json <<EOF
   {
     "path": "main",
-    "type": "${CC_TYPE}",
+    "type": "${cc_type}",
     "label": "${CC_NAME}-${CC_VERSION}"
   }
 EOF
