@@ -97,3 +97,7 @@ Create the name of the fabric peer service account to use
 {{- define "fabric-peer.serviceAccountName" -}}
 {{ default "default" .Values.serviceAccount.name }}
 {{- end -}}
+
+{{- define "fabric-peer.chaincodeBuilderConfig" -}}
+{{- printf "{\"index\": \"%d\"}" (int .Values.dlt.peerIndex) | quote }}
+{{- end -}}

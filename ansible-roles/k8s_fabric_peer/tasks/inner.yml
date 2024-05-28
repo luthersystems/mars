@@ -74,6 +74,7 @@
         idleTimeout: "{{k8s_fabric_peer_lb_idle_timeout}}"
         useNLB: "{{k8s_fabric_peer_use_nlb}}"
       externalChaincode: "{{k8s_fabric_peer_chaincode_external}}"
+      ccaasChaincode: "{{k8s_fabric_peer_chaincode_ccaas}}"
       dockerChaincode: "{{k8s_fabric_peer_chaincode_docker}}"
       buildpackImage:
         version: "{{k8s_fabric_peer_buildpack_version}}"

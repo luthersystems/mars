@@ -24,7 +24,7 @@ spec:
     requests:
       storage: {{ .Values.persistentVolume.storageSize }}
 
-{{- if not .Values.externalChaincode }}
+{{- if and (not .Values.externalChaincode) (not .Values.ccaasChaincode) }}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

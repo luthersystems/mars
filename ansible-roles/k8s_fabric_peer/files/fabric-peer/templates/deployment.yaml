@@ -83,6 +83,8 @@ spec:
             {{- end }}
             - name: PEER_INDEX
               value: "{{ .Values.dlt.peerIndex }}"
+            - name: CHAINCODE_AS_A_SERVICE_BUILDER_CONFIG
+              value: {{ include "fabric-peer.chaincodeBuilderConfig" . }}
             - name: FABRIC_LOGGING_SPEC
               value: {{ .Values.logLevel }}
             - name: CORE_PEER_ADDRESS

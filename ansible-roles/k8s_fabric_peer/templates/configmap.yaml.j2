@@ -552,13 +552,23 @@ data:
         # List of directories to treat as external builders and launchers for
         # chaincode. The external builder detection processing will iterate over the
         # builders in the order specified below.
-        {% if k8s_fabric_peer_chaincode_external %}
+        {% if k8s_fabric_peer_chaincode_external or k8s_fabric_peer_chaincode_ccaas %}
 
         externalBuilders:
-            - name: substrate-buildpack
-              path: /buildpacks/substrate
-              propagateEnvironment:
-                  - PEER_INDEX
+          {%- if k8s_fabric_peer_chaincode_ccaas %}
+
+          - name: ccaas_builder
+            path: /opt/hyperledger/ccaas_builder
+            propagateEnvironment:
+              - CHAINCODE_AS_A_SERVICE_BUILDER_CONFIG
+          {%- endif %}
+          {%- if k8s_fabric_peer_chaincode_external %}
+
+          - name: substrate-buildpack
+            path: /buildpacks/substrate
+            propagateEnvironment:
+              - PEER_INDEX
+          {% endif %}
         {% else %}
 
         externalBuilders: []
