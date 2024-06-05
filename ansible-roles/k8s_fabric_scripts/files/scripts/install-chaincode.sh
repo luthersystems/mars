@@ -23,9 +23,9 @@ if ccid="$(chaincodePackageID "$pod" "$CC_NAME" "$CC_VERSION")"; then
 	exit 0
 fi
 
-local cc_type="external"
+CC_TYPE="external"
 if [ "$CCAAS" == "True" ]; then
-	cc_type="ccaas"
+	CC_TYPE="ccaas"
 	cat >/tmp/connection.json <<EOF
   {
     "address": "${CC_LABEL}-peer{{.index}}:80",
@@ -50,7 +50,7 @@ GZIP=-n tar -zcf /tmp/code.tar.gz -C /tmp --mtime=$TIMESTAMP connection.json met
 cat >/tmp/metadata.json <<EOF
   {
     "path": "main",
-    "type": "${cc_type}",
+    "type": "${CC_TYPE}",
     "label": "${CC_NAME}-${CC_VERSION}"
   }
 EOF
