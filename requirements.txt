@@ -9,4 +9,4 @@ kubernetes==24.2.0
 jsonpatch==1.32
 azure-cli==2.50.0
 azure-keyvault-secrets==4.7.0
-azure-identity==1.13.0
+azure-identity==1.16.1
