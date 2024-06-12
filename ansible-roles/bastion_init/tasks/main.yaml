@@ -26,11 +26,9 @@
 - name: Ensure python modules are installed
   pip:
     name:
-      - boto==2.49.0
-      - boto3==1.20.50
-      - botocore==1.23.50
-      - kubernetes==24.2.0
-      - openshift==0.13.1
+      - boto3==1.23.10
+      - botocore==1.26.10
+      - kubernetes==30.1.0
 
 - name: Print AWS CLI desired version
   debug:
