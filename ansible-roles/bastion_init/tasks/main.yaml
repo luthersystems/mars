@@ -157,3 +157,7 @@
     owner: root
     group: root
     mode: '0644'
+
+- name: install Prometheus Node Exporter
+  include_role:
+    name: prometheus.prometheus.node_exporter
