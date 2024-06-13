@@ -29,6 +29,7 @@
       - boto3==1.23.10
       - botocore==1.26.10
       - kubernetes==30.1.0
+      - packaging==21.3
 
 - name: Print AWS CLI desired version
   debug:
