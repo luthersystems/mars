@@ -26,14 +26,12 @@
   loop: "{{k8s_static_resources_s3_objects}}"
 
 - name: Download S3 resource definitions
-  aws_s3:
+  amazon.aws.s3_object:
     mode: get
     bucket: "{{item.s3_bucket}}"
     object: "{{item.object_key}}"
     dest: "{{k8s_static_resources_root_path}}{{item.object_key}}"
-    aws_access_key: "{{kubectl_aws_access_key_id}}"
-    aws_secret_key: "{{kubectl_aws_secret_access_key}}"
-    security_token: "{{kubectl_aws_session_token}}"
+  environment: "{{ kubectl_env }}"
   loop: "{{k8s_static_resources_s3_objects}}"
 
 - name: S3 k8s resource(s) exists
