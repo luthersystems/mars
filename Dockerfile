@@ -1,8 +1,23 @@
-FROM ubuntu:22.04 as downloader
+FROM ubuntu:24.04 as downloader
 ARG TARGETARCH
 ENV TARGETARCH=$TARGETARCH
 
-RUN apt-get update -y && apt-get install --no-install-recommends -yq gnupg curl ca-certificates git
+RUN apt update -y
+RUN apt install --no-install-recommends -yq \
+  apt-transport-https \
+  lsb-release \
+  gnupg \
+  gnupg \
+  curl \
+  ca-certificates \
+  git
+
+RUN mkdir -p /tmp/keyrings /tmp/sources.list.d
+RUN curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | gpg --dearmor -o /tmp/keyrings/kubernetes-apt-keyring.gpg
+RUN echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /" | tee /tmp/sources.list.d/kubernetes.list
+RUN curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /tmp/keyrings/hashicorp-apt-keyring.gpg
+RUN echo "deb [signed-by=/etc/apt/keyrings/hashicorp-apt-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /tmp/sources.list.d/hashicorp.list
+
 COPY aws-cli-pkg-key.asc /tmp/aws-cli-pkg-key.asc
 RUN gpg --import /tmp/aws-cli-pkg-key.asc
 
@@ -42,50 +57,47 @@ RUN curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/${HELM
   chmod 700 get_helm.sh && \
   ./get_helm.sh
 
-FROM ubuntu:22.04
+FROM ubuntu:24.04 as venv
+
+RUN apt update -y && apt install --no-install-recommends -yq \
+  build-essential \
+  ca-certificates \
+  libffi-dev \
+  libssl-dev \
+  python3-dev \
+  python3-venv
+
+COPY requirements.txt /tmp/requirements.txt
+RUN mkdir -p /opt/mars
+RUN python3 -m venv /opt/mars/venv
+RUN /opt/mars/venv/bin/pip install -r /tmp/requirements.txt
+
+FROM ubuntu:24.04
+
+RUN apt update -y && apt install --no-install-recommends -yq \
+  ca-certificates \
+  curl \
+  git \
+  jq \
+  openssh-client \
+  perl \
+  python3 \
+  rsync \
+  unzip
+
+COPY --from=downloader /tmp/keyrings /etc/apt/keyrings
+COPY --from=downloader /tmp/sources.list.d /etc/apt/sources.list.d
+RUN apt update -y && apt install --no-install-recommends -yq \
+  kubectl \
+  packer
+
+COPY --from=venv /opt/mars/venv /opt/mars/venv
+ENV PATH="/opt/mars/venv/bin:${PATH}"
 
 RUN mkdir -p /marsproject /opt/home
 ENV HOME="/opt/home"
 
 WORKDIR /marsproject
-
-# https://githubmemory.com/repo/pypa/pip/issues/10219
-# Because this is an ubuntu container and not centos C.UTF-8 is the correct fix
-# and not en_us.UTF-8
-ENV LANG=C.UTF-8 LC_ALL=C.UTF-8 PYTHONIOENCODING=UTF-8 DEBIAN_FRONTEND=noninteractive
-
-# Update apt cache and install prerequisites before running tfenv for the first
-# time.
-#   https://github.com/kamatama41/tfenv/blob/c859abc80bcab1cdb3b166df358e82ff7c1e1d36/README.md#usage
-
-RUN apt-get update -y && apt-get install --no-install-recommends -yq \
-  apt-transport-https \
-  build-essential \
-  ca-certificates \
-  curl \
-  git \
-  gnupg \
-  jq \
-  libffi-dev \
-  libssl-dev \
-  lsb-release \
-  openssh-client \
-  perl \
-  python3 \
-  python3-dev \
-  python3-pip \
-  rsync \
-  software-properties-common \
-  unzip
-
-RUN curl -fsSL https://apt.releases.hashicorp.com/gpg | apt-key add - && \
-  apt-add-repository "deb [arch=$(dpkg --print-architecture)] https://apt.releases.hashicorp.com $(lsb_release -cs) main" && \
-  apt update -y && apt install -y packer
-
-RUN pip3 install --upgrade pip
-
-COPY requirements.txt /opt/mars/requirements.txt
-RUN pip3 install --no-cache-dir -r /opt/mars/requirements.txt
 
 COPY ansible-reqs.yml /opt/mars/ansible-reqs.yml
 RUN ansible-galaxy install -r /opt/mars/ansible-reqs.yml
@@ -119,6 +131,3 @@ ENV PATH="/opt/tfenv/bin:/opt/bin:${PATH}"
 
 COPY --from=downloader /usr/local/bin/helm /opt/bin/helm
 
-RUN curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-RUN echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /" | tee /etc/apt/sources.list.d/kubernetes.list
-RUN apt-get update && apt-get install --no-install-recommends -y kubectl

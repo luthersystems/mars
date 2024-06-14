@@ -1,0 +1,7 @@
+ansible
+boto3
+python-dotenv
+requests
+kubernetes
+azure-cli
+azure-identity
