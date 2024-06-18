@@ -69,8 +69,8 @@ RUN apt update -y && apt install --no-install-recommends -yq \
 
 COPY requirements.txt /tmp/requirements.txt
 RUN mkdir -p /opt/mars
-RUN python3 -m venv /opt/mars/venv
-RUN /opt/mars/venv/bin/pip install -r /tmp/requirements.txt
+RUN python3 -m venv /opt/mars_venv
+RUN /opt/mars_venv/bin/pip install -r /tmp/requirements.txt
 
 FROM ubuntu:24.04
 
@@ -91,8 +91,8 @@ RUN apt update -y && apt install --no-install-recommends -yq \
   kubectl \
   packer
 
-COPY --from=venv /opt/mars/venv /opt/mars/venv
-ENV PATH="/opt/mars/venv/bin:${PATH}"
+COPY --from=venv /opt/mars_venv /opt/mars_venv
+ENV PATH="/opt/mars_venv/bin:${PATH}"
 
 RUN mkdir -p /marsproject /opt/home
 ENV HOME="/opt/home"
