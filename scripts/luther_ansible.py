@@ -63,7 +63,8 @@ class Ansible(object):
         execute_parser = subparsers.add_parser('ansible-execute', parents=[vault_parser])
         execute_parser.add_argument('host_pattern')
         execute_parser.add_argument('--module', '-m', default='ping')
-        execute_parser.add_argument('--args', '-a', default='')
+        execute_parser.add_argument('--args', '-a', action='append', default=[])
+        execute_parser.add_argument('--verbose', '-v', action='count', default=0)
         execute_parser.set_defaults(func=self.execute)
 
         vault_encrypt_parser = subparsers.add_parser('ansible-vault-encrypt', parents=[vault_parser])
@@ -130,6 +131,8 @@ class Ansible(object):
 
     def execute(self, args):
         base_cmd = ['ansible']
+        if args.verbose > 0:
+            base_cmd.append('-' + 'v'*args.verbose)
         vault_args = self._ansible_vault_args(args)
         inv_args = self._inventory_args()
         user_args = self._ssh_user_args()
@@ -137,8 +140,8 @@ class Ansible(object):
         host_args = [args.host_pattern]
         module_args = ['-m', args.module]
         args_args = []
-        if args:
-            args_args = args
+        if args.args:
+            args_args = args.args
         cmd = itertools.chain(
             base_cmd,
             vault_args,
@@ -257,7 +260,7 @@ class Ansible(object):
         quoted = (shlex.quote(a) for a in args)
         # TODO:  Figure out why --ssh-extra-args is used instead of
         # --ssh-common-args and fix naming.
-        return ['--ssh-extra-args', ' '.join(args)]
+        return ['--ssh-extra-args={}'.format(' '.join(args))]
 
     def _exec_script(self, *cmds, **kwargs):
         script = self._shell_script(*cmds)
