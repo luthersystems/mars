@@ -1,9 +1,9 @@
 ---
+- name: Set the timezone to UTC
+  command: timedatectl set-timezone UTC
+
 - name: Ensure that NTP is installed
-  apt: name=ntp state=present
-
-- name: "TODO: install a static NTP config to /etc/ntp.conf"
-  command: "true"
-
-- name: Restart the NTP service to enable timedate synchronization
-  service: name=ntp state=started
+  apt:
+    pkg: ntp
+    state: present
+  notify: Restart ntp

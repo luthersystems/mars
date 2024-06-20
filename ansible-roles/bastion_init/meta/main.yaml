@@ -1,4 +1,1 @@
 ---
-dependencies:
-  - role: kubectl
-    kubectl_upgrade: yes
