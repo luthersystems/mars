@@ -1,0 +1,6 @@
+---
+- name: Restart the NTP service to enable timedate synchronization
+  service:
+    name: ntp
+    enabled: true
+    state: restarted
