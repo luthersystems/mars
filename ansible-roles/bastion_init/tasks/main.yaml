@@ -8,28 +8,43 @@
   debug:
     var: kubectl_version
 
-- name: Update the APT cache
+- name: Install apt packages
   apt:
     update_cache: yes
     cache_valid_time: 36400
+    install_recommends: no
+    pkg:
+      - jq
+      - python3-pip
+      - python3-venv
 
-- name: jq is installed
-  apt:
-    name: jq
-    state: present
-
-- name: Pip is installed
-  apt:
-    name: python3-pip
-    state: present
-
-- name: Ensure python modules are installed
-  pip:
-    name:
-      - boto3==1.23.10
-      - botocore==1.26.10
-      - kubernetes==30.1.0
-      - packaging==21.3
+- name: Install python modules
+  block:
+  - name: Create temporary requirements file
+    ansible.builtin.tempfile:
+       state: file
+       suffix: .txt
+       prefix: requirements_
+    register: requirements_tempfile
+  - name: Copy pip requirements.txt
+    copy:
+      src: "requirements.python{{ python_minor }}.txt"
+      dest: "{{ requirements_tempfile.path }}"
+      owner: root
+      group: root
+      mode: '0644'
+    vars:
+      python_minor: "{{ ansible_python_version | splitext | first }}"
+  - name: Ensure python modules are installed
+    pip:
+      requirements: "{{ requirements_tempfile.path }}"
+      virtualenv: "{{ bastion_init_virtualenv }}"
+      virtualenv_command: "{{ ansible_python.executable }} -m venv"
+  always:
+  - name: Remove temporary requirements file
+    file:
+        path: "{{ requirements_tempfile.path }}"
+        state: absent
 
 - name: Print AWS CLI desired version
   debug:
@@ -102,6 +117,9 @@
     - "/tmp/aws-cli-pkg-key.asc"
     - "/tmp/aws"
   when: not aws_cli_installed
+
+- import_role:
+    name: kubectl
 
 - name: Configure kubectl for EKS
   command:

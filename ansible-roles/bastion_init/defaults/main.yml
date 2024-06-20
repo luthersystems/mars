@@ -3,3 +3,4 @@
 # must be declared in either the inventory or playbook.
 kubectl_eks_cluster_name: ""
 aws_cli_version_desired: "2.7.0"
+bastion_init_virtualenv: /opt/ansible_venv
