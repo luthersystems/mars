@@ -167,6 +167,43 @@
       owner: root
       group: root
 
+- name: check terminfo for xterm-24bit
+  command:
+    cmd: infocmp xterm-24bit
+  register: infocmp
+  failed_when: infocmp.rc > 1
+  changed_when: no
+
+- name: Install terminfo for xterm-24bit
+  when: infocmp.rc == 1
+  block:
+  - name: Create temporary terminfo file
+    ansible.builtin.tempfile:
+       state: file
+       suffix: .terminfo
+       prefix: xterm-24bit_
+    register: xterm24_tempfile
+  - name: Copy xterm-24bit terminfo
+    copy:
+      src: xterm-24bit.terminfo
+      dest: "{{ xterm24_tempfile.path }}"
+      owner: root
+      group: root
+      mode: '0644'
+  - name: Compile xterm-24bit terminfo
+    command:
+      argv:
+        - tic
+        - -x
+        - -o
+        - /etc/terminfo
+        - "{{ xterm24_tempfile.path }}"
+  always:
+  - name: Remove temporary terminfo file
+    file:
+        path: "{{ xterm24_tempfile.path }}"
+        state: absent
+
 - name: Configure unattended upgrades
   copy:
     src: 51unattended-upgrades-custom
