@@ -6,4 +6,4 @@
   apt:
     pkg: ntp
     state: present
-  notify: Restart ntp
+  notify: Restart NTP
