@@ -54,8 +54,8 @@
   command:
     cmd: aws --version
   register: aws_cli_version_installed
-  changed_when: false
-  ignore_errors: true
+  changed_when: no
+  failed_when: no
 
 - name: Set AWS CLI installed fact
   set_fact:
