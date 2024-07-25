@@ -20,29 +20,29 @@
 
 - name: Install python modules
   block:
-  - name: Create temporary requirements file
-    ansible.builtin.tempfile:
-       state: file
-       suffix: .txt
-       prefix: requirements_
-    register: requirements_tempfile
-  - name: Copy pip requirements.txt
-    copy:
-      src: "requirements.python{{ python_minor }}.txt"
-      dest: "{{ requirements_tempfile.path }}"
-      owner: root
-      group: root
-      mode: '0644'
-    vars:
-      python_minor: "{{ ansible_python_version | splitext | first }}"
-  - name: Ensure python modules are installed
-    pip:
-      requirements: "{{ requirements_tempfile.path }}"
-      virtualenv: "{{ bastion_init_virtualenv }}"
-      virtualenv_command: "{{ ansible_python.executable }} -m venv"
+    - name: Create temporary requirements file
+      ansible.builtin.tempfile:
+        state: file
+        suffix: .txt
+        prefix: requirements_
+      register: requirements_tempfile
+    - name: Copy pip requirements.txt
+      copy:
+        src: "requirements.python{{ python_minor }}.txt"
+        dest: "{{ requirements_tempfile.path }}"
+        owner: root
+        group: root
+        mode: "0644"
+      vars:
+        python_minor: "{{ ansible_python_version | splitext | first }}"
+    - name: Ensure python modules are installed
+      pip:
+        requirements: "{{ requirements_tempfile.path }}"
+        virtualenv: "{{ bastion_init_virtualenv }}"
+        virtualenv_command: "{{ ansible_python.executable }} -m venv"
   always:
-  - name: Remove temporary requirements file
-    file:
+    - name: Remove temporary requirements file
+      file:
         path: "{{ requirements_tempfile.path }}"
         state: absent
 
@@ -129,7 +129,7 @@
     path: "{{kubectl_config_path}}"
     owner: ubuntu
     group: ubuntu
-    mode: '0600'
+    mode: "0600"
 
 - name: Install kubectl shell helpers
   copy:
@@ -150,13 +150,13 @@
     group: "{{ item.group }}"
     mode: 0644
   loop:
-    - dir: '/etc/skel'
+    - dir: "/etc/skel"
       owner: root
       group: root
-    - dir: '/home/ubuntu'
+    - dir: "/home/ubuntu"
       owner: ubuntu
       group: ubuntu
-    - dir: '/root'
+    - dir: "/root"
       owner: root
       group: root
 
@@ -170,30 +170,30 @@
 - name: Install terminfo for xterm-24bit
   when: infocmp.rc == 1
   block:
-  - name: Create temporary terminfo file
-    ansible.builtin.tempfile:
-       state: file
-       suffix: .terminfo
-       prefix: xterm-24bit_
-    register: xterm24_tempfile
-  - name: Copy xterm-24bit terminfo
-    copy:
-      src: xterm-24bit.terminfo
-      dest: "{{ xterm24_tempfile.path }}"
-      owner: root
-      group: root
-      mode: '0644'
-  - name: Compile xterm-24bit terminfo
-    command:
-      argv:
-        - tic
-        - -x
-        - -o
-        - /etc/terminfo
-        - "{{ xterm24_tempfile.path }}"
+    - name: Create temporary terminfo file
+      ansible.builtin.tempfile:
+        state: file
+        suffix: .terminfo
+        prefix: xterm-24bit_
+      register: xterm24_tempfile
+    - name: Copy xterm-24bit terminfo
+      copy:
+        src: xterm-24bit.terminfo
+        dest: "{{ xterm24_tempfile.path }}"
+        owner: root
+        group: root
+        mode: "0644"
+    - name: Compile xterm-24bit terminfo
+      command:
+        argv:
+          - tic
+          - -x
+          - -o
+          - /etc/terminfo
+          - "{{ xterm24_tempfile.path }}"
   always:
-  - name: Remove temporary terminfo file
-    file:
+    - name: Remove temporary terminfo file
+      file:
         path: "{{ xterm24_tempfile.path }}"
         state: absent
 
@@ -203,7 +203,7 @@
     dest: /etc/apt/apt.conf.d/51unattended-upgrades-custom
     owner: root
     group: root
-    mode: '0644'
+    mode: "0644"
 
 - name: install Prometheus Node Exporter
   include_role:
