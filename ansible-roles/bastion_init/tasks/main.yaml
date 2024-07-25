@@ -120,16 +120,9 @@
 
 - import_role:
     name: kubectl
-
-- name: Configure kubectl for EKS
-  command:
-    argv:
-      - aws
-      - "--region={{kubectl_eks_region|quote}}"
-      - eks
-      - update-kubeconfig
-      - "--name={{kubectl_eks_cluster_name|quote}}"
-  environment: "{{ kubectl_env }}"
+  vars:
+    kubectl_configure: yes
+    kubectl_python_interpreter: "{{ bastion_init_virtualenv }}/bin/python"
 
 - name: Set kubeconfig.yaml permissions
   file:
