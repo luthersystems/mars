@@ -46,7 +46,7 @@ k8s_fabric_peer_crypto_config_secret_name: ""
 k8s_fabric_peer_aws_cli_version: latest
 
 k8s_fabric_peer_use_snapshot_archiver: false
-k8s_fabric_peer_snapshot_archiver_version: "v0.0.1"
+k8s_fabric_peer_snapshot_archiver_version: "v0.0.4"
 
 k8s_fabric_peer_service_account_iam_role_arns: {}
 k8s_fabric_peer_service_account: default
