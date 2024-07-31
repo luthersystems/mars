@@ -53,9 +53,15 @@ RUN git clone -b $TFENV_VER --depth 1 https://github.com/tfutils/tfenv.git /tmp/
 
 ARG HELM_VERSION
 ENV HELM_VERSION=$HELM_VERSION
+
+ARG HELM_DIFF_VERSION
+ENV HELM_DIFF_VERSION=$HELM_DIFF_VERSION
+
 RUN curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/${HELM_VERSION}/scripts/get-helm-3 && \
   chmod 700 get_helm.sh && \
   ./get_helm.sh
+
+RUN helm plugin install https://github.com/databus23/helm-diff --version ${HELM_DIFF_VERSION}
 
 FROM ubuntu:24.04 as venv
 
