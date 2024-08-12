@@ -1,0 +1,25 @@
+---
+- name: override ansible interpreter
+  set_fact:
+    ansible_python_interpreter: "{{ kubectl_python_interpreter }}"
+  when: kubectl_python_interpreter != ""
+
+- name: use local asset root path
+  set_fact:
+    kubectl_asset_root_path: /tmp/k8s
+
+- name: create asset root path
+  ansible.builtin.file:
+    path: "{{ kubectl_asset_root_path }}"
+    state: directory
+    mode: '0755'
+
+- name: Setup kubectl environment
+  set_fact:
+    kubectl_env:
+      KUBECONFIG: "{{kubectl_config_path}}"
+      K8S_AUTH_KUBECONFIG: "{{kubectl_config_path}}"
+
+- name: Setup kubectl as configured
+  set_fact:
+    kubectl_configured: yes

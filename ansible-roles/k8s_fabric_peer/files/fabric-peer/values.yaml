@@ -129,3 +129,5 @@ fabricSnapshotArchiver:
     pullPolicy: IfNotPresent
     version: v0.0.1
   resources: {}
+
+local: false

@@ -45,7 +45,7 @@ spec:
             runAsUser: 1
             allowPrivilegeEscalation: false
 
-      {{- if .Values.availabilityZone }}
+      {{- if and .Values.availabilityZone (not .Values.local) }}
       nodeSelector:
         topology.kubernetes.io/zone: {{ .Values.availabilityZone }}
       {{- end }}

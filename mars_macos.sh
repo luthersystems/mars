@@ -81,6 +81,16 @@ if [[ "$MARS_SHELL" == "true" ]]; then
 	SHELL_OPTS="--entrypoint /bin/bash"
 fi
 
+LOCAL_OPTS=
+if [[ "$MARS_LOCAL" == "true" ]]; then
+    LOCAL_OPTS="-e ANSIBLE_TRANSPORT=local -e ANSIBLE_PIPELINING=True"
+fi
+
+NETWORK_OPTS=
+if [[ -n "$MARS_NETWORK" ]]; then
+    NETWORK_OPTS="--network ${MARS_NETWORK}"
+fi
+
 # include GitHub credentials if available
 if command -v gh >/dev/null; then
 	export GITHUB_TOKEN="$(gh auth token 2>/dev/null)"
@@ -123,6 +133,8 @@ docker run --rm $DOCKER_TERM_VARS \
 	-w "$DOCKER_WORK_DIR" \
 	-e ANSIBLE_LOAD_CALLBACK_PLUGINS=yes \
 	-e ANSIBLE_STDOUT_CALLBACK=yaml \
+        $LOCAL_OPTS \
+        $NETWORK_OPTS \
 	$SHELL_OPTS \
 	$PINATA_OPTS \
 	"$DOCKER_IMAGE:$MARS_VERSION" "$@"
