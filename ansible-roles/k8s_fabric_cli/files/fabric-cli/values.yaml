@@ -88,3 +88,5 @@ tolerations: []
 affinity: {}
 
 awsCLIVersion: latest
+
+local: false

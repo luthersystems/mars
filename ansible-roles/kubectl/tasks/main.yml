@@ -6,7 +6,16 @@
   when:
     - not kubectl_setup or kubectl_upgrade
     - not kubectl_configured
+    - not mars_local | default(false)
 
 - name: kubectl env setup
   include_tasks: env.yml
-  when: not kubectl_configured
+  when:
+    - not kubectl_configured
+    - not mars_local | default(false)
+
+- name: kubectl local setup
+  include_tasks: local.yml
+  when:
+    - not kubectl_configured
+    - mars_local | default(false)

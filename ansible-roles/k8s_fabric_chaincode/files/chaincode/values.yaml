@@ -49,3 +49,5 @@ env:
 ccid: ""
 
 availabilityZone: ""
+
+local: false

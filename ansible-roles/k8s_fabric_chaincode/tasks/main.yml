@@ -4,7 +4,7 @@
 - name: Check committed chaincode
   command:
     argv:
-      - scripts/query-committed.sh
+      - "{{ k8s_fabric_scripts_dir }}/query-committed.sh"
       - "{{ k8s_fabric_chaincode_orgs.0.name }}"
       - "{{ k8s_fabric_chaincode_name }}"
       - "{{ k8s_fabric_chaincode_version }}"
@@ -31,7 +31,7 @@
 - name: Install chaincode on peers
   command:
     argv:
-      - scripts/install-chaincode.sh
+      - "{{ k8s_fabric_scripts_dir }}/install-chaincode.sh"
       - "{{ item.0 }}" # org name
       - "{{ item.1 }}" # peer index
       - "{{ k8s_fabric_chaincode_name }}"
@@ -80,6 +80,7 @@
       availabilityZone: "{{availability_zones[item.1]}}"
       env:
         CHAINCODE_LOG_LEVEL: "{{k8s_fabric_chaincode_loglevel}}"
+      local: "{{mars_local | default(false)}}"
   loop: "{{ k8s_fabric_chaincode_orgs | org_peer_pairs }}"
   loop_control:
     index_var: index
@@ -93,7 +94,7 @@
 - name: Approve chaincode on each org
   command:
     argv:
-      - scripts/approve-chaincode.sh
+      - "{{ k8s_fabric_scripts_dir }}/approve-chaincode.sh"
       - "{{ item.name }}"
       - "{{ item.msp }}"
       - "{{ k8s_fabric_chaincode_name }}"
@@ -113,7 +114,7 @@
 - name: Generate approval script
   command:
     argv:
-      - scripts/generate-approval-script.sh
+      - "{{ k8s_fabric_scripts_dir }}/generate-approval-script.sh"
       - "{{ k8s_fabric_chaincode_orgs.0.name }}"
       - "{{ k8s_fabric_chaincode_name }}"
       - "{{ k8s_fabric_chaincode_version }}"
@@ -129,7 +130,7 @@
 - name: Check chaincode approvals
   command:
     argv:
-      - scripts/commit-readiness-report.sh
+      - "{{ k8s_fabric_scripts_dir }}/commit-readiness-report.sh"
       - "{{ k8s_fabric_chaincode_orgs.0.name }}"
       - "{{ k8s_fabric_chaincode_name }}"
       - "{{ k8s_fabric_chaincode_version }}"
@@ -157,7 +158,7 @@
 - name: Wait for chaincode approvals
   command:
     argv:
-      - scripts/commit-readiness.sh
+      - "{{ k8s_fabric_scripts_dir }}/commit-readiness.sh"
       - "{{ k8s_fabric_chaincode_orgs.0.name }}"
       - "{{ k8s_fabric_chaincode_name }}"
       - "{{ k8s_fabric_chaincode_version }}"
@@ -181,7 +182,7 @@
     chdir: "{{ k8s_fabric_scripts_workdir }}"
   vars:
     base_args:
-      - scripts/commit-chaincode.sh
+      - "{{ k8s_fabric_scripts_dir }}/commit-chaincode.sh"
       - "{{ k8s_fabric_chaincode_name }}"
       - "{{ k8s_fabric_chaincode_version }}"
       - "{{ k8s_fabric_chaincode_endorsement_policy }}"
@@ -196,7 +197,7 @@
 - name: Wait for chaincode commit
   command:
     argv:
-      - scripts/query-committed.sh
+      - "{{ k8s_fabric_scripts_dir }}/query-committed.sh"
       - "{{ k8s_fabric_chaincode_orgs.0.name }}"
       - "{{ k8s_fabric_chaincode_name }}"
       - "{{ k8s_fabric_chaincode_version }}"

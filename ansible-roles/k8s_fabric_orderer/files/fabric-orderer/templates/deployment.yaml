@@ -240,8 +240,10 @@ spec:
               mountPath: /hcs
             {{- end }}
         {{- end }}
+      {{- if not .Values.local }}
       nodeSelector:
         topology.kubernetes.io/zone: {{ .Values.availabilityZone }}
+      {{- end }}
       {{- with .Values.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}

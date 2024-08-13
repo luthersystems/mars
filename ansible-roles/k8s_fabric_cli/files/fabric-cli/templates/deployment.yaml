@@ -238,8 +238,10 @@ spec:
             - name: collections-config
               mountPath: /collections-config
         {{- end }}
+      {{- if not .Values.local }}
       nodeSelector:
         topology.kubernetes.io/zone: {{ .Values.availabilityZone }}
+      {{- end }}
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:

@@ -11,11 +11,13 @@ metadata:
     ebs.csi.aws.com/volumeType: {{ .Values.persistentVolume.typeOverride }}
   {{- end }}
 spec:
+  {{- if not .Values.local }}
   selector:
     matchLabels:
       app.kubernetes.io/component: {{ .Values.dlt.component }}
       type: storage
       fabric/organization: {{ .Values.dlt.organization }}
+  {{- end }}
   storageClassName: {{ .Values.persistentVolume.storageClassName }}
   accessModes:
     - ReadWriteOnce
