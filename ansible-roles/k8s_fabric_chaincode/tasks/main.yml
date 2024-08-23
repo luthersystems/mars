@@ -80,6 +80,7 @@
       availabilityZone: "{{availability_zones[item.1]}}"
       env:
         CHAINCODE_LOG_LEVEL: "{{k8s_fabric_chaincode_loglevel}}"
+        CHAINCODE_NO_ELPS_FILTER: "{{k8s_fabric_chaincode_no_elps_filter}}"
       local: "{{mars_local | default(false)}}"
   loop: "{{ k8s_fabric_chaincode_orgs | org_peer_pairs }}"
   loop_control:
