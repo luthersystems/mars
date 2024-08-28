@@ -10,6 +10,7 @@ k8s_fabric_chaincode_external_orgs: []
 k8s_fabric_chaincode_external: false
 k8s_fabric_chaincode_ccaas: false
 k8s_fabric_chaincode_loglevel: info
+k8s_fabric_chaincode_no_elps_filter: false
 k8s_fabric_chaincode_helm_chart_path: "{{kubectl_asset_root_path}}/chaincode"
 k8s_fabric_chaincode_azs: []
 # ccid override is a hack to work with old substrate/buildpack versions
