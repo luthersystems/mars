@@ -8,5 +8,5 @@ import keyvault
 vault = os.environ["AZ_KEYVAULT_NAME"]
 key = os.environ["AZ_KEYVAULT_KEY"]
 
-secret = keyvault.get_secret(vault, key)
+secret = keyvault.get_azure_secret(vault, key)
 print(secret, end="")

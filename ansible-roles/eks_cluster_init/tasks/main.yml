@@ -1,7 +1,7 @@
 ---
 # tasks file for eks_cluster_init
 
-- name: Enable IAM admin role access
+- name: Enable IAM admin role access without alternative admin
   kubernetes.core.k8s:
     kind: ConfigMap
     name: aws-auth
@@ -25,6 +25,37 @@
     - eks_cluster_init_configure_aws_auth
     - eks_cluster_init_eks_worker_iam_role_arn is defined
     - eks_cluster_init_k8s_admin_role_arn is defined
+    - eks_cluster_init_k8s_alt_admin_role_arn is not defined
+
+- name: Enable IAM admin role access with alternate admin
+  kubernetes.core.k8s:
+    kind: ConfigMap
+    name: aws-auth
+    namespace: kube-system
+    definition:
+      data:
+        mapRoles: "{{ map_roles_with_alt | to_nice_yaml(indent=2) }}"
+  vars:
+    map_roles_with_alt:
+      - rolearn: "{{ eks_cluster_init_eks_worker_iam_role_arn }}"
+        username: !unsafe system:node:{{EC2PrivateDNSName}}
+        groups:
+          - system:bootstrappers
+          - system:nodes
+      - rolearn: "{{ eks_cluster_init_k8s_admin_role_arn }}"
+        username: luther:admin
+        groups:
+          - system:masters
+      - rolearn: "{{ eks_cluster_init_k8s_alt_admin_role_arn }}"
+        username: luther:admin
+        groups:
+          - system:masters
+  environment: "{{ kubectl_env }}"
+  when:
+    - eks_cluster_init_configure_aws_auth
+    - eks_cluster_init_eks_worker_iam_role_arn is defined
+    - eks_cluster_init_k8s_admin_role_arn is defined
+    - eks_cluster_init_k8s_alt_admin_role_arn is defined
 
 - name: Get all StorageClasses
   kubernetes.core.k8s_info:

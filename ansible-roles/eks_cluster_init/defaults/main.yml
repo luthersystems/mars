@@ -5,6 +5,7 @@ eks_cluster_init_default_storageclass: gp3-encrypted
 
 # eks_cluster_init_eks_worker_iam_role_arn: ""
 # eks_cluster_init_k8s_admin_role_arn: ""
+eks_cluster_init_k8s_alt_admin_role_arn: ""
 # eks_cluster_init_storage_kms_key_id: ""
 
 eks_cluster_init_available_encrypted_storage_types:
