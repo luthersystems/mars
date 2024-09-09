@@ -1,7 +1,7 @@
 ---
 # tasks file for eks_cluster_init
 
-- name: Enable IAM admin role access without alternative admi
+- name: Enable IAM admin role access without alternative admin
   kubernetes.core.k8s:
     kind: ConfigMap
     name: aws-auth
