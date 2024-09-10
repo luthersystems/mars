@@ -83,6 +83,7 @@ RUN apt update -y && apt install --no-install-recommends -yq \
   openssh-client \
   perl \
   python3 \
+  python3-distutils-extra \
   rsync \
   unzip
 
