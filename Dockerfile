@@ -71,7 +71,6 @@ RUN apt update -y && apt install --no-install-recommends -yq \
 COPY requirements.txt /tmp/requirements.txt
 RUN mkdir -p /opt/mars
 RUN python3 -m venv /opt/mars_venv
-RUN /opt/mars_venv/bin/pip install setuptools
 RUN /opt/mars_venv/bin/pip install -r /tmp/requirements.txt
 
 FROM ubuntu:24.04
