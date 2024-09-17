@@ -100,6 +100,7 @@
   environment: "{{ kubectl_env | combine(extra_env_vars) }}"
   vars:
     extra_env_vars:
+      FABRIC_DOMAIN: "{{k8s_fabric_peer_domain_root}}"
       PAUSING_AT: peer
       WHICH: "{{ item }}"
       CHANNEL: luther
