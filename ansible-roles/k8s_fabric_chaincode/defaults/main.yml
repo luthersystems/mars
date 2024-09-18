@@ -15,3 +15,4 @@ k8s_fabric_chaincode_helm_chart_path: "{{kubectl_asset_root_path}}/chaincode"
 k8s_fabric_chaincode_azs: []
 # ccid override is a hack to work with old substrate/buildpack versions
 k8s_fabric_chaincode_ccid_override: ""
+k8s_fabric_chaincode_domain_root: "luther.systems"

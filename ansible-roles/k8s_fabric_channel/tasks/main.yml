@@ -6,7 +6,10 @@
     argv:
       - "{{k8s_fabric_channel_create_script_path}}"
     chdir: "{{k8s_fabric_scripts_workdir}}"
-  environment: "{{kubectl_env}}"
+  vars:
+    extra_env_vars:
+      FABRIC_DOMAIN: "{{k8s_fabric_channel_domain_root}}"
+  environment: "{{ kubectl_env | combine(extra_env_vars) }}"
 
 - name: Join channel
   command:
@@ -14,7 +17,10 @@
       - "{{k8s_fabric_channel_sync_script_path}}"
       - "{{item.name}}"
     chdir: "{{k8s_fabric_scripts_workdir}}"
-  environment: "{{kubectl_env}}"
+  vars:
+    extra_env_vars:
+      FABRIC_DOMAIN: "{{k8s_fabric_channel_domain_root}}"
+  environment: "{{ kubectl_env | combine(extra_env_vars) }}"
   loop: "{{k8s_fabric_channel_orgs}}"
 
 - name: Update Anchor peers
@@ -24,5 +30,8 @@
       - "{{item.name}}"
       - "{{item.msp}}"
     chdir: "{{k8s_fabric_scripts_workdir}}"
-  environment: "{{kubectl_env}}"
+  vars:
+    extra_env_vars:
+      FABRIC_DOMAIN: "{{k8s_fabric_channel_domain_root}}"
+  environment: "{{ kubectl_env | combine(extra_env_vars) }}"
   loop: "{{k8s_fabric_channel_orgs}}"
