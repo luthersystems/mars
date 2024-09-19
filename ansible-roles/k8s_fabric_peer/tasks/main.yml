@@ -72,4 +72,4 @@
 
 - name: Loop is run
   include_tasks: inner.yml
-  loop: "{{range(0,k8s_fabric_peer_org_size)|list}}"
+  loop: "{{ range(0, k8s_fabric_peer_org_size | int) | list }}"

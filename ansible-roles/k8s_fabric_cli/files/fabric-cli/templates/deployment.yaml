@@ -217,10 +217,10 @@ spec:
               aws s3 cp --recursive "${ARTIFACT_ROOT}/channel-artifacts/" /channel-artifacts
               aws s3 cp "${ARTIFACT_ROOT}/collections.json" /collections-config/
 
-              aws s3 cp --recursive "${ARTIFACT_ROOT}/crypto-config/ordererOrganizations/luther.systems/orderers/orderer0.luther.systems/msp/tlscacerts/" /orderertls
+              aws s3 cp --recursive "${ARTIFACT_ROOT}/crypto-config/ordererOrganizations/{{ .Values.dlt.domain }}/orderers/orderer0.{{ .Values.dlt.domain }}/msp/tlscacerts/" /orderertls
               {{- if eq .Values.dlt.organization "orderer" }}
-              aws s3 cp --recursive "${ARTIFACT_ROOT}/crypto-config/ordererOrganizations/luther.systems/users/Admin@{{ .Values.dlt.domain }}/msp/" /msp
-              aws s3 cp --recursive "${ARTIFACT_ROOT}/crypto-config/ordererOrganizations/luther.systems/orderers/orderer{{ .Values.dlt.peerIndex }}.luther.systems/tls/" /tls
+              aws s3 cp --recursive "${ARTIFACT_ROOT}/crypto-config/ordererOrganizations/{{ .Values.dlt.domain }}/users/Admin@{{ .Values.dlt.domain }}/msp/" /msp
+              aws s3 cp --recursive "${ARTIFACT_ROOT}/crypto-config/ordererOrganizations/{{ .Values.dlt.domain }}/orderers/orderer{{ .Values.dlt.peerIndex }}.{{ .Values.dlt.domain }}/tls/" /tls
               {{- else }}
               aws s3 cp --recursive "${ARTIFACT_ROOT}/crypto-config/peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/users/Admin@{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/msp/" /msp
               aws s3 cp --recursive "${ARTIFACT_ROOT}/crypto-config/peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ list .Values.dlt.peerIndex . | include "fabric-cli.peer-fqdn" }}/tls/" /tls

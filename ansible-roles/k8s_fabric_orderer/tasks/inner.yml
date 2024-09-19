@@ -70,6 +70,7 @@
   environment: "{{ kubectl_env | combine(extra_env_vars) }}"
   vars:
     extra_env_vars:
+      FABRIC_DOMAIN: "{{k8s_fabric_orderer_domain_root}}"
       PAUSING_AT: orderer
       WHICH: "{{ item }}"
       CHANNEL: luther
