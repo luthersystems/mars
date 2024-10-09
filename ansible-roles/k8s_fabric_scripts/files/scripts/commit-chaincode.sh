@@ -16,53 +16,51 @@ source "${BASH_SOURCE%/*}/channel-utils.sh"
 pod="$(select_first_cli_pod "$ORG" 0)"
 
 org_peer() {
-    local org_domain="$1"
-    local root=/etc/hyperledger/fabric/tls/all-cas
-    pod_exec "$pod" sh -c "ls '${root}/${org_domain}/peers/' | shuf | head -n 1 | xargs basename"
+  local org_domain="$1"
+  local root=/etc/hyperledger/fabric/tls/all-cas
+  pod_exec "$pod" sh -c "ls '${root}/${org_domain}/peers/' | head -n 1 | xargs basename"
 }
 
 peer_address() {
-    echo "$1:7051"
+  echo "$1:7051"
 }
 
 ca_path() {
-    local org_domain="$1"
-    local peer="$2"
-    local root=/etc/hyperledger/fabric/tls/all-cas
+  local org_domain="$1"
+  local peer="$2"
+  local root=/etc/hyperledger/fabric/tls/all-cas
 
-    echo "${root}/${org_domain}/peers/${peer}/tls/ca.crt"
+  echo "${root}/${org_domain}/peers/${peer}/tls/ca.crt"
 }
 
 peer_args() {
-    local peer_args=""
-    for org in $ORG_DOMAINS; do
-        local peer="$(org_peer "$org")"
-        if [ -z "$peer" ]; then
-            echo "peer not found for org: $org" >&2
-            exit 1
-        fi
-        peer_args+=" --peerAddresses $(peer_address "$peer")"
-        peer_args+=" --tlsRootCertFiles $(ca_path "$org" "$peer")"
-    done
-    echo "$peer_args"
+  local peer_args=""
+  for org in $ORG_DOMAINS; do
+    local peer="$(org_peer "$org")"
+    if [ -z "$peer" ]; then
+      echo "peer not found for org: $org" >&2
+      exit 1
+    fi
+    peer_args+=" --peerAddresses $(peer_address "$peer")"
+    peer_args+=" --tlsRootCertFiles $(ca_path "$org" "$peer")"
+  done
+  echo "$peer_args"
 }
 
 ARGS="$(peer_args)"
 
 if [ -z "$ARGS" ]; then
-    exit 1
+  exit 1
 fi
 
 if ! pod_exec "$pod" peer lifecycle chaincode commit \
-     $ARGS \
-     --channelID "$CHANNEL" --tls \
-     --cafile "$ORDERER_CA" --orderer "$ORDERER" \
-     --name "$CC_NAME" --version "$CC_VERSION" \
-     --collections-config "$COLLECTIONS_PATH" \
-     --signature-policy "$ENDORSEMENT_POLICY" \
-     --sequence "$SEQ_NO"
-     # TODO: --clientauth --certfile "$CORE_PEER_TLS_CERT_FILE" --keyfile "$CORE_PEER_TLS_KEY_FILE"
-then
-    echo "Failed to commit chaincode lifecycle" >&2
-    exit 1
+  $ARGS \
+  --channelID "$CHANNEL" --tls \
+  --cafile "$ORDERER_CA" --orderer "$ORDERER" \
+  --name "$CC_NAME" --version "$CC_VERSION" \
+  --collections-config "$COLLECTIONS_PATH" \
+  --signature-policy "$ENDORSEMENT_POLICY" \
+  --sequence "$SEQ_NO"; then # TODO: --clientauth --certfile "$CORE_PEER_TLS_CERT_FILE" --keyfile "$CORE_PEER_TLS_KEY_FILE"
+  echo "Failed to commit chaincode lifecycle" >&2
+  exit 1
 fi
