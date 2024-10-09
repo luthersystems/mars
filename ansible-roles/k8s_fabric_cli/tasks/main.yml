@@ -107,4 +107,4 @@
   environment: "{{ kubectl_env }}"
   vars:
     availability_zones: "{{k8s_fabric_cli_azs}}"
-  loop: "{{range(0,k8s_fabric_cli_org_size)|list}}"
+  loop: "{{ range(0, k8s_fabric_cli_org_size | int) | list }}"

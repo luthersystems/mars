@@ -13,3 +13,4 @@ k8s_fabric_channel_orgs:
     msp: Org3MSP
   - name: org4
     msp: Org4MSP
+k8s_fabric_channel_domain_root: "luther.systems"

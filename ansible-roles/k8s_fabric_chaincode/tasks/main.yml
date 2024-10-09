@@ -9,7 +9,10 @@
       - "{{ k8s_fabric_chaincode_name }}"
       - "{{ k8s_fabric_chaincode_version }}"
     chdir: "{{ k8s_fabric_scripts_workdir }}"
-  environment: "{{ kubectl_env }}"
+  vars:
+    extra_env_vars:
+      FABRIC_DOMAIN: "{{k8s_fabric_chaincode_domain_root}}"
+  environment: "{{ kubectl_env | combine(extra_env_vars) }}"
   register: query_committed
   changed_when: false
   failed_when: false
@@ -42,7 +45,10 @@
       - "{{ k8s_fabric_chaincode_external }}"
       - "{{ k8s_fabric_chaincode_ccaas }}"
     chdir: "{{ k8s_fabric_scripts_workdir }}"
-  environment: "{{ kubectl_env }}"
+  vars:
+    extra_env_vars:
+      FABRIC_DOMAIN: "{{k8s_fabric_chaincode_domain_root}}"
+  environment: "{{ kubectl_env | combine(extra_env_vars) }}"
   loop: "{{ k8s_fabric_chaincode_orgs | org_peer_pairs }}"
   register: install_result
   changed_when: '"peers have installed the chaincode" in install_result.stderr'
@@ -103,7 +109,10 @@
       - "{{ k8s_fabric_chaincode_endorsement_policy }}"
       - "{{ next_sequence }}"
     chdir: "{{ k8s_fabric_scripts_workdir }}"
-  environment: "{{ kubectl_env }}"
+  vars:
+    extra_env_vars:
+      FABRIC_DOMAIN: "{{k8s_fabric_chaincode_domain_root}}"
+  environment: "{{ kubectl_env | combine(extra_env_vars) }}"
   when: not committed
   # TODO: only approve on luther orgs!
   loop: "{{ k8s_fabric_chaincode_orgs }}"
@@ -122,7 +131,10 @@
       - "{{ k8s_fabric_chaincode_endorsement_policy }}"
       - "{{ next_sequence }}"
     chdir: "{{ k8s_fabric_scripts_workdir }}"
-  environment: "{{ kubectl_env }}"
+  vars:
+    extra_env_vars:
+      FABRIC_DOMAIN: "{{k8s_fabric_chaincode_domain_root}}"
+  environment: "{{ kubectl_env | combine(extra_env_vars) }}"
   when: not committed
   register: approval_script
   tags:
@@ -138,7 +150,10 @@
       - "{{ k8s_fabric_chaincode_endorsement_policy }}"
       - "{{ next_sequence }}"
     chdir: "{{ k8s_fabric_scripts_workdir }}"
-  environment: "{{ kubectl_env }}"
+  vars:
+    extra_env_vars:
+      FABRIC_DOMAIN: "{{k8s_fabric_chaincode_domain_root}}"
+  environment: "{{ kubectl_env | combine(extra_env_vars) }}"
   when: not committed
   ignore_errors: true
   register: readiness_report
@@ -166,7 +181,10 @@
       - "{{ k8s_fabric_chaincode_endorsement_policy }}"
       - "{{ next_sequence }}"
     chdir: "{{ k8s_fabric_scripts_workdir }}"
-  environment: "{{ kubectl_env }}"
+  vars:
+    extra_env_vars:
+      FABRIC_DOMAIN: "{{k8s_fabric_chaincode_domain_root}}"
+  environment: "{{ kubectl_env | combine(extra_env_vars) }}"
   when:
     - not committed
     - approve_result.changed
@@ -191,7 +209,9 @@
       - "{{ k8s_fabric_chaincode_orgs[0].name }}"
     luther_orgs: "{{ k8s_fabric_chaincode_orgs | map('luther_fabric_org_domain', k8s_fabric_network_domain_root) | list }}"
     external_orgs: "{{ k8s_fabric_chaincode_external_orgs | json_query('[*].domain') | list }}"
-  environment: "{{ kubectl_env }}"
+    extra_env_vars:
+      FABRIC_DOMAIN: "{{k8s_fabric_chaincode_domain_root}}"
+  environment: "{{ kubectl_env | combine(extra_env_vars) }}"
   when: not committed
   register: commit_result
 
@@ -203,7 +223,10 @@
       - "{{ k8s_fabric_chaincode_name }}"
       - "{{ k8s_fabric_chaincode_version }}"
     chdir: "{{ k8s_fabric_scripts_workdir }}"
-  environment: "{{ kubectl_env }}"
+  vars:
+    extra_env_vars:
+      FABRIC_DOMAIN: "{{k8s_fabric_chaincode_domain_root}}"
+  environment: "{{ kubectl_env | combine(extra_env_vars) }}"
   when: not committed
   register: query_result
   until: query_result is succeeded
