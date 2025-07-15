@@ -85,7 +85,8 @@ RUN apt update -y && apt install --no-install-recommends -yq \
   perl \
   python3 \
   rsync \
-  unzip
+  unzip \
+  gnupg
 
 COPY --from=downloader /tmp/keyrings /etc/apt/keyrings
 COPY --from=downloader /tmp/sources.list.d /etc/apt/sources.list.d
