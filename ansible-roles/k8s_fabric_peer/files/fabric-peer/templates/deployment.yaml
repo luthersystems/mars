@@ -101,12 +101,6 @@ spec:
               value: {{ list 0 . | include "fabric-peer.fqdn" }}:{{ .Values.internal.container.gossipPort }}
             - name: CORE_PEER_CHAINCODELISTENADDRESS
               value: "localhost:{{ .Values.internal.container.chaincodePort }}"
-            {{- if .Values.dlt.hcs }}
-            - name: CORE_PEER_GOSSIP_USELEADERELECTION
-              value: "true"
-            - name: CORE_PEER_GOSSIP_ORGLEADER
-              value: "false"
-            {{- else }}
             - name: CORE_PEER_GOSSIP_ORGLEADER
               value: "true"
             - name: CORE_PEER_GOSSIP_USELEADERELECTION
@@ -115,7 +109,6 @@ spec:
               value: "false"
             - name: CORE_PEER_DELIVERYCLIENT_BLOCKGOSSIPENABLED
               value: "false"
-            {{- end }}
             - name: CORE_PEER_ID
               value: {{ include "fabric-peer.self-fqdn" . }}
             - name: CORE_PEER_LOCALMSPID
