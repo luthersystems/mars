@@ -19,9 +19,6 @@ dlt:
   organization: orderer
   organizationIndex: 0
   domain: luther.systems
-  hcs: false
-  hcsOperatorId: ""
-  hcsOperatorPrivateKey: ""
 
 image:
   repository: hyperledger/fabric-orderer
