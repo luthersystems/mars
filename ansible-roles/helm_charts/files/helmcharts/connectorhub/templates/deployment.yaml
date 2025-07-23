@@ -17,6 +17,7 @@ spec:
         checksum/config: {{ include (print $.Template.BasePath "/config.yaml") . | sha256sum }}
     spec:
       securityContext:
+        runAsUser: 6553
         fsGroup: 65534 # chown pvc mounts
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:

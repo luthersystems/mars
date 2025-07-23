@@ -24,6 +24,9 @@ spec:
         phylum/version: {{ .Values.phylum.version }}
         checksum/config: {{ include (print $.Template.BasePath "/config.yaml") . | sha256sum }}
     spec:
+      securityContext:
+        runAsUser: 6553
+        fsGroup: 65534 # chown mounts
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
