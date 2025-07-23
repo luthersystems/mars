@@ -1,0 +1,18 @@
+{{ if .Values.sdk.configMapName }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.sdk.configMapName }}
+  labels:
+    {{- include "connectorhub.labels" . | nindent 4 }}
+data:
+  connectorhub.yaml: |
+    msp-id: {{ .Values.dlt.mspID }}
+    user-id: {{ .Values.dlt.userID }}
+    org-domain: {{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}
+    crypto-config-root-path: "/tmp/fabric/crypto-config"
+    peer-name: peer{{ .Values.dlt.peerIndex }}
+    peer-endpoint: "peer{{ .Values.dlt.peerIndex }}.{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}:7051"
+    channel-name: {{ .Values.dlt.channel }}
+    chaincode-id: {{ .Values.dlt.chaincodeID }}
+{{- end }}

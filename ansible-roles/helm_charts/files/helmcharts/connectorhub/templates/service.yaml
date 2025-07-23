@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "connectorhub.fullname" . }}
+  labels:
+    {{- include "connectorhub.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.ports.app }}
+      protocol: TCP
+      name:  {{ include "connectorhub.name" . }}
+  selector:
+    {{- include "connectorhub.labels" . | nindent 4 }}

@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "oracle.fullname" . }}
+  labels:
+    {{- include "oracle.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "oracle.labels.match" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "oracle.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "oracle.serviceAccountName" . }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.envFromSecret }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.envFromSecret }}
+          {{- end }}
+          env:
+            {{- range $var, $value := .Values.env }}
+            - name: {{ $var }}
+              value: {{ $value | print | toJson }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.ports.app }}
+              protocol: TCP
+            - name: metrics
+              containerPort: {{ .Values.ports.metrics }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /v1/{{ .Values.app.name }}/health_check{{ if .Values.oracleOnlyProbe }}?oracle_only=true{{ end }}
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /v1/{{ .Values.app.name }}/health_check{{ if .Values.oracleOnlyProbe }}?oracle_only=true{{ end }}
+              port: http
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

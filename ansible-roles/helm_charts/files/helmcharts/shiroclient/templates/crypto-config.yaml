@@ -1,0 +1,9 @@
+{{ if .Values.dlt.cryptoConfigSecret }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: fabric-crypto-config
+type: Opaque
+data:
+  crypto-config.zip: {{ .Values.dlt.cryptoConfigSecret }}
+{{- end }}

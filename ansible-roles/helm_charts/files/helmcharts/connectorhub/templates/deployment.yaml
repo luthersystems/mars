@@ -1,0 +1,139 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "connectorhub.fullname" . }}
+  labels:
+{{ include "connectorhub.labels" . | indent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "connectorhub.labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "connectorhub.labels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/config.yaml") . | sha256sum }}
+    spec:
+      securityContext:
+        fsGroup: 65534 # chown pvc mounts
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: connectorhub-checkpoint
+          persistentVolumeClaim:
+            claimName: {{ list "storage" . | include "connectorhub.pvc" }}
+        - name: fabric-artifacts
+          emptyDir: {}
+        - name: msp
+          emptyDir: {}
+        - name: state-store
+          emptyDir: {}
+        {{- if .Values.dlt.cryptoConfigSecret }}
+        - name: connectorhub-crypto-config
+          secret:
+            secretName: connectorhub-crypto-config
+        {{- end }}
+        {{ if .Values.sdk.configMapName }}
+        - name: config
+          configMap:
+            name: {{ .Values.sdk.configMapName }}
+        {{- end }}
+      {{- if not .Values.local }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ include "connectorhub.name" . }}
+      {{- end }}
+      serviceAccountName: {{ include "connectorhub.serviceAccountName" . }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - start
+            - --config-file=/tmp/fabric/connectorhub.yaml
+            - --checkpoint-file=/tmp/checkpoint/checkpoint.txt
+            {{- if .Values.verbose }}
+            - --verbose
+            {{- end }}
+          env:
+            {{- if .Values.verbose }}
+            - name: GRPC_GO_LOG_VERBOSITY_LEVEL
+              value: "99"
+            - name: GRPC_GO_LOG_SEVERITY_LEVEL
+              value: info
+            {{- end }}
+          workingDir: /tmp/fabric
+          volumeMounts:
+            - name: fabric-artifacts
+              mountPath: /tmp/fabric
+            - name: connectorhub-checkpoint
+              mountPath: /tmp/checkpoint
+            - name: msp
+              mountPath: /tmp/msp
+            - name: state-store
+              mountPath: /tmp/state-store
+            {{ if .Values.sdk.configMapName }}
+            - name: config
+              subPath: connectorhub.yaml
+              mountPath: /tmp/fabric/connectorhub.yaml
+              readOnly: true
+            - name: config
+              subPath: fabric-client.yaml
+              mountPath: /tmp/fabric/fabric-client.yaml
+              readOnly: true
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.ports.app }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /v1/ch/health_check
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /v1/ch/health_check
+              port: http
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      initContainers:
+        {{- if .Values.dlt.cryptoConfigSecret }}
+        - name: config-setup
+          image: busybox:1.35.0
+          args:
+            - sh
+            - -c
+            - |
+              set -xe;
+              cp /opt/crypto-config/crypto-config.zip /tmp
+              cd /tmp
+              unzip crypto-config.zip
+              # TODO: copy only relevant files
+              mv crypto-config /fabric/
+          volumeMounts:
+            - name: fabric-artifacts
+              mountPath: /fabric
+            - name: connectorhub-crypto-config
+              mountPath: /opt/crypto-config
+              readOnly: true
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

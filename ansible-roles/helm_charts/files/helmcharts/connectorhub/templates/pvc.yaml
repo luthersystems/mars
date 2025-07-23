@@ -1,0 +1,27 @@
+{{- if .Values.persistentVolume.create }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ list "storage" . | include "connectorhub.pvc" }}
+  labels:
+    {{ include "connectorhub.labels" . | nindent 4 }}
+  {{- if .Values.persistentVolume.typeOverride }}
+  annotations:
+    ebs.csi.aws.com/volumeType: {{ .Values.persistentVolume.typeOverride }}
+  {{- end }}
+spec:
+  {{- if not .Values.local }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: {{ .Values.dlt.component }}
+      type: storage
+      fabric/organization: {{ .Values.dlt.organization }}
+  {{- end }}
+  storageClassName: {{ .Values.persistentVolume.storageClassName }}
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.persistentVolume.storageSize }}
+{{- end }}

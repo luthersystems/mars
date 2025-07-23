@@ -1,0 +1,15 @@
+# {{ include "ingress.chart" . }}
+
+It's assumed that the alb-ingress-controller has already been installed and is
+watching the namespace of the installed ingress chart.
+
+1. Get the application URL by running these commands:
+
+    INGRESS_HOSTNAME=$(kubectl -n {{ .Release.Namespace }} get ingress -l app.kubernetes.io/part-of={{ .Values.global.partOf }},app.kubernetes.io/instance={{ .Release.Name }} -o jsonpath="{.items[0].spec.rules[0].host}")
+
+    INTERNAL_HOSTNAME=$(kubectl -n {{ .Release.Namespace }} get ingress -l app.kubernetes.io/part-of={{ .Values.global.partOf }},app.kubernetes.io/instance={{ .Release.Name }} -o jsonpath="{.items[0].status.loadBalancer.ingress[0].hostname}")
+
+2. Check that the healthcheck is working (disable tls verification otherwise
+call will fail because of the URL hostname)
+
+    curl -k -H "Host: $INGRESS_HOSTNAME" https://$INTERNAL_HOSTNAME/v1/hox/health_check

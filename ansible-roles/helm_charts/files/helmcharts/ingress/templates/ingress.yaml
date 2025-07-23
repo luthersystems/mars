@@ -1,0 +1,38 @@
+{{- $fullName := include "ingress.fullname" . -}}
+{{- $albAttrs := include "ingress.albAttributes" . -}}
+{{- $releaseName := .Release.Name -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullName }}
+  labels:
+{{ include "ingress.labels" . | indent 4 }}
+  annotations:
+    alb.ingress.kubernetes.io/ssl-policy: "ELBSecurityPolicy-TLS-1-2-Ext-2018-06"
+    alb.ingress.kubernetes.io/scheme: {{ .Values.loadBalancer.scheme }}
+    alb.ingress.kubernetes.io/target-type: {{ .Values.loadBalancer.targetType }}
+    alb.ingress.kubernetes.io/backend-protocol: {{ .Values.loadBalancer.backendProtocol }}
+    alb.ingress.kubernetes.io/certificate-arn: {{ .Values.loadBalancer.certificateARN }}
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    alb.ingress.kubernetes.io/tags: Project={{ .Values.global.partOf }},Environment={{ .Values.global.projectEnv }},Organization={{ .Values.global.orgName }},Component=app,Resource=alb
+    alb.ingress.kubernetes.io/load-balancer-attributes: {{ $albAttrs }}
+    {{- with .Values.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    external-dns.alpha.kubernetes.io/hostname: {{ .Values.matchHost | quote }}
+spec:
+  ingressClassName:  {{ .Values.loadBalancer.class }}
+  rules:
+    - host: {{ .Values.matchHost | quote }}
+      http:
+        paths:
+        {{- range .Values.serviceRoutes }}
+          - pathType: Prefix
+            path: {{ .path }}
+            backend:
+              service:
+                name: {{ list $releaseName .service | include "ingress.service-name" }}
+                port:
+                  number: {{ .port }}
+        {{- end }}
