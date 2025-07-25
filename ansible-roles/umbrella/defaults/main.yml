@@ -1,0 +1,14 @@
+---
+# defaults file
+
+# The release name helm will use to track the installation.
+umbrella_release_name: "project-{{ org_name }}"
+umbrella_namespace: project
+umbrella_app_name: project
+umbrella_helm_chart: "{{ helm_charts_root_path }}/umbrella"
+umbrella_charts: []
+umbrella_connectorhub_separate_pvc: false
+umbrella_connectorhub_storage_size: 10Gi
+umbrella_connectorhub_storage_class: gp2-encrypted
+umbrella_connectorhub_volume_type_override: ""
+umbrella_lutherauth_secrets: false

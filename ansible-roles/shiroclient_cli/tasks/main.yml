@@ -9,30 +9,6 @@
     state: present
   environment: "{{ kubectl_env }}"
 
-- name: Create Shiroclient CLI Service Accounts
-  k8s:
-    namespace: "{{shiroclient_cli_k8s_namespace}}"
-    definition:
-      apiVersion: v1
-      kind: ServiceAccount
-      automountServiceAccountToken: true
-      metadata:
-        name: "{{ item.key }}"
-        annotations:
-          eks.amazonaws.com/role-arn: "{{ item.value }}"
-  environment: "{{ kubectl_env }}"
-  loop: "{{ shiroclient_cli_service_account_iam_role_arns | dict2items }}"
-
-- name: Helm chart exists
-  synchronize:
-    src: shiroclient-cli/
-    dest: "{{shiroclient_cli_helm_chart_path}}"
-    delete: yes
-    recursive: yes
-    owner: no
-    group: no
-    use_ssh_args: yes
-
 - name: Helm Chart is installed
   kubernetes.core.helm:
     chart_ref: "{{shiroclient_cli_helm_chart_path}}"
@@ -40,22 +16,26 @@
     namespace: "{{shiroclient_cli_k8s_namespace}}"
     wait: true
     values:
-      image:
-        repository: "{{shiroclient_cli_image_repository}}"
-      serviceAccount:
-        name: "{{shiroclient_cli_service_account}}"
       global:
-        lutherEnv: "{{luther_env}}"
+        projectEnv: "{{luther_env}}"
+      image:
+        tag: "{{shiroclient_cli_substrate_version}}"
       phylum:
-        version: "{{shiro_phylum_version}}"
-        name: "{{shiro_phylum_name}}"
+        version: "{{shiroclient_cli_phylum_version}}"
+        name: "{{shiroclient_cli_phylum_name}}"
       runMode: cli
       substrate:
         version: "{{shiroclient_cli_substrate_version}}"
+        license: "{{ shiroclient_cli_license }}"
       aws:
-        region: "{{shiro_phylum_s3_region}}"
-        staticBucket: "{{shiro_phylum_s3_bucket}}"
+        region: "{{shiroclient_cli_bucket_region}}"
+        phylumBucket: "{{shiroclient_cli_phylum_bucket}}"
+        envBucket: "{{shiroclient_cli_env_bucket}}"
       sdk:
-        peerResponseTimeout: "{{k8s_fabric_peer_chaincode_invoke_timeout}}"
+        bootstrapBase64: "{{shiroclient_cli_bootstrap_yaml | to_json | b64encode }}"
+        phylumZipBase64: "{{shiroclient_cli_phylum_zip_base64}}"
       awsCLIVersion: "{{shiroclient_cli_aws_cli_version}}"
+      dlt:
+        cryptoConfigSecret: "{{shiroclient_cli_crypto_config}}"
+      local: "{{mars_local | default(false)}}"
   environment: "{{ kubectl_env }}"

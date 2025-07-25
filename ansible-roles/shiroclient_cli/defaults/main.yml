@@ -2,11 +2,16 @@
 # defaults file for shiroclient_cli
 
 shiroclient_cli_k8s_namespace: "shiroclient-cli"
-shiroclient_cli_image_repository: luthersystems/shiroclient
 shiroclient_cli_helm_release: "shiroclient-cli"
-shiroclient_cli_helm_chart_path: "{{kubectl_asset_root_path}}/shiroclient-cli"
-shiroclient_cli_substrate_version: ""
+shiroclient_cli_helm_chart_path: "{{kubectl_asset_root_path}}/helmcharts/shiroclient"
 shiroclient_cli_aws_cli_version: latest
-
-shiroclient_cli_service_account: default
-shiroclient_cli_service_account_iam_role_arns: {}
+# shiroclient_cli_substrate_version: ""
+shiroclient_cli_bucket_region: ""
+shiroclient_cli_phylum_bucket: ""
+shiroclient_cli_env_bucket: ""
+# shiroclient_cli_phylum_version: ""
+# shiroclient_cli_phylum_name: ""
+shiroclient_cli_license: ""
+shiroclient_cli_crypto_config: ""
+shiroclient_cli_bootstrap_yaml: {}
+shiroclient_cli_phylum_zip_base64: ""

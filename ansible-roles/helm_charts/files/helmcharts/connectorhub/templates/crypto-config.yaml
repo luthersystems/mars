@@ -1,0 +1,11 @@
+{{ if .Values.dlt.cryptoConfigSecret }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: connectorhub-crypto-config
+  labels:
+    {{- include "connectorhub.labels" . | nindent 4 }}
+type: Opaque
+data:
+  crypto-config.zip: {{ .Values.dlt.cryptoConfigSecret }}
+{{- end }}

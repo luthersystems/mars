@@ -1,0 +1,232 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "shiroclient.fullname" . }}
+  labels:
+{{ include "shiroclient.labels" . | indent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  {{- if eq .Values.runMode "cli" }}
+  strategy:
+    type: Recreate
+    rollingUpdate: !!null
+  {{- end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "shiroclient.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "shiroclient.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      annotations:
+        phylum/version: {{ .Values.phylum.version }}
+        checksum/config: {{ include (print $.Template.BasePath "/config.yaml") . | sha256sum }}
+    spec:
+      securityContext:
+        runAsUser: 6553
+        fsGroup: 65534 # chown mounts
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: phylum
+          emptyDir: {}
+        - name: fabric-artifacts
+          emptyDir: {}
+        - name: msp
+          emptyDir: {}
+        - name: state-store
+          emptyDir: {}
+        - name: license
+          secret:
+            secretName: license-shiroclient
+        {{- if .Values.dlt.cryptoConfigSecret }}
+        - name: fabric-crypto-config
+          secret:
+            secretName: fabric-crypto-config
+        {{- end }}
+        {{ if .Values.sdk.configMapName }}
+        - name: config
+          configMap:
+            name: {{ .Values.sdk.configMapName }}
+        {{- end }}
+      {{- if not .Values.local }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ include "shiroclient.name" . }}
+      {{- end }}
+      serviceAccountName: {{ include "shiroclient.serviceAccountName" . }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if eq .Values.runMode "gateway" }}
+          args:
+            - --config=shiroclient.yaml
+            - --chaincode.version={{ .Values.substrate.version }}
+            - --phylum.version={{ .Values.phylum.version }}
+            - --enroll.org={{ .Values.dlt.organization }}
+            - --client.tx-timeout={{ .Values.sdk.txTimeout }}
+            - --client.tx-commit-timeout={{ .Values.sdk.txCommitTimeout }}
+            - --client.tx-retry-min-delay={{ .Values.sdk.txRetryMinDelay }}
+            - --client.tx-retry-max-delay={{ .Values.sdk.txRetryMaxDelay }}
+            {{- if .Values.verbose }}
+            - --verbose
+            {{- end }}
+            - gateway
+          {{- else if eq .Values.runMode "cli" }}
+          command:
+            - sh
+            - -c
+            - while true; do sleep 10; done
+          {{- end }}
+          env:
+            - name: ORG
+              value: {{ .Values.dlt.organization }}
+            - name: DOMAIN_NAME
+              value: {{ .Values.dlt.domain }}
+            - name: SHIROCLIENT_CLIENT_LICENSE_FILE
+              value: /opt/license/license.yaml
+            {{- if .Values.verbose }}
+            - name: GRPC_GO_LOG_VERBOSITY_LEVEL
+              value: "99"
+            - name: GRPC_GO_LOG_SEVERITY_LEVEL
+              value: info
+            {{- end }}
+          workingDir: /tmp/fabric
+          volumeMounts:
+            - name: fabric-artifacts
+              mountPath: /tmp/fabric
+            - name: msp
+              mountPath: /tmp/msp
+            - name: state-store
+              mountPath: /tmp/state-store
+            - name: phylum
+              mountPath: /phylum
+            - name: license
+              mountPath: /opt/license
+              readOnly: true
+            {{ if .Values.sdk.configMapName }}
+            - name: config
+              subPath: shiroclient.yaml
+              mountPath: /tmp/fabric/shiroclient.yaml
+              readOnly: true
+            - name: config
+              subPath: fabric-client.yaml
+              mountPath: /tmp/fabric/fabric-client.yaml
+              readOnly: true
+            {{ if .Values.sdk.bootstrapBase64 }}
+            - name: config
+              subPath: config.json.b64
+              mountPath: /phylum/config.json.b64
+              readOnly: true
+            {{- end }}
+            {{ if .Values.sdk.phylumZipBase64 }}
+            - name: config
+              subPath: phylum.zip
+              mountPath: /phylum/phylum.zip
+              readOnly: true
+            {{- end }}
+            {{- end }}
+          {{- if eq .Values.runMode "gateway" }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.ports.app }}
+              protocol: TCP
+            - name: metrics
+              containerPort: {{ .Values.ports.metrics }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      initContainers:
+        {{ if or (and (ne .Values.runMode "gateway") (not .Values.sdk.phylumZipBase64)) (not .Values.sdk.configMapName) (not .Values.dlt.cryptoConfigSecret) }}
+        - name: config-fetch
+          image: "amazon/aws-cli:{{ .Values.awsCLIVersion }}"
+          env:
+            - name: AWS_REGION
+              value: {{ .Values.aws.region }}
+            - name: PHYLUM_BUCKET
+              value: {{ .Values.aws.phylumBucket }}
+            - name: ENV_BUCKET
+              value: {{ .Values.aws.envBucket }}
+            - name: LUTHER_ENV
+              value: {{ .Values.global.projectEnv }}
+            - name: APP_NAME
+              value: {{ .Values.phylum.name }}
+            - name: APP_VERSION
+              value: {{ .Values.phylum.version }}
+          args:
+            - sh
+            - -c
+            - |
+              set -xe;
+              {{ if not .Values.sdk.phylumZipBase64 }}
+              aws s3 cp s3://$PHYLUM_BUCKET/phyla/$APP_NAME-$APP_VERSION/$APP_NAME.zip /opt/phylum/phylum.zip;
+              {{- end }}
+
+              {{ if not .Values.sdk.configMapName }}
+              aws s3 cp s3://$ENV_BUCKET/$LUTHER_ENV/config/config.json.b64 /opt/phylum/config.json.b64
+              {{- end }}
+
+              {{- if not .Values.dlt.cryptoConfigSecret }}
+              aws s3 cp --recursive s3://$ENV_BUCKET/$LUTHER_ENV/fabric-artifacts/ /fabric
+              sed 's/PEER_RESPONSE_TIMEOUT/{{.Values.sdk.peerResponseTimeout}}/' /fabric/fabric-client_template.yaml > /fabric/fabric-client.yaml
+              {{- end }}
+          volumeMounts:
+            {{ if or (not .Values.sdk.phylumZipBase64) (not .Values.sdk.configMapName) }}
+            - name: phylum
+              mountPath: /opt/phylum
+            {{- end }}
+            {{- if not .Values.dlt.cryptoConfigSecret }}
+            - name: fabric-artifacts
+              mountPath: /fabric
+            {{- end }}
+        {{- end }}
+        {{- if .Values.dlt.cryptoConfigSecret }}
+        - name: config-setup
+          image: busybox:1.35.0
+          args:
+            - sh
+            - -c
+            - |
+              set -xe;
+              cp /opt/crypto-config/crypto-config.zip /tmp
+              cd /tmp
+              unzip crypto-config.zip
+              # TODO: copy only relevant files
+              mv crypto-config /fabric/
+          volumeMounts:
+            - name: fabric-artifacts
+              mountPath: /fabric
+            - name: fabric-crypto-config
+              mountPath: /opt/crypto-config
+              readOnly: true
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

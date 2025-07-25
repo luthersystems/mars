@@ -1,0 +1,108 @@
+# Default values for shiroclient.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+global:
+  projectEnv: dev
+
+runMode: gateway
+
+dlt:
+  organization: org1
+  domain: luther.systems
+  cryptoConfigSecret: ""
+
+sdk:
+  txTimeout: 60s
+  txCommitTimeout: 60s
+  txRetryMinDelay: 50ms
+  txRetryMaxDelay: 2s
+  configMapName: shiroclient-config
+  bootstrapBase64: ""
+  phylumZipBase64: ""
+  peerResponseTimeout: 5s
+
+image:
+  repository: luthersystems/shiroclient
+  tag: latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 80
+
+ports:
+  app: 8082
+  metrics: 9602
+
+# The calling role must set these values, which are different for each project.
+aws: {}
+#  accessKeyID: ""
+#  secretAccessKey: ""
+#  sessionToken: ""
+#  region: eu-central-1
+#  phylumBucket: ""
+#  envBucket: ""
+
+# The calling role must set these values, which are different for each project.
+phylum: {}
+#  name: ics
+#  version: 0.1.0-1fee1ba
+
+substrate:
+  version: 2.96.0
+  s3:
+    region: eu-west-2
+    bucket: luther-common-ln-common-external-s3-44lp
+  license: ""
+
+ingress:
+  enabled: false
+  annotations:
+    {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: chart-example.local
+      paths: []
+
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+resources:
+  {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+verbose: false
+
+awsCLIVersion: latest
+
+local: false
+
+serviceAccount:
+  create: false
+  annotations: {}
+  name: ""

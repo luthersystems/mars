@@ -1,0 +1,4 @@
+---
+# defaults file for helm_charts
+
+helm_charts_root_path: "{{ kubectl_asset_root_path }}/helmcharts"

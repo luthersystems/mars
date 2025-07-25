@@ -1,0 +1,78 @@
+---
+# tasks file
+
+- name: Create umbrella chart directory
+  file:
+    path: "{{ umbrella_helm_chart }}"
+    owner: root
+    group: root
+    state: directory
+    mode: "0755"
+
+- name: Upload umbrella Chart.yaml
+  copy:
+    src: "Chart.yaml"
+    dest: "{{ umbrella_helm_chart }}/Chart.yaml"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Render umbrella chart requirements.yaml
+  template:
+    src: requirements.yaml.j2
+    dest: "{{ umbrella_helm_chart }}/requirements.yaml"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Install umbrella helm dependencies
+  command: helm dependency update
+  args:
+    chdir: "{{ umbrella_helm_chart }}"
+
+- name: Umbrella namespace exists
+  kubernetes.core.k8s:
+    name: "{{umbrella_namespace}}"
+    api_version: v1
+    kind: Namespace
+    state: present
+  environment: "{{ kubectl_env }}"
+
+- name: K8s auth secrets exists
+  kubernetes.core.k8s:
+    namespace: "{{umbrella_namespace}}"
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "auth-{{luther_env}}-secret"
+      type: Opaque
+      stringData:
+        AUTH_JWT_SIGN_KEY: "{{auth_jwt_secret}}"
+        AUTH_OAUTH_CLIENT_SECRET: "TODO"
+  environment: "{{ kubectl_env }}"
+  no_log: True
+  when: umbrella_lutherauth_secrets
+
+- name: Create connectorhub storage PVC
+  include_role:
+    name: k8s_pvc
+  vars:
+    k8s_pvc_namespace: "{{umbrella_namespace}}"
+    k8s_pvc_name: "storage-umbrella-connectorhub"
+    k8s_pvc_component: connectorhub
+    k8s_pvc_part_of: umbrella
+    k8s_pvc_storage_size: "{{umbrella_connectorhub_storage_size}}"
+    k8s_pvc_storage_class: "{{umbrella_connectorhub_storage_class}}"
+    k8s_pvc_volume_type_override: "{{umbrella_connectorhub_volume_type_override}}"
+  when: umbrella_connectorhub_separate_pvc
+
+- name: Install umbrella chart
+  kubernetes.core.helm:
+    chart_ref: "{{ umbrella_helm_chart }}"
+    name: "{{ umbrella_release_name }}"
+    namespace: "{{ umbrella_namespace }}"
+    create_namespace: yes
+    wait: yes
+    values: "{{ umbrella_values }}"
+  environment: "{{ kubectl_env }}"

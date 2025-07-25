@@ -1,0 +1,36 @@
+# Default values for ingress.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+global:
+  partOf: app
+  orgName: luther
+  projectEnv: dev
+
+component: frontend
+
+loadBalancer:
+  class: alb
+  scheme: internet-facing
+  targetType: ip
+  backendProtocol: HTTP
+  certificateARN: ""
+  idleTimeout: 60
+
+annotations: {}
+
+matchHost: ""
+
+serviceRoutes: []
+# - path: /v1/app/*
+#   service: oracle
+#   port: 80
+# - path: /v1/auth/*
+#   service: lutherauth
+#   port: 80
+
+logging:
+  bucket: ""
+  prefix: ""
+
+externalDNS: true

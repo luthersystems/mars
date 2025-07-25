@@ -1,0 +1,17 @@
+---
+# tasks file for helm_charts
+
+# NOTE:  pyhelm is used for the ansible helm module but it is unmaintained.
+#     https://github.com/ansible/ansible/issues/37148
+#- name: Install the pyhelm module
+#  pip: name=pyhelm state=present
+- name: upload helm charts
+  synchronize:
+    src: helmcharts/
+    dest: "{{helm_charts_root_path}}"
+    delete: yes
+    recursive: yes
+    owner: no
+    group: no
+    use_ssh_args: yes
+    times: no
