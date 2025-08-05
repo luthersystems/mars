@@ -40,8 +40,8 @@ spec:
         {{- end }}
         {{ if .Values.sdk.configMapName }}
         - name: config
-          configMap:
-            name: {{ .Values.sdk.configMapName }}
+          secret:
+            secretName: {{ .Values.sdk.secretName | quote }}
         {{- end }}
       {{- if not .Values.local }}
       topologySpreadConstraints:

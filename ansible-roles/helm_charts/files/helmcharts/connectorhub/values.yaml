@@ -19,7 +19,7 @@ dlt:
   chaincodeID: com_luthersystems_chaincode_substrate01
 
 sdk:
-  configMapName: connectorhub-config
+  secretName: connectorhub-config
 
 image:
   repository: luthersystems/connectorhub
