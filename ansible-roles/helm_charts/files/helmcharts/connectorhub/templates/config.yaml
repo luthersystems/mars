@@ -1,12 +1,13 @@
-{{ if .Values.sdk.configMapName }}
+{{- if .Values.sdk.secretName }}
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
-  name: {{ .Values.sdk.configMapName }}
+  name: {{ .Values.sdk.secretName }}
   labels:
     {{- include "connectorhub.labels" . | nindent 4 }}
-data:
-  connectorhub.yaml: |
+type: Opaque
+stringData:
+  connectorhub.yaml: |-
     msp-id: {{ .Values.dlt.mspID }}
     user-id: {{ .Values.dlt.userID }}
     org-domain: {{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}
