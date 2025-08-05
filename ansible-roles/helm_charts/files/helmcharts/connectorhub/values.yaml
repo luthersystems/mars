@@ -75,6 +75,8 @@ serviceAccount:
   create: true
   annotations: {}
   name: ""
+rbac:
+  create: true
 
 nodeSelector: {}
 
