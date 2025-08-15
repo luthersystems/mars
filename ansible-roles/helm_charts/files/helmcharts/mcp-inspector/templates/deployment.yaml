@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mcpinspector.fullname" . }}
+  labels: {{- include "mcpinspector.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels: {{- include "mcpinspector.labels.match" . | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "mcpinspector.labels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "mcpinspector.serviceAccountName" . }}
+      containers:
+        - name: inspector
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # Build the command line:
+          #   inspector --server <mode> --port <port> -- <spawn.command> <spawn.args...>
+          args:
+            - "--server"
+            - "{{ .Values.proxy.mode }}"
+            - "--port"
+            - "{{ .Values.proxy.port }}"
+            - "--"
+            - "{{ .Values.spawn.command }}"
+            {{- range $a := .Values.spawn.args }}
+            - "{{ $a }}"
+            {{- end }}
+          env:
+            {{- range $k, $v := .Values.env }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+            {{- if .Values.proxy.authToken }}
+            - name: MCP_PROXY_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mcpinspector.fullname" . }}-secrets
+                  key: proxy_token
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.proxy.port | int }}
+              protocol: TCP
+            {{- if .Values.ui.expose }}
+            - name: ui
+              containerPort: {{ .Values.ui.port | int }}
+              protocol: TCP
+            {{- end }}
+          resources: {{- toYaml .Values.resources | nindent 12 }}

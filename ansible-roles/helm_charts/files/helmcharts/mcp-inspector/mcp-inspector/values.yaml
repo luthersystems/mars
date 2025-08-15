@@ -1,0 +1,46 @@
+global:
+  partOf: app
+
+replicaCount: 1
+
+image:
+  repository: mcp/inspector
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# Inspector proxy (transport side)
+proxy:
+  mode: http # http | sse (inspector accepts "http" which provides SSE/streamable-http)
+  port: 6277
+  authToken: "" # if set -> Secret + Authorization: Bearer required
+
+# What to spawn AFTER `--`
+spawn:
+  command: uvx
+  args: [] # e.g. ["awslabs.aws-pricing-mcp-server@latest"]
+
+# Env for the spawned MCP (and/or inspector)
+env:
+  AWS_REGION: "us-west-2"
+  FASTMCP_LOG_LEVEL: "ERROR"
+
+service:
+  type: ClusterIP
+  port: 80
+
+ui:
+  expose: false # true to expose inspector UI
+  port: 6274
+
+resources: {}
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
