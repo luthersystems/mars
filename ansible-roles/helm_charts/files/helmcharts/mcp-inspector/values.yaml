@@ -7,6 +7,11 @@ image:
   repository: mcp/inspector
   tag: latest
   pullPolicy: IfNotPresent
+  # Override the container entrypoint (instead of npm start)
+  # Default: ["node", "./bin/cli.js"]
+  command:
+    - "node"
+    - "./bin/cli.js"
 
 # Inspector proxy (transport side)
 proxy:

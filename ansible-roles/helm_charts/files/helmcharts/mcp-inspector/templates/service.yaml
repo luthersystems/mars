@@ -4,15 +4,15 @@ metadata:
   name: {{ include "mcpinspector.fullname" . }}
   labels: {{- include "mcpinspector.labels" . | nindent 4 }}
 spec:
-  type: {{ .Values.service.type }}
+  type: {{ .Values.service.type | default "ClusterIP" }}
   ports:
     - name: http
-      port: {{ .Values.service.port }}
+      port: {{ .Values.service.port | default 80 }}
       targetPort: http
       protocol: TCP
     {{- if .Values.ui.expose }}
     - name: ui
-      port: {{ .Values.ui.port }}
+      port: {{ .Values.ui.port | default 6274 }}
       targetPort: ui
       protocol: TCP
     {{- end }}

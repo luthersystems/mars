@@ -10,6 +10,8 @@ spec:
   template:
     metadata:
       labels: {{- include "mcpinspector.labels" . | nindent 8 }}
+      annotations:
+        rollout-nonce: {{ .Values.global.forceRedeployNonce | default "" | quote }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets: {{- toYaml . | nindent 8 }}
@@ -19,8 +21,9 @@ spec:
         - name: inspector
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          # Build the command line:
-          #   inspector --server <mode> --port <port> -- <spawn.command> <spawn.args...>
+          {{- if .Values.image.command }}
+          command: {{- toYaml .Values.image.command | nindent 12 }}
+          {{- end }}
           args:
             - "--server"
             - "{{ .Values.proxy.mode }}"
