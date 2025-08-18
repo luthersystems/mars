@@ -38,10 +38,14 @@ spec:
           secret:
             secretName: connectorhub-crypto-config
         {{- end }}
-        {{ if .Values.sdk.configMapName }}
+        {{- if .Values.sdk.secretName }}
         - name: config
           secret:
             secretName: {{ .Values.sdk.secretName | quote }}
+        {{- else if .Values.sdk.configMapName }}
+        - name: config
+          configMap:
+            name: {{ .Values.sdk.configMapName | quote }}
         {{- end }}
       {{- if not .Values.local }}
       topologySpreadConstraints:
@@ -81,7 +85,7 @@ spec:
               mountPath: /tmp/msp
             - name: state-store
               mountPath: /tmp/state-store
-            {{ if .Values.sdk.configMapName }}
+            {{- if or .Values.sdk.secretName .Values.sdk.configMapName }}
             - name: config
               subPath: connectorhub.yaml
               mountPath: /tmp/fabric/connectorhub.yaml
