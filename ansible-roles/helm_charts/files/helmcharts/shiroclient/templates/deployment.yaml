@@ -23,6 +23,7 @@ spec:
       annotations:
         phylum/version: {{ .Values.phylum.version }}
         checksum/config: {{ include (print $.Template.BasePath "/config.yaml") . | sha256sum }}
+        rollout-nonce: {{ .Values.global.forceRedeployNonce | default "" | quote }}
     spec:
       securityContext:
         runAsUser: 6553
