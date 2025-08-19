@@ -4,38 +4,35 @@ global:
 replicaCount: 1
 
 image:
-  repository: mcp/inspector
-  tag: latest
+  # Use the Docker Hub image that includes uvx
+  repository: supercorp/supergateway
+  tag: uvx
   pullPolicy: IfNotPresent
-  # Override the container entrypoint (instead of npm start)
-  # Default: ["node", "./bin/cli.js"]
-  command:
-    - "node"
-    - "./bin/cli.js"
 
-# Inspector proxy (transport side)
-proxy:
-  mode: http # http | sse (inspector accepts "http" which provides SSE/streamable-http)
-  port: 6277
-  authToken: "" # if set -> Secret + Authorization: Bearer required
+# Command that Supergateway runs in stdio mode
+# This stays as ONE string arg after --stdio
+stdioCommand: "uvx awslabs.aws-pricing-mcp-server@latest"
 
-# What to spawn AFTER `--`
-spawn:
-  command: uvx
-  args: [] # e.g. ["awslabs.aws-pricing-mcp-server@latest"]
+supergateway:
+  port: 8000
+  ssePath: /sse
+  messagePath: /message
+  healthPath: /healthz
+  baseUrl: "" # e.g., "http://0.0.0.0:8000" (optional)
+  cors: true # enable CORS; good for local/dev
+  logLevel: info
+  oauth2Bearer: "" # if you call out to remote SSE/HTTP servers
+  headers: [] # e.g., ["X-API-Key: abc123", "X-Another: value"]
 
-# Env for the spawned MCP (and/or inspector)
+# Environment for the spawned MCP server (and/or gateway)
+# Typically you’ll set region + rely on IRSA via serviceAccount annotations.
 env:
   AWS_REGION: "us-west-2"
-  FASTMCP_LOG_LEVEL: "ERROR"
+  FASTMCP_LOG_LEVEL: "INFO"
 
 service:
   type: ClusterIP
   port: 80
-
-ui:
-  expose: false # true to expose inspector UI
-  port: 6274
 
 resources: {}
 imagePullSecrets: []

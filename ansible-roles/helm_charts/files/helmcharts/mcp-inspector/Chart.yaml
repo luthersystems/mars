@@ -1,5 +1,5 @@
 apiVersion: v1
 name: mcp-inspector
-description: Generic MCP Inspector proxy (stdio -> HTTP/SSE) that can spawn any MCP server
+description: "Supergateway (stdio -> HTTP/SSE) that can spawn any MCP server (default: AWS Pricing MCP via uvx)"
 version: 0.1.0
 appVersion: "latest"

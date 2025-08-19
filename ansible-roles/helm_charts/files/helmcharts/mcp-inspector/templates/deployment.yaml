@@ -2,57 +2,79 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "mcpinspector.fullname" . }}
-  labels: {{- include "mcpinspector.labels" . | nindent 4 }}
+  labels:
+    {{- include "mcpinspector.labels" . | nindent 4 }}
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: {{ .Values.replicaCount | default 1 }}
   selector:
-    matchLabels: {{- include "mcpinspector.labels.match" . | nindent 6 }}
+    matchLabels:
+      {{- include "mcpinspector.labels.match" . | nindent 6 }}
   template:
     metadata:
-      labels: {{- include "mcpinspector.labels" . | nindent 8 }}
+      labels:
+        {{- include "mcpinspector.labels" . | nindent 8 }}
       annotations:
         rollout-nonce: {{ .Values.global.forceRedeployNonce | default "" | quote }}
     spec:
       {{- with .Values.imagePullSecrets }}
-      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "mcpinspector.serviceAccountName" . }}
       containers:
-        - name: inspector
+        - name: supergateway
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          {{- if .Values.image.command }}
-          command: {{- toYaml .Values.image.command | nindent 12 }}
-          {{- end }}
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
           args:
-            - "--server"
-            - "{{ .Values.proxy.mode }}"
+            - "--stdio"
+            - "{{ .Values.stdioCommand }}"
             - "--port"
-            - "{{ .Values.proxy.port }}"
-            - "--"
-            - "{{ .Values.spawn.command }}"
-            {{- range $a := .Values.spawn.args }}
-            - "{{ $a }}"
+            - "{{ .Values.supergateway.port }}"
+            - "--ssePath"
+            - "{{ .Values.supergateway.ssePath }}"
+            - "--messagePath"
+            - "{{ .Values.supergateway.messagePath }}"
+            - "--healthEndpoint"
+            - "{{ .Values.supergateway.healthPath }}"
+            {{- if .Values.supergateway.baseUrl }}
+            - "--baseUrl"
+            - "{{ .Values.supergateway.baseUrl }}"
+            {{- end }}
+            {{- if .Values.supergateway.cors }}
+            - "--cors"
+            {{- end }}
+            {{- if .Values.supergateway.logLevel }}
+            - "--logLevel"
+            - "{{ .Values.supergateway.logLevel }}"
+            {{- end }}
+            {{- if .Values.supergateway.oauth2Bearer }}
+            - "--oauth2Bearer"
+            - "{{ .Values.supergateway.oauth2Bearer }}"
+            {{- end }}
+            {{- range $h := .Values.supergateway.headers }}
+            - "--header"
+            - "{{ $h }}"
             {{- end }}
           env:
             {{- range $k, $v := .Values.env }}
             - name: {{ $k }}
               value: {{ $v | quote }}
             {{- end }}
-            {{- if .Values.proxy.authToken }}
-            - name: MCP_PROXY_AUTH_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "mcpinspector.fullname" . }}-secrets
-                  key: proxy_token
-            {{- end }}
           ports:
             - name: http
-              containerPort: {{ .Values.proxy.port | int }}
+              containerPort: {{ ( .Values.supergateway.port | default 8000 ) | int }}
               protocol: TCP
-            {{- if .Values.ui.expose }}
-            - name: ui
-              containerPort: {{ .Values.ui.port | int }}
-              protocol: TCP
-            {{- end }}
-          resources: {{- toYaml .Values.resources | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.supergateway.healthPath }}
+              port: {{ ( .Values.supergateway.port | default 8000 ) | int }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.supergateway.healthPath }}
+              port: {{ ( .Values.supergateway.port | default 8000 ) | int }}
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

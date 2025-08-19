@@ -10,10 +10,4 @@ spec:
       port: {{ .Values.service.port | default 80 }}
       targetPort: http
       protocol: TCP
-    {{- if .Values.ui.expose }}
-    - name: ui
-      port: {{ .Values.ui.port | default 6274 }}
-      targetPort: ui
-      protocol: TCP
-    {{- end }}
   selector: {{- include "mcpinspector.labels.match" . | nindent 4 }}
