@@ -1,0 +1,48 @@
+global:
+  partOf: app
+
+replicaCount: 1
+
+image:
+  # Use the Docker Hub image that includes uvx
+  repository: supercorp/supergateway
+  tag: uvx
+  pullPolicy: IfNotPresent
+
+# Command that Supergateway runs in stdio mode
+# This stays as ONE string arg after --stdio
+stdioCommand: "uvx awslabs.aws-pricing-mcp-server@latest"
+
+supergateway:
+  port: 8000
+  ssePath: /sse
+  messagePath: /message
+  healthPath: /healthz
+  baseUrl: "" # e.g., "http://0.0.0.0:8000" (optional)
+  cors: true # enable CORS; good for local/dev
+  logLevel: info
+  oauth2Bearer: "" # if you call out to remote SSE/HTTP servers
+  headers: [] # e.g., ["X-API-Key: abc123", "X-Another: value"]
+
+# Environment for the spawned MCP server (and/or gateway)
+# Typically you’ll set region + rely on IRSA via serviceAccount annotations.
+env:
+  AWS_REGION: "us-west-2"
+  FASTMCP_LOG_LEVEL: "INFO"
+
+service:
+  type: ClusterIP
+  port: 80
+
+resources: {}
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""

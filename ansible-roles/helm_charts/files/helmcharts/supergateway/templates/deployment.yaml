@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "supergateway.fullname" . }}
+  labels:
+    {{- include "supergateway.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      {{- include "supergateway.labels.match" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "supergateway.labels" . | nindent 8 }}
+      annotations:
+        rollout-nonce: {{ .Values.global.forceRedeployNonce | default "" | quote }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "supergateway.serviceAccountName" . }}
+      containers:
+        - name: supergateway
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
+          args:
+            - "--stdio"
+            - "{{ .Values.stdioCommand }}"
+            - "--port"
+            - "{{ .Values.supergateway.port }}"
+            - "--ssePath"
+            - "{{ .Values.supergateway.ssePath }}"
+            - "--messagePath"
+            - "{{ .Values.supergateway.messagePath }}"
+            - "--healthEndpoint"
+            - "{{ .Values.supergateway.healthPath }}"
+            {{- if .Values.supergateway.baseUrl }}
+            - "--baseUrl"
+            - "{{ .Values.supergateway.baseUrl }}"
+            {{- end }}
+            {{- if .Values.supergateway.cors }}
+            - "--cors"
+            {{- end }}
+            {{- if .Values.supergateway.logLevel }}
+            - "--logLevel"
+            - "{{ .Values.supergateway.logLevel }}"
+            {{- end }}
+            {{- if .Values.supergateway.oauth2Bearer }}
+            - "--oauth2Bearer"
+            - "{{ .Values.supergateway.oauth2Bearer }}"
+            {{- end }}
+            {{- range $h := .Values.supergateway.headers }}
+            - "--header"
+            - "{{ $h }}"
+            {{- end }}
+          env:
+            {{- range $k, $v := .Values.env }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ ( .Values.supergateway.port | default 8000 ) | int }}
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.supergateway.healthPath }}
+              port: {{ ( .Values.supergateway.port | default 8000 ) | int }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.supergateway.healthPath }}
+              port: {{ ( .Values.supergateway.port | default 8000 ) | int }}
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
