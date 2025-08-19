@@ -29,7 +29,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
-app.kubernetes.io/component: mcp-inspector
+app.kubernetes.io/component: mcp-gateway
 {{- if .Values.global.partOf }}
 app.kubernetes.io/part-of: {{ .Values.global.partOf }}
 {{- end }}
