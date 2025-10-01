@@ -9,8 +9,8 @@ k8s_external_dns_namespace: external-dns
 k8s_external_dns_public_helm_release: external-dns-public
 k8s_external_dns_private_helm_release: external-dns-private
 
-k8s_external_dns_chart: bitnami/external-dns
-k8s_external_dns_chart_version: 9.0.3
+k8s_external_dns_chart: external-dns/external-dns
+k8s_external_dns_chart_version: 1.19.0
 
 k8s_external_dns_public_chart_values: {}
 k8s_external_dns_private_chart_values: {}
