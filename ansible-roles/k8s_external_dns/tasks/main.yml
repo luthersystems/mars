@@ -1,81 +1,89 @@
 ---
 # tasks file for k8s_external_dns
 
-- name: Add bitnami repository
+- name: Add official external-dns repository
   kubernetes.core.helm_repository:
-    name: bitnami
-    repo_url: https://charts.bitnami.com/bitnami
-  no_log: True
+    name: external-dns
+    repo_url: https://kubernetes-sigs.github.io/external-dns/
+  no_log: true
 
-- name: Install public external-dns release
+# -----------------------------
+# Public external-dns
+# -----------------------------
+- name: Install public external-dns release (official chart)
   kubernetes.core.helm:
-    name: "{{k8s_external_dns_public_helm_release}}"
-    chart_ref: "{{k8s_external_dns_chart}}"
-    chart_version: "{{k8s_external_dns_chart_version}}"
-    namespace: "{{k8s_external_dns_namespace}}"
-    create_namespace: yes
-    update_repo_cache: yes
+    name: "{{ k8s_external_dns_public_helm_release }}"
+    chart_ref: "{{ k8s_external_dns_chart }}" # external-dns/external-dns
+    chart_version: "{{ k8s_external_dns_chart_version }}" # e.g. 1.19.0
+    namespace: "{{ k8s_external_dns_namespace }}"
+    create_namespace: true
+    update_repo_cache: true
     wait: true
-    values: "{{k8s_external_dns_public_chart_values | default(default_values, true)}}"
+    wait_timeout: 5m
+    force: true # recreate Deployment to avoid merge issues
+    atomic: true # rollback on failure
+    values: "{{ k8s_external_dns_public_chart_values | default(default_values, true) }}"
   environment: "{{ kubectl_env }}"
   vars:
-    service_account_v2:
-      rbac:
-        serviceAccountAnnotations:
-          eks.amazonaws.com/role-arn: "{{k8s_external_dns_public_service_account_iam_role_arn}}"
-    service_account_v3:
+    service_account:
       serviceAccount:
+        create: true # let the chart create the SA
+        name: "{{ k8s_external_dns_public_helm_release }}"
         annotations:
-          eks.amazonaws.com/role-arn: "{{k8s_external_dns_public_service_account_iam_role_arn}}"
-    service_account: "{{service_account_v2 if k8s_external_dns_chart_version is version('3.0.0', '<') else service_account_v3}}"
+          eks.amazonaws.com/role-arn: "{{ k8s_external_dns_public_service_account_iam_role_arn }}"
     default_base_values:
-      txtOwnerId: "{{luther_project_id}}-{{luther_env}}-public"
+      txtOwnerId: "{{ luther_project_id }}-{{ luther_env }}-public"
       policy: sync
       provider: aws
-      aws:
-        zoneType: public
-      rbac:
-        create: true
-    default_values: "{{default_base_values | combine(service_account, recursive=True)}}"
+      # Ensure the container port has a name so default HTTP probes work
+      containerPorts:
+        http: 7979
+      extraArgs:
+        - --aws-zone-type=public
+        - --aws-api-retries=3
+        - --aws-batch-change-size=1000
+    default_values: "{{ default_base_values | combine(service_account, recursive=true) }}"
 
-- name: Install private external-dns release
+# -----------------------------
+# Private external-dns
+# -----------------------------
+- name: Install private external-dns release (official chart)
   kubernetes.core.helm:
-    name: "{{k8s_external_dns_private_helm_release}}"
-    chart_ref: "{{k8s_external_dns_chart}}"
-    chart_version: "{{k8s_external_dns_chart_version}}"
-    namespace: "{{k8s_external_dns_namespace}}"
-    create_namespace: yes
-    update_repo_cache: yes
+    name: "{{ k8s_external_dns_private_helm_release }}"
+    chart_ref: "{{ k8s_external_dns_chart }}"
+    chart_version: "{{ k8s_external_dns_chart_version }}"
+    namespace: "{{ k8s_external_dns_namespace }}"
+    create_namespace: true
+    update_repo_cache: true
     wait: true
-    values: "{{k8s_external_dns_private_chart_values | default(default_values, true)}}"
+    wait_timeout: 5m
+    force: true
+    atomic: true
+    values: "{{ k8s_external_dns_private_chart_values | default(default_values, true) }}"
   environment: "{{ kubectl_env }}"
   vars:
-    service_account_v2:
-      rbac:
-        serviceAccountAnnotations:
-          eks.amazonaws.com/role-arn: "{{k8s_external_dns_private_service_account_iam_role_arn}}"
-    service_account_v3:
+    service_account:
       serviceAccount:
+        create: true
+        name: "{{ k8s_external_dns_private_helm_release }}"
         annotations:
-          eks.amazonaws.com/role-arn: "{{k8s_external_dns_private_service_account_iam_role_arn}}"
-    service_account: "{{service_account_v2 if k8s_external_dns_chart_version is version('3.0.0', '<') else service_account_v3}}"
+          eks.amazonaws.com/role-arn: "{{ k8s_external_dns_private_service_account_iam_role_arn }}"
     default_base_values:
-      txtOwnerId: "{{luther_project_id}}-{{luther_env}}-private"
+      txtOwnerId: "{{ luther_project_id }}-{{ luther_env }}-private"
       policy: sync
       provider: aws
-      aws:
-        zoneType: private
-        # external-dns managing private hosted zones needs to filter by tag to
-        # handle private zones with the same name existing in different
-        # environments/vpcs.
-        zoneTags:
-          - Project={{luther_project_id}}
-          - Environment={{luther_env}}
-      rbac:
-        create: true
-    default_values: "{{default_base_values | combine(service_account, recursive=True)}}"
+      containerPorts:
+        http: 7979
+      extraArgs:
+        - --aws-zone-type=private
+        - --aws-api-retries=3
+        - --aws-batch-change-size=1000
+        # Filter private zones by tags so same-name zones in other VPCs aren't touched
+        - "--aws-zone-tags=Project={{ luther_project_id }},Environment={{ luther_env }}"
+    default_values: "{{ default_base_values | combine(service_account, recursive=true) }}"
 
-- name: Purge old values files
+# Optional: clean up any old on-disk values dirs your role used before
+- name: Purge old values files (legacy)
   file:
-    path: "{{kubectl_asset_root_path}}/external-dns"
+    path: "{{ kubectl_asset_root_path }}/external-dns"
     state: absent
