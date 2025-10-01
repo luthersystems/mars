@@ -29,8 +29,6 @@
           eks.amazonaws.com/role-arn: "{{k8s_external_dns_public_service_account_iam_role_arn}}"
     service_account: "{{service_account_v2 if k8s_external_dns_chart_version is version('3.0.0', '<') else service_account_v3}}"
     default_base_values:
-      image:
-        tag: "{{k8s_external_dns_image_tag}}"
       txtOwnerId: "{{luther_project_id}}-{{luther_env}}-public"
       policy: sync
       provider: aws
@@ -62,8 +60,6 @@
           eks.amazonaws.com/role-arn: "{{k8s_external_dns_private_service_account_iam_role_arn}}"
     service_account: "{{service_account_v2 if k8s_external_dns_chart_version is version('3.0.0', '<') else service_account_v3}}"
     default_base_values:
-      image:
-        tag: "{{k8s_external_dns_image_tag}}"
       txtOwnerId: "{{luther_project_id}}-{{luther_env}}-private"
       policy: sync
       provider: aws
