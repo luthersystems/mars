@@ -6,9 +6,9 @@
 #
 adal==1.2.7
     # via msrestazure
-ansible==9.6.1
+ansible==12.0.0
     # via -r requirements.in
-ansible-core==2.16.13
+ansible-core==2.19.4
     # via ansible
 antlr4-python3-runtime==4.13.1
     # via azure-cli
