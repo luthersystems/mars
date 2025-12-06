@@ -641,7 +641,7 @@ typing-extensions==4.12.2
     #   azure-keyvault-keys
     #   azure-keyvault-secrets
     #   azure-monitor-query
-urllib3==2.2.2
+urllib3==2.6.0
     # via
     #   azure-cli
     #   botocore
