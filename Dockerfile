@@ -137,4 +137,4 @@ COPY --from=downloader /usr/local/bin/helm /opt/bin/helm
 ARG HELM_DIFF_VERSION
 ENV HELM_DIFF_VERSION=$HELM_DIFF_VERSION
 
-RUN helm plugin install https://github.com/databus23/helm-diff --version ${HELM_DIFF_VERSION}
+RUN helm plugin install https://github.com/databus23/helm-diff --version ${HELM_DIFF_VERSION} --verify=false
