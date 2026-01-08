@@ -1,0 +1,39 @@
+global:
+  partOf: app
+
+replicaCount: 1
+
+image:
+  repository: luthersystems/insideout-mcp
+  tag: latest
+  pullPolicy: IfNotPresent
+
+mcp:
+  transport: "http"
+  addr: ":8080"
+  path: "/mcp"
+  baseUrl: "https://insideout.luthersystemsapp.com"
+
+# Environment variables for the insideout-mcp server
+env:
+  MCP_VERBOSE: "true"
+  MCP_DEVTOOLS_ENABLED: "false"
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+resources: {}
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+nodeSelector: {}
+tolerations: []
+affinity: []
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+

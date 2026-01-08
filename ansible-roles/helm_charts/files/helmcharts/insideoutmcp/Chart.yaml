@@ -1,0 +1,6 @@
+apiVersion: v2
+name: insideoutmcp
+description: "InsideOut MCP Server (SSE mode)"
+version: 0.1.0
+appVersion: "latest"
+

@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "insideoutmcp.fullname" . }}
+  labels:
+    {{- include "insideoutmcp.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      {{- include "insideoutmcp.labels.match" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "insideoutmcp.labels" . | nindent 8 }}
+      annotations:
+        rollout-nonce: {{ .Values.global.forceRedeployNonce | default "" | quote }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "insideoutmcp.serviceAccountName" . }}
+      containers:
+        - name: insideoutmcp
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
+          env:
+            - name: MCP_TRANSPORT
+              value: {{ .Values.mcp.transport | quote }}
+            - name: MCP_ADDR
+              value: {{ .Values.mcp.addr | quote }}
+            - name: MCP_PATH
+              value: {{ .Values.mcp.path | quote }}
+            - name: INSIDEOUT_BASE_URL
+              value: {{ .Values.mcp.baseUrl | quote }}
+            {{- range $k, $v := .Values.env }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+
