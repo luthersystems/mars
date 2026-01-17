@@ -17,6 +17,8 @@ RUN curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | gpg --d
 RUN echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /" | tee /tmp/sources.list.d/kubernetes.list
 RUN curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /tmp/keyrings/hashicorp-apt-keyring.gpg
 RUN echo "deb [signed-by=/etc/apt/keyrings/hashicorp-apt-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /tmp/sources.list.d/hashicorp.list
+RUN curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /tmp/keyrings/google-cloud-apt-keyring.gpg
+RUN echo "deb [signed-by=/etc/apt/keyrings/google-cloud-apt-keyring.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee /tmp/sources.list.d/google-cloud-sdk.list
 
 COPY aws-cli-pkg-key.asc /tmp/aws-cli-pkg-key.asc
 RUN gpg --import /tmp/aws-cli-pkg-key.asc
@@ -92,7 +94,8 @@ COPY --from=downloader /tmp/keyrings /etc/apt/keyrings
 COPY --from=downloader /tmp/sources.list.d /etc/apt/sources.list.d
 RUN apt update -y && apt install --no-install-recommends -yq \
   kubectl \
-  packer
+  packer \
+  google-cloud-cli
 
 COPY --from=venv /opt/mars_venv /opt/mars_venv
 ENV PATH="/opt/mars_venv/bin:${PATH}"
