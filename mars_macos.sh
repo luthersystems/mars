@@ -129,6 +129,7 @@ docker run --rm $DOCKER_TERM_VARS \
 	-v "$TF_PLUGIN_CACHE_DIR:/opt/tf-plugin-cache-dir" \
 	-v "$HOME/.aws/:/opt/home/.aws" \
 	-v "$HOME/.azure/:/opt/home/.azure" \
+	-v "$HOME/.config/gcloud/:/opt/home/.config/gcloud" \
 	-v "$PROJECT_PATH:$DOCKER_PROJECT_PATH" \
 	-w "$DOCKER_WORK_DIR" \
 	-e ANSIBLE_LOAD_CALLBACK_PLUGINS=yes \
