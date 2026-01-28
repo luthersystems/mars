@@ -15,6 +15,10 @@ mars <env> <command> [options]
 
 Where `<env>` is the target environment (e.g., `dev`, `staging`, `prod`, `default`).
 
+## Important: Plan Before Apply
+
+Always run `mars <env> plan` first and show the output to the user before applying any changes. Never run `apply` or `apply --approve` without the user explicitly reviewing and approving the plan. Infrastructure changes can be destructive and irreversible.
+
 ## Terraform Commands
 
 ```bash
@@ -28,7 +32,8 @@ mars <env> plan --destroy                 # Plan destruction
 mars <env> apply                          # Apply changes (prompts)
 mars <env> apply --approve                # Apply without confirmation
 mars <env> destroy                        # Destroy infrastructure
-mars <env> terraform output <name>        # Get output value
+mars <env> terraform -- output            # List all outputs
+mars <env> terraform -- output <name>    # Get specific output value
 mars <env> new-workspace                  # Create new workspace
 mars <env> import <addr> <id>             # Import existing resource
 mars <env> taint <resource>               # Mark for recreation
