@@ -104,7 +104,7 @@ azure-common==1.1.28
     #   azure-synapse-artifacts
     #   azure-synapse-managedprivateendpoints
     #   azure-synapse-spark
-azure-core==1.30.2
+azure-core==1.38.0
     # via
     #   azure-appconfiguration
     #   azure-data-tables
@@ -620,7 +620,6 @@ semver==2.13.0
 six==1.16.0
     # via
     #   azure-cli
-    #   azure-core
     #   azure-cosmos
     #   isodate
     #   javaproperties
