@@ -1,0 +1,47 @@
+global:
+  partOf: app
+
+replicaCount: 1
+
+image:
+  repository: jackclarkeluthersystems/connector-discovery-mcp
+  tag: latest
+  pullPolicy: IfNotPresent
+
+mcp:
+  transport: "http"
+  addr: ":8000"
+  path: "/discover-connectors"
+  baseUrl: "https://insideout.luthersystemsapp.com"
+
+# Environment variables for the connector-discovery-mcp server
+env:
+  MCP_VERBOSE: "true"
+  MCP_DEVTOOLS_ENABLED: "false"
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+
+resources: {}
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+nodeSelector: {}
+tolerations: []
+affinity: []
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+ingress:
+  enabled: false
+  annotations: {}
+  hosts:
+    - host: chart-example.local
+      paths: []
+  tls: []
+

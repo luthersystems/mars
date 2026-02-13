@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "connectordiscoverymcp.fullname" . }}
+  labels:
+    {{- include "connectordiscoverymcp.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      {{- include "connectordiscoverymcp.labels.match" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "connectordiscoverymcp.labels" . | nindent 8 }}
+      annotations:
+        rollout-nonce: {{ .Values.global.forceRedeployNonce | default "" | quote }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "connectordiscoverymcp.serviceAccountName" . }}
+      containers:
+        - name: connectordiscoverymcp
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
+          env:
+            - name: MCP_TRANSPORT
+              value: {{ .Values.mcp.transport | quote }}
+            - name: MCP_ADDR
+              value: {{ .Values.mcp.addr | quote }}
+            - name: MCP_PATH
+              value: {{ .Values.mcp.path | quote }}
+            - name: INSIDEOUT_BASE_URL
+              value: {{ .Values.mcp.baseUrl | quote }}
+            {{- range $k, $v := .Values.env }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
