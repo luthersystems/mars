@@ -4,7 +4,7 @@ global:
 replicaCount: 1
 
 image:
-  repository: jackclarkeluthersystems/connector-discovery-mcp
+  repository: luthersystems/connector-discovery-mcp
   tag: latest
   pullPolicy: IfNotPresent
 
