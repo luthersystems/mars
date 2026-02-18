@@ -7,9 +7,15 @@ metadata:
 spec:
   type: {{ .Values.service.type }}
   ports:
-    - port: {{ .Values.service.port }}
-      targetPort: {{ .Values.ports.app }}
+    - port: {{ .Values.service.main.port }}
+      targetPort: {{ .Values.service.main.targetPort }}
       protocol: TCP
-      name:  {{ include "connectorhub.name" . }}
+      name: http
+    {{- if .Values.service.test.enabled }}
+    - port: {{ .Values.service.test.port }}
+      targetPort: {{ .Values.service.test.targetPort }}
+      protocol: TCP
+      name: test-api
+    {{- end }}
   selector:
     {{- include "connectorhub.labels" . | nindent 4 }}

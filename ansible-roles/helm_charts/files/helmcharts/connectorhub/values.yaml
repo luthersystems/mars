@@ -17,7 +17,13 @@ dlt:
   mspID: Org1MSP
   userID: User1
   chaincodeID: com_luthersystems_chaincode_substrate01
-
+  env:
+    # Disable the Test API by default (/v1/ch/connectors/test)
+    CH_ENABLE_TEST_API: "false"
+    # Disable real connections in test endpoint by default (forces mock mode)
+    CH_ENABLE_TEST_REAL_MCP: "false"
+    # Disable the Admin API  by default(/v1/ch/config, /v1/ch/connectors/{id}/call)
+    CH_ENABLE_ADMIN_API: "false"
 sdk:
   secretName: connectorhub-config
 
@@ -32,10 +38,17 @@ fullnameOverride: ""
 
 service:
   type: ClusterIP
-  port: 80
+  main:
+    port: 80
+    targetPort: 8080
+  test:
+    enabled: false
+    port: 81
+    targetPort: 8082
 
 ports:
-  app: 8080
+  main: 8080
+  test: 8082
 
 persistentVolume:
   create: true

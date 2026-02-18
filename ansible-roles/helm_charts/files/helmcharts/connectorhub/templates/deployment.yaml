@@ -70,6 +70,12 @@ spec:
             - --verbose
             {{- end }}
           env:
+            {{- if .Values.env }}
+            {{- range $key, $value := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- end }}
             {{- if .Values.verbose }}
             - name: GRPC_GO_LOG_VERBOSITY_LEVEL
               value: "99"
@@ -98,8 +104,13 @@ spec:
             {{- end }}
           ports:
             - name: http
-              containerPort: {{ .Values.ports.app }}
+              containerPort: {{ .Values.ports.main }}
               protocol: TCP
+            {{- if .Values.service.test.enabled }}
+            - name: test-api
+              containerPort: {{ .Values.ports.test }}
+              protocol: TCP
+            {{- end }}
           livenessProbe:
             httpGet:
               path: /v1/ch/health_check
