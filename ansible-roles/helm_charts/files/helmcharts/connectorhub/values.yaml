@@ -32,14 +32,6 @@ sdk:
   # configMapName: connectorhub-config  # Use this instead of secretName to create a ConfigMap
   externalConfigMap: false  # Set to false to let Helm manage the ConfigMap
 
-env:
-  # Enable the Test API (/v1/ch/connectors/test)
-  CH_ENABLE_TEST_API: "false"
-  # Disable real connections in test endpoint (forces mock mode)
-  CH_ENABLE_TEST_REAL_MCP: "false"
-  # Disable the Admin API (/v1/ch/config, /v1/ch/connectors/{id}/call)
-  CH_ENABLE_ADMIN_API: "false"
-
 image:
   repository: luthersystems/connectorhub
   tag: latest
