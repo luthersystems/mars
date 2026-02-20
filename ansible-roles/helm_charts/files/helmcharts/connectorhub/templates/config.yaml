@@ -11,9 +11,48 @@ stringData:
     msp-id: {{ .Values.dlt.mspID }}
     user-id: {{ .Values.dlt.userID }}
     org-domain: {{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}
-    crypto-config-root-path: "/tmp/fabric/crypto-config"
+    crypto-config-root-path: {{ .Values.dlt.cryptoConfigRootPath | default "/tmp/fabric/crypto-config" }}
     peer-name: peer{{ .Values.dlt.peerIndex }}
     peer-endpoint: "peer{{ .Values.dlt.peerIndex }}.{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}:7051"
     channel-name: {{ .Values.dlt.channel }}
     chaincode-id: {{ .Values.dlt.chaincodeID }}
+    {{- if .Values.dlt.inboundHttpListenAddr }}
+    inbound-http-listen-addr: {{ .Values.dlt.inboundHttpListenAddr }}
+    {{- end }}
+    {{- if .Values.dlt.connectors }}
+    connectors:
+      {{- toYaml .Values.dlt.connectors | nindent 6 }}
+    {{- end }}
+  {{- if .Values.dlt.fabricClientConfig }}
+  fabric-client.yaml: |-
+    {{- .Values.dlt.fabricClientConfig | nindent 4 }}
+  {{- end }}
+{{- else if and .Values.sdk.configMapName (not .Values.sdk.externalConfigMap) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.sdk.configMapName }}
+  labels:
+    {{- include "connectorhub.labels" . | nindent 4 }}
+data:
+  connectorhub.yaml: |-
+    msp-id: {{ .Values.dlt.mspID }}
+    user-id: {{ .Values.dlt.userID }}
+    org-domain: {{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}
+    crypto-config-root-path: {{ .Values.dlt.cryptoConfigRootPath | default "/tmp/fabric/crypto-config" }}
+    peer-name: peer{{ .Values.dlt.peerIndex }}
+    peer-endpoint: "peer{{ .Values.dlt.peerIndex }}.{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}:7051"
+    channel-name: {{ .Values.dlt.channel }}
+    chaincode-id: {{ .Values.dlt.chaincodeID }}
+    {{- if .Values.dlt.inboundHttpListenAddr }}
+    inbound-http-listen-addr: {{ .Values.dlt.inboundHttpListenAddr }}
+    {{- end }}
+    {{- if .Values.dlt.connectors }}
+    connectors:
+      {{- toYaml .Values.dlt.connectors | nindent 6 }}
+    {{- end }}
+  {{- if .Values.dlt.fabricClientConfig }}
+  fabric-client.yaml: |-
+    {{- .Values.dlt.fabricClientConfig | nindent 4 }}
+  {{- end }}
 {{- end }}
