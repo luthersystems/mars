@@ -6,9 +6,9 @@
 #
 adal==1.2.7
     # via msrestazure
-ansible==9.6.1
+ansible==12.2.0
     # via -r requirements.in
-ansible-core==2.16.13
+ansible-core==2.19.4
     # via ansible
 antlr4-python3-runtime==4.13.1
     # via azure-cli
@@ -104,7 +104,7 @@ azure-common==1.1.28
     #   azure-synapse-artifacts
     #   azure-synapse-managedprivateendpoints
     #   azure-synapse-spark
-azure-core==1.30.2
+azure-core==1.38.0
     # via
     #   azure-appconfiguration
     #   azure-data-tables
@@ -620,7 +620,6 @@ semver==2.13.0
 six==1.16.0
     # via
     #   azure-cli
-    #   azure-core
     #   azure-cosmos
     #   isodate
     #   javaproperties
@@ -641,7 +640,7 @@ typing-extensions==4.12.2
     #   azure-keyvault-keys
     #   azure-keyvault-secrets
     #   azure-monitor-query
-urllib3==2.2.2
+urllib3==2.6.3
     # via
     #   azure-cli
     #   botocore
