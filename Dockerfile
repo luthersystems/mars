@@ -58,7 +58,7 @@ ENV HELM_VERSION=$HELM_VERSION
 
 RUN curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/${HELM_VERSION}/scripts/get-helm-3 && \
   chmod 700 get_helm.sh && \
-  ./get_helm.sh
+  ./get_helm.sh --version ${HELM_VERSION}
 
 FROM ubuntu:24.04 as venv
 
