@@ -21,6 +21,13 @@ rules:
 - apiGroups: [""]
   resources: ["secrets"]
   verbs: ["get","list","watch","create","update","patch","delete"]
+  # Services: check existence and manage connector services
+- apiGroups: [""]
+  resources: ["services"]
+  verbs: ["get", "list", "create", "update", "delete"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 
 ---
 # Bind that Role to your ServiceAccount
