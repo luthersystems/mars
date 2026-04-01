@@ -22,7 +22,8 @@ mars <env> init                           # Initialize terraform
 mars <env> init --upgrade                 # Upgrade providers
 mars <env> init --reconfigure             # Reconfigure backend
 mars <env> plan                           # Show planned changes
-mars <env> plan --apply                   # Plan then apply interactively
+mars <env> plan --apply                   # Plan then apply (interactive prompt)
+# NOTE: --approve is NOT valid with plan. Use "apply --approve" to skip prompts.
 mars <env> plan --target=<resource>       # Target specific resource
 mars <env> plan --destroy                 # Plan destruction
 mars <env> apply                          # Apply changes (prompts)
