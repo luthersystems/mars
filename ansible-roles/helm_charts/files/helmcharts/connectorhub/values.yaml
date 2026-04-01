@@ -12,7 +12,9 @@ dlt:
   organization: org1
   domain: luther.systems
   cryptoConfigSecret: ""
+  cryptoConfigRootPath: "/tmp/fabric/crypto-config"  # Can be "./crypto-config" for relative path
   peerIndex: 0
+  kubernetes-namespace: "ui"
   channel: luther
   mspID: Org1MSP
   userID: User1
@@ -24,8 +26,11 @@ dlt:
     CH_ENABLE_TEST_REAL_MCP: "false"
     # Disable the Admin API  by default(/v1/ch/config, /v1/ch/connectors/{id}/call)
     CH_ENABLE_ADMIN_API: "false"
+  
 sdk:
   secretName: connectorhub-config
+  # configMapName: connectorhub-config  # Use this instead of secretName to create a ConfigMap
+  externalConfigMap: false  # Set to false to let Helm manage the ConfigMap
 
 image:
   repository: luthersystems/connectorhub
