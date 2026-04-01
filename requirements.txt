@@ -544,7 +544,7 @@ portalocker==2.8.2
     #   msal-extensions
 psutil==5.9.8
     # via azure-cli-core
-pyasn1==0.6.0
+pyasn1==0.6.3
     # via
     #   pyasn1-modules
     #   rsa
