@@ -556,7 +556,7 @@ pycparser==2.22
     # via cffi
 pygithub==1.59.1
     # via azure-cli
-pygments==2.18.0
+pygments==2.20.0
     # via knack
 pyjwt[crypto]==2.8.0
     # via
