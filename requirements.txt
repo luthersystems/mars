@@ -588,7 +588,7 @@ pyyaml==6.0.1
     #   knack
     #   kubernetes
     #   pycomposefile
-requests[socks]==2.32.3
+requests[socks]==2.33.0
     # via
     #   -r requirements.in
     #   adal
