@@ -1,4 +1,5 @@
 ---
-aws_lb_controller_tag: v2.4.0
-aws_lb_controller_chart_version: 1.4.0
+aws_lb_controller_tag: v2.17.1
+aws_lb_controller_chart_version: 1.17.1
+aws_lb_controller_image_repository: public.ecr.aws/eks/aws-load-balancer-controller
 # aws_lb_controller_service_account_iam_role_arn: ""

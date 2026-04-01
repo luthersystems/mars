@@ -16,6 +16,7 @@
     wait: true
     values:
       clusterName: "{{kubectl_eks_cluster_name}}"
+      image.repository: "{{aws_lb_controller_image_repository}}"
       image.tag: "{{aws_lb_controller_tag}}"
       serviceAccount:
         name: aws-load-balancer-controller
