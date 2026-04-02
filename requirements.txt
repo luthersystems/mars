@@ -359,7 +359,7 @@ certifi==2024.7.4
     #   kubernetes
     #   msrest
     #   requests
-cffi==1.16.0
+cffi==2.0.0
     # via
     #   azure-datalake-store
     #   cryptography
