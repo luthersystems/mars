@@ -9,18 +9,10 @@
     state: directory
     mode: "0755"
 
-- name: Upload umbrella Chart.yaml
-  copy:
-    src: "Chart.yaml"
-    dest: "{{ umbrella_helm_chart }}/Chart.yaml"
-    owner: root
-    group: root
-    mode: "0644"
-
-- name: Render umbrella chart requirements.yaml
+- name: Render umbrella Chart.yaml
   template:
-    src: requirements.yaml.j2
-    dest: "{{ umbrella_helm_chart }}/requirements.yaml"
+    src: Chart.yaml.j2
+    dest: "{{ umbrella_helm_chart }}/Chart.yaml"
     owner: root
     group: root
     mode: "0644"
