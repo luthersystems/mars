@@ -1,4 +1,9 @@
----
+apiVersion: v2
+appVersion: "1.0"
+description: Umbrella chart
+name: umbrella
+version: 0.1.0
+type: application
 dependencies:
 {% for chart in umbrella_charts %}
   - name: {{ chart }}
