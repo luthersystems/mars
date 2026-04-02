@@ -132,8 +132,8 @@ docker run --rm $DOCKER_TERM_VARS \
 	-v "$HOME/.config/gcloud/:/opt/home/.config/gcloud" \
 	-v "$PROJECT_PATH:$DOCKER_PROJECT_PATH" \
 	-w "$DOCKER_WORK_DIR" \
-	-e ANSIBLE_LOAD_CALLBACK_PLUGINS=yes \
-	-e ANSIBLE_STDOUT_CALLBACK=yaml \
+	-e ANSIBLE_STDOUT_CALLBACK=ansible.builtin.default \
+	-e ANSIBLE_CALLBACK_RESULT_FORMAT=yaml \
         $LOCAL_OPTS \
         $NETWORK_OPTS \
 	$SHELL_OPTS \
