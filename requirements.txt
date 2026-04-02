@@ -359,7 +359,7 @@ certifi==2024.7.4
     #   kubernetes
     #   msrest
     #   requests
-cffi==1.16.0
+cffi==2.0.0
     # via
     #   azure-datalake-store
     #   cryptography
@@ -370,7 +370,7 @@ charset-normalizer==3.3.2
     # via requests
 colorama==0.4.6
     # via azure-cli
-cryptography==42.0.8
+cryptography==46.0.6
     # via
     #   adal
     #   ansible-core

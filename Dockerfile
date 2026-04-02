@@ -108,6 +108,13 @@ WORKDIR /marsproject
 COPY ansible-reqs.yml /opt/mars/ansible-reqs.yml
 RUN ansible-galaxy install -r /opt/mars/ansible-reqs.yml
 
+# Patch kubernetes.core.helm module for Helm v4 compatibility:
+# Helm 4 removed --all from "helm list" (all statuses shown by default).
+# kubernetes.core 5.4.2 doesn't have the fix yet (only on unreleased main).
+# Remove this patch when upgrading to a kubernetes.core version with is_helm_v4().
+RUN HELM_MODULE=$(find /opt/mars_venv -path "*/kubernetes/core/plugins/modules/helm.py" -o -path "*/ansible_collections/kubernetes/core/plugins/modules/helm.py" | head -1) && \
+    sed -i 's/list_command.append("--all")/pass  # --all removed in Helm v4 (default behavior)/' "$HELM_MODULE"
+
 COPY --from=downloader /tmp/tfedit /opt/bin/tfedit
 COPY --from=downloader /tmp/tfmigrate /opt/bin/tfmigrate
 COPY --from=downloader /tmp/awscliv2.zip /tmp/awscliv2.zip
