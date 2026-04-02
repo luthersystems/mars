@@ -56,7 +56,7 @@ RUN git clone -b $TFENV_VER --depth 1 https://github.com/tfutils/tfenv.git /tmp/
 ARG HELM_VERSION
 ENV HELM_VERSION=$HELM_VERSION
 
-RUN curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/${HELM_VERSION}/scripts/get-helm && \
+RUN curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/${HELM_VERSION}/scripts/get-helm-4 && \
   chmod 700 get_helm.sh && \
   ./get_helm.sh --version ${HELM_VERSION}
 
