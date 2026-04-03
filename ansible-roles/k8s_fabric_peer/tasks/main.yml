@@ -44,7 +44,7 @@
         crypto-config.zip: "{{k8s_fabric_peer_crypto_config}}"
   no_log: True
   environment: "{{ kubectl_env }}"
-  when: k8s_fabric_peer_crypto_config
+  when: k8s_fabric_peer_crypto_config | default('') | length > 0
 
 - name: Create Fabric Peer Service Accounts
   k8s:

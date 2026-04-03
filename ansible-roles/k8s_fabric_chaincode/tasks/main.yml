@@ -113,7 +113,7 @@
     extra_env_vars:
       FABRIC_DOMAIN: "{{k8s_fabric_chaincode_domain_root}}"
   environment: "{{ kubectl_env | combine(extra_env_vars) }}"
-  when: not committed
+  when: not committed | bool
   # TODO: only approve on luther orgs!
   loop: "{{ k8s_fabric_chaincode_orgs }}"
   register: approve_result
@@ -135,7 +135,7 @@
     extra_env_vars:
       FABRIC_DOMAIN: "{{k8s_fabric_chaincode_domain_root}}"
   environment: "{{ kubectl_env | combine(extra_env_vars) }}"
-  when: not committed
+  when: not committed | bool
   register: approval_script
   tags:
     - prepare_chaincode_upgrade
@@ -154,7 +154,7 @@
     extra_env_vars:
       FABRIC_DOMAIN: "{{k8s_fabric_chaincode_domain_root}}"
   environment: "{{ kubectl_env | combine(extra_env_vars) }}"
-  when: not committed
+  when: not committed | bool
   ignore_errors: true
   register: readiness_report
   changed_when: false
@@ -166,7 +166,7 @@
     msg:
       - "{{readiness_report.stdout}}"
       - "{{approval_script.stdout}}"
-  when: not committed
+  when: not committed | bool
   loop: "{{ k8s_fabric_chaincode_orgs }}"
   tags:
     - prepare_chaincode_upgrade
@@ -212,7 +212,7 @@
     extra_env_vars:
       FABRIC_DOMAIN: "{{k8s_fabric_chaincode_domain_root}}"
   environment: "{{ kubectl_env | combine(extra_env_vars) }}"
-  when: not committed
+  when: not committed | bool
   register: commit_result
 
 - name: Wait for chaincode commit
@@ -227,7 +227,7 @@
     extra_env_vars:
       FABRIC_DOMAIN: "{{k8s_fabric_chaincode_domain_root}}"
   environment: "{{ kubectl_env | combine(extra_env_vars) }}"
-  when: not committed
+  when: not committed | bool
   register: query_result
   until: query_result is succeeded
   retries: 5
