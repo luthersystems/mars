@@ -29,7 +29,7 @@
         crypto-config.zip: "{{k8s_fabric_orderer_crypto_config}}"
   no_log: True
   environment: "{{ kubectl_env }}"
-  when: k8s_fabric_orderer_crypto_config
+  when: k8s_fabric_orderer_crypto_config | default('') | length > 0
 
 - name: Fabric channel-artifacts configmap exists
   k8s:
@@ -42,7 +42,7 @@
       binaryData:
         channel-artifacts.zip: "{{k8s_fabric_orderer_channel_artifacts}}"
   environment: "{{ kubectl_env }}"
-  when: k8s_fabric_orderer_channel_artifacts
+  when: k8s_fabric_orderer_channel_artifacts | default('') | length > 0
 
 - name: Create Orderer Peer Service Accounts
   k8s:
