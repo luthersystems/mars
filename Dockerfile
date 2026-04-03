@@ -108,12 +108,14 @@ WORKDIR /marsproject
 COPY ansible-reqs.yml /opt/mars/ansible-reqs.yml
 RUN ansible-galaxy install -r /opt/mars/ansible-reqs.yml
 
-# Patch kubernetes.core.helm module for Helm v4 compatibility:
-# Helm 4 removed --all from "helm list" (all statuses shown by default).
-# kubernetes.core 5.4.2 doesn't have the fix yet (only on unreleased main).
-# Remove this patch when upgrading to a kubernetes.core version with is_helm_v4().
-RUN HELM_MODULE=$(find /opt/mars_venv -path "*/kubernetes/core/plugins/modules/helm.py" -o -path "*/ansible_collections/kubernetes/core/plugins/modules/helm.py" | head -1) && \
-    sed -i 's/list_command.append("--all")/pass  # --all removed in Helm v4 (default behavior)/' "$HELM_MODULE"
+# Patch kubernetes.core for Helm v4 compatibility (kubernetes.core 5.4.2 lacks support).
+# These patches match fixes in upstream PR #1090 (merged to main, not yet released).
+# Remove when upgrading to a kubernetes.core release with Helm v4 support.
+RUN K8S_CORE=$(find / -type d -path "*/ansible_collections/kubernetes/core" 2>/dev/null | head -1) && \
+    # 1. Remove --all from "helm list" (removed in Helm 4, now default behavior) \
+    sed -i 's/list_command.append("--all")/pass  # --all removed in Helm v4/' "$K8S_CORE/plugins/modules/helm.py" && \
+    # 2. Remove version check that rejects Helm >=4.0.0 \
+    sed -i 's/LooseVersion(helm_version) >= LooseVersion("4.0.0")/False/' "$K8S_CORE/plugins/module_utils/helm.py"
 
 COPY --from=downloader /tmp/tfedit /opt/bin/tfedit
 COPY --from=downloader /tmp/tfmigrate /opt/bin/tfmigrate
