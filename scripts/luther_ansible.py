@@ -104,6 +104,13 @@ class Ansible(object):
         if any(az_vault_args) and not all(az_vault_args):
             raise Exception("--az-vault and --az-vault-key must be supplied together")
 
+        if not args.aws_sm_secret_id:
+            args.aws_sm_secret_id = os.environ.get("AWS_SM_SECRET_ID", "")
+        if not args.aws_region:
+            args.aws_region = os.environ.get("AWS_REGION", "")
+        if not args.aws_role_arn:
+            args.aws_role_arn = os.environ.get("AWS_ROLE_ARN", "")
+
         aws_sm_args = [args.aws_sm_secret_id, args.aws_region]
         if any(aws_sm_args) and not all(aws_sm_args):
             raise Exception(
@@ -206,16 +213,16 @@ class Ansible(object):
         if args.path:
             with open(args.path) as f:
                 encrypted = f.read()
-            self._vault_decrypt(encrypted, encryption_key, filename=args.path)
+            self._vault_decrypt(encrypted, encryption_key)
         else:
             if not stdin_pipe():
                 raise Exception("expected to read an encrypted secret from stdin")
             encrypted = sys.stdin.read().rstrip("\n")
             self._vault_decrypt(encrypted, encryption_key)
 
-    def _vault_decrypt(self, encrypted, encryption_key, filename=None):
+    def _vault_decrypt(self, encrypted, encryption_key):
         vault = vault_client(encryption_key)
-        secret = vault.decrypt(bytes(encrypted, "utf-8"), filename)
+        secret = vault.decrypt(bytes(encrypted, "utf-8"))
         print(secret.decode("utf-8"))
 
     def _read_inventory_config(self):
