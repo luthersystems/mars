@@ -42,6 +42,11 @@ spec:
             - name: http
               containerPort: 8080
               protocol: TCP
+            {{- if .Values.service.grpc.enabled }}
+            - name: grpc
+              containerPort: {{ .Values.service.grpc.targetPort }}
+              protocol: TCP
+            {{- end }}
           readinessProbe:
             httpGet:
               path: /healthz
