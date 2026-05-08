@@ -1,20 +1,22 @@
+{{- if .Values.service.grpc.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "insideoutmcp.fullname" . }}
+  name: {{ include "insideoutmcp.fullname" . }}-grpc
   labels:
     {{- include "insideoutmcp.labels" . | nindent 4 }}
-  {{- with .Values.service.annotations }}
+  {{- with .Values.service.grpc.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
   type: {{ .Values.service.type }}
   ports:
-    - port: {{ .Values.service.port }}
-      targetPort: http
+    - port: {{ .Values.service.grpc.port }}
+      targetPort: {{ .Values.service.grpc.targetPort }}
       protocol: TCP
-      name: http
+      name: grpc
+      appProtocol: grpc
   selector:
     {{- include "insideoutmcp.labels.match" . | nindent 4 }}
-
+{{- end }}

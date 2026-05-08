@@ -23,11 +23,12 @@ service:
   type: ClusterIP
   port: 80
   targetPort: 8080
+  annotations: {}
   grpc:
     enabled: false
     port: 9090
     targetPort: 9090
-  annotations: {}
+    annotations: {}
 
 resources: {}
 imagePullSecrets: []
