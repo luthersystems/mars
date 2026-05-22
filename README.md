@@ -28,10 +28,9 @@ without arguments or point it to the appropriate key file in special cases.
 ## Terraform
 
 If you need to run a raw terraform command using the `terraform` binary
-installed in the container you may run `mars terraform` but without care python
-will intercept options/flags intended for terraform.  Often you will have to
-use the special argument `--` to tell python not to try and parse the flags
-meant for terraform.
+installed in the container you may run `mars terraform`. Use the special
+argument `--` before raw Terraform flags so Mars passes them through instead of
+parsing them as Mars flags.
 
 ```
 mars dev terraform -- providers --help
@@ -63,3 +62,19 @@ To build the container, run:
 make
 ```
 
+Architecture-specific builds are available with:
+
+```
+make build-amd64
+make build-arm64
+```
+
+Tagged releases build and push both architectures, then publish Docker
+manifests with `make push-manifests`.
+
+The Mars command dispatcher is built from Go during the Docker build and copied
+to `/opt/mars/mars`. The container still includes Python because Ansible, Azure
+CLI, and the Ansible vault helper scripts depend on it.
+
+For Go CLI development with `MARS_DEV=true`, set `MARS_DEV_BINARY` to a
+Linux-compatible `mars` binary if you want to override the binary in the image.

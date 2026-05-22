@@ -16,7 +16,10 @@ Mars is Luther Systems' infrastructure management tool - a Docker-based wrapper 
 
 ```bash
 make                    # Build the Docker image (luthersystems/mars)
+make build-amd64        # Build linux/amd64 image
+make build-arm64        # Build linux/arm64 image
 make push               # Push to registry
+make push-manifests     # Publish multi-arch Docker manifests
 make clean              # Remove build artifacts
 ```
 
@@ -69,11 +72,13 @@ MARS_SHELL=true mars <env>
 
 ## Architecture
 
-### Entry Points (`scripts/`)
-- `run.sh` - Container entrypoint, sets up user permissions
-- `mars.py` - Command router: dispatches to terraform/ansible/packer/alb modules based on command prefix
-- `terraform.py` - Terraform wrapper with workspace management, var file aggregation from `vars/common/` and `vars/<env>/`
-- `luther_ansible.py` - Ansible wrapper with vault integration (Azure KeyVault, AWS Secrets Manager)
+### Entry Points
+- `scripts/run.sh` - Container entrypoint, sets up user permissions, then calls `/opt/mars/mars`
+- `cmd/mars` - Go CLI entrypoint
+- `internal/terraform` - Terraform wrapper with workspace management and var file aggregation from `vars/common/` and `vars/<env>/`
+- `internal/ansible` - Ansible wrapper with vault integration (Azure KeyVault, AWS Secrets Manager)
+- `internal/packer`, `internal/alb` - Packer and ALB helper commands
+- `scripts/vault-*.py` - Python helper scripts retained for Ansible `--vault-id` integration
 
 ### Ansible Roles (`ansible-roles/`)
 

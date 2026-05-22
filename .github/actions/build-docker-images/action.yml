@@ -49,4 +49,4 @@ runs:
         if [[ -n "${{ inputs.git_tag }}" ]]; then
           TARGET="push"
         fi
-        cd ${{ inputs.image }} && make PLATFORMS=linux/${{ inputs.arch }} TAG_SUFFIX=-${{ inputs.arch }} GIT_TAG=${{ inputs.git_tag }} GIT_REVISION=${{ inputs.git_rev }} $TARGET
+        cd ${{ inputs.image }} && make ARCH=${{ inputs.arch }} TAG_SUFFIX=-${{ inputs.arch }} GIT_TAG=${{ inputs.git_tag }} GIT_REVISION=${{ inputs.git_rev }} $TARGET

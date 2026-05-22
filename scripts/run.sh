@@ -22,5 +22,5 @@ quote_args() {
         echo -n " "
     done
 }
-CMD="PATH=$PATH /opt/mars/mars.py $(quote_args "$@")"
+CMD="PATH=$PATH /opt/mars/mars $(quote_args "$@")"
 su -s "/bin/bash" -c "${CMD}" $user
