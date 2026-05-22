@@ -1,4 +1,4 @@
-FROM ubuntu:24.04 as downloader
+FROM ubuntu:24.04 AS downloader
 ARG TARGETARCH
 ENV TARGETARCH=$TARGETARCH
 
@@ -60,7 +60,7 @@ RUN curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/${HELM
   chmod 700 get_helm.sh && \
   ./get_helm.sh --version ${HELM_VERSION}
 
-FROM ubuntu:24.04 as venv
+FROM ubuntu:24.04 AS venv
 
 RUN apt update -y && apt install --no-install-recommends -yq \
   build-essential \
@@ -75,6 +75,15 @@ RUN mkdir -p /opt/mars
 RUN python3 -m venv /opt/mars_venv
 RUN /opt/mars_venv/bin/pip install setuptools
 RUN /opt/mars_venv/bin/pip install -r /tmp/requirements.txt
+
+FROM golang:1.24-bookworm AS mars-cli
+ARG TARGETARCH
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY cmd ./cmd
+COPY internal ./internal
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" -o /mars ./cmd/mars
 
 FROM ubuntu:24.04
 
@@ -126,7 +135,8 @@ RUN unzip -d /tmp /tmp/awscliv2.zip && /tmp/aws/install && rm -rf /tmp/aws*
 ENTRYPOINT ["/opt/mars/run.sh"]
 
 COPY scripts /opt/mars/
-RUN chmod a+x /opt/mars/run.sh /opt/mars/terraform.py
+COPY --from=mars-cli /mars /opt/mars/mars
+RUN chmod a+x /opt/mars/run.sh /opt/mars/mars /opt/mars/vault-aws-secretsmanager.py /opt/mars/vault-az-keyvault.py
 
 COPY ssh_config /etc/ssh/ssh_config
 # Grab bitbucket.org keys and place in known_hosts
