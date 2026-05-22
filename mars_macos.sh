@@ -69,11 +69,13 @@ PROJECT_PATH=$(fullpath ${PROJECT_PATH:-$(pwd)})
 WORK_REL_PATH="${PWD#$PROJECT_PATH}" # Includes leading dir separator
 DOCKER_WORK_DIR="$DOCKER_PROJECT_PATH$WORK_REL_PATH"
 
-MARS_VERSION=latest
-if [ -f "$PROJECT_PATH/.mars-version" ]; then
-	MARS_VERSION=$(cat $PROJECT_PATH/.mars-version)
-elif [ -f "$GIT_ROOT/.mars-version" ]; then
-	MARS_VERSION=$(cat $GIT_ROOT/.mars-version)
+if [ -z "${MARS_VERSION:-}" ]; then
+	MARS_VERSION=latest
+	if [ -f "$PROJECT_PATH/.mars-version" ]; then
+		MARS_VERSION=$(cat $PROJECT_PATH/.mars-version)
+	elif [ -f "$GIT_ROOT/.mars-version" ]; then
+		MARS_VERSION=$(cat $GIT_ROOT/.mars-version)
+	fi
 fi
 
 ENV_VARS=
@@ -130,7 +132,7 @@ docker run --rm $DOCKER_TERM_VARS \
 	-e USER_ID=$(id -u $USER) \
 	-e GROUP_ID=$(id -g $USER) \
 	-e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY \
-	-e AWS_SECURITY_TOKEN -e AWS_SESSION_TOKEN \
+	-e AWS_SESSION_TOKEN \
 	-e TF_PLUGIN_CACHE_DIR=/opt/tf-plugin-cache-dir \
 	-e GITHUB_TOKEN \
 	$ENV_VARS \
