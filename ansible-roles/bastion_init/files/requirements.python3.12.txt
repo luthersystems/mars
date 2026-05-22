@@ -21,7 +21,7 @@ charset-normalizer==3.3.2
     # via requests
 google-auth==2.30.0
     # via kubernetes
-idna==3.7
+idna==3.15
     # via requests
 jmespath==1.0.1
     # via
@@ -61,7 +61,7 @@ six==1.16.0
     # via
     #   kubernetes
     #   python-dateutil
-urllib3==2.6.3
+urllib3==2.7.0
     # via
     #   botocore
     #   kubernetes
