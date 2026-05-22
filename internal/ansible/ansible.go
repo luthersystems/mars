@@ -286,10 +286,10 @@ func (s *service) commandContextArgs(opts VaultOpts) ([]string, error) {
 
 func (s *service) ansibleVaultArgs(opts VaultOpts) ([]string, error) {
 	if opts.AZVault != "" {
-		return []string{"--vault-id", "/opt/mars/vault-az-keyvault.py"}, nil
+		return []string{"--vault-id", "/opt/mars/vault-az-keyvault"}, nil
 	}
 	if opts.AWSSecretID != "" {
-		return []string{"--vault-id", "/opt/mars/vault-aws-secretsmanager.py"}, nil
+		return []string{"--vault-id", "/opt/mars/vault-aws-secretsmanager"}, nil
 	}
 	path, err := s.findVaultPasswordFile()
 	if err != nil {

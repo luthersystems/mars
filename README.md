@@ -72,9 +72,11 @@ make build-arm64
 Tagged releases build and push both architectures, then publish Docker
 manifests with `make push-manifests`.
 
-The Mars command dispatcher is built from Go during the Docker build and copied
-to `/opt/mars/mars`. The container still includes Python because Ansible, Azure
-CLI, and the Ansible vault helper scripts depend on it.
+The Mars command dispatcher, container entrypoint, and Ansible vault-id helpers
+are built from Go during the Docker build and copied into `/opt/mars/`. The
+container still includes Python because Ansible and Azure CLI depend on it.
 
 For Go CLI development with `MARS_DEV=true`, set `MARS_DEV_BINARY` to a
 Linux-compatible `mars` binary if you want to override the binary in the image.
+`MARS_DEV_ENTRYPOINT`, `MARS_DEV_VAULT_AWS`, and `MARS_DEV_VAULT_AZ` can
+override the other Go helper binaries.

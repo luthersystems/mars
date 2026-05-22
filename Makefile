@@ -1,7 +1,6 @@
 include common.mk
 STATIC_IMAGE=luthersystems/${PROJECT}
 
-SCRIPTS=$(shell find scripts -type f)
 GO_SOURCES=$(shell find cmd internal -type f -name '*.go')
 
 AWSCLI_VERSION=2.7.0
@@ -41,7 +40,7 @@ clean:
 	rm -rf build
 
 build-%: LOADARG=$(if $(findstring $*,${LOCALARCH}),--load)
-build-%: Dockerfile go.mod go.sum ${GO_SOURCES} ${ANSIBLE_ROLES} ${ANSIBLE_PLUGINS} ${GRAFANA_DASHBOARDS} ${SCRIPTS} ssh_config requirements.txt
+build-%: Dockerfile go.mod go.sum ${GO_SOURCES} ${ANSIBLE_ROLES} ${ANSIBLE_PLUGINS} ${GRAFANA_DASHBOARDS} ssh_config requirements.txt
 	${DOCKER} buildx build \
 		--platform linux/$* \
 		--build-arg AWSCLI_VER=${AWSCLI_VERSION} \

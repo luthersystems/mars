@@ -108,6 +108,69 @@ func TestAnsiblePlaybookUsesInventoryAndVaultDefaults(t *testing.T) {
 	})
 }
 
+func TestAnsiblePlaybookUsesGoVaultIDHelpers(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		wantArg string
+		wantEnv map[string]string
+	}{
+		{
+			name: "aws",
+			args: []string{
+				"--aws-sm-secret-id", "secret-id",
+				"--aws-region", "us-west-2",
+				"--aws-role-arn", "role-arn",
+			},
+			wantArg: "/opt/mars/vault-aws-secretsmanager",
+			wantEnv: map[string]string{
+				"AWS_SM_SECRET_ID": "secret-id",
+				"AWS_REGION":       "us-west-2",
+				"AWS_ROLE_ARN":     "role-arn",
+			},
+		},
+		{
+			name: "azure",
+			args: []string{
+				"--az-vault", "vault-name",
+				"--az-vault-key", "vault-key",
+			},
+			wantArg: "/opt/mars/vault-az-keyvault",
+			wantEnv: map[string]string{
+				"AZ_KEYVAULT_NAME": "vault-name",
+				"AZ_KEYVAULT_KEY":  "vault-key",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			withProject(t, func(dir string) {
+				fake := &runner.Fake{}
+				var stdout, stderr bytes.Buffer
+				args := append([]string{"dev", "ansible-playbook", "site.yml"}, tt.args...)
+
+				code := Main(context.Background(), args, strings.NewReader(""), &stdout, &stderr, fake)
+
+				if code != 0 {
+					t.Fatalf("exit code = %d, stderr:\n%s", code, stderr.String())
+				}
+				got := fake.Commands()[0]
+				wantPrefix := []string{
+					"ansible-playbook", "site.yml",
+					"--vault-id", tt.wantArg,
+					"-i", "inventories/dev/aws_ec2.yml",
+				}
+				if len(got) < len(wantPrefix) || !reflect.DeepEqual(got[:len(wantPrefix)], wantPrefix) {
+					t.Fatalf("command = %#v, want prefix %#v", got, wantPrefix)
+				}
+				if !reflect.DeepEqual(fake.Records[0].Cmd.Env, tt.wantEnv) {
+					t.Fatalf("env = %#v, want %#v", fake.Records[0].Cmd.Env, tt.wantEnv)
+				}
+			})
+		})
+	}
+}
+
 func TestAnsibleExecutePreservesArgsAppendBehavior(t *testing.T) {
 	withProject(t, func(dir string) {
 		writeFile(t, "vault_password.txt", "password")
