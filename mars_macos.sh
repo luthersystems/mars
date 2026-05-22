@@ -6,14 +6,19 @@ DEV_MOUNTS=''
 if [[ "$MARS_DEV" == "true" ]]; then
 	DEFAULT_MARS_DEV_ROOT="$(dirname $(greadlink -f $(which mars)))"
 	MARS_DEV_ROOT=${MARS_DEV_ROOT:-$DEFAULT_MARS_DEV_ROOT}
-	DEV_MOUNTS="-v ${MARS_DEV_ROOT}/scripts/run.sh:/opt/mars/run.sh:ro \
-	                -v ${MARS_DEV_ROOT}/scripts/keyvault.py:/opt/mars/keyvault.py:ro \
-	                -v ${MARS_DEV_ROOT}/scripts/vault-aws-secretsmanager.py:/opt/mars/vault-aws-secretsmanager.py:ro \
-	                -v ${MARS_DEV_ROOT}/scripts/vault-az-keyvault.py:/opt/mars/vault-az-keyvault.py:ro \
-	                -v ${MARS_DEV_ROOT}/ansible-roles:/opt/ansible/roles:ro \
+	DEV_MOUNTS="-v ${MARS_DEV_ROOT}/ansible-roles:/opt/ansible/roles:ro \
 	                -v ${MARS_DEV_ROOT}/ansible-plugins:/opt/ansible/plugins:ro"
 	if [[ -n "$MARS_DEV_BINARY" ]]; then
 		DEV_MOUNTS="-v ${MARS_DEV_BINARY}:/opt/mars/mars:ro ${DEV_MOUNTS}"
+	fi
+	if [[ -n "$MARS_DEV_ENTRYPOINT" ]]; then
+		DEV_MOUNTS="-v ${MARS_DEV_ENTRYPOINT}:/opt/mars/mars-entrypoint:ro ${DEV_MOUNTS}"
+	fi
+	if [[ -n "$MARS_DEV_VAULT_AWS" ]]; then
+		DEV_MOUNTS="-v ${MARS_DEV_VAULT_AWS}:/opt/mars/vault-aws-secretsmanager:ro ${DEV_MOUNTS}"
+	fi
+	if [[ -n "$MARS_DEV_VAULT_AZ" ]]; then
+		DEV_MOUNTS="-v ${MARS_DEV_VAULT_AZ}:/opt/mars/vault-az-keyvault:ro ${DEV_MOUNTS}"
 	fi
 fi
 

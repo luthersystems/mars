@@ -83,7 +83,11 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY cmd ./cmd
 COPY internal ./internal
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" -o /mars ./cmd/mars
+RUN mkdir -p /out && \
+  CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" -o /out/mars ./cmd/mars && \
+  CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" -o /out/mars-entrypoint ./cmd/mars-entrypoint && \
+  CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" -o /out/vault-aws-secretsmanager ./cmd/vault-aws-secretsmanager && \
+  CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" -o /out/vault-az-keyvault ./cmd/vault-az-keyvault
 
 FROM ubuntu:24.04
 
@@ -132,11 +136,13 @@ COPY --from=downloader /tmp/tfmigrate /opt/bin/tfmigrate
 COPY --from=downloader /tmp/awscliv2.zip /tmp/awscliv2.zip
 RUN unzip -d /tmp /tmp/awscliv2.zip && /tmp/aws/install && rm -rf /tmp/aws*
 
-ENTRYPOINT ["/opt/mars/run.sh"]
+ENTRYPOINT ["/opt/mars/mars-entrypoint"]
 
-COPY scripts /opt/mars/
-COPY --from=mars-cli /mars /opt/mars/mars
-RUN chmod a+x /opt/mars/run.sh /opt/mars/mars /opt/mars/vault-aws-secretsmanager.py /opt/mars/vault-az-keyvault.py
+COPY --from=mars-cli /out/mars /opt/mars/mars
+COPY --from=mars-cli /out/mars-entrypoint /opt/mars/mars-entrypoint
+COPY --from=mars-cli /out/vault-aws-secretsmanager /opt/mars/vault-aws-secretsmanager
+COPY --from=mars-cli /out/vault-az-keyvault /opt/mars/vault-az-keyvault
+RUN chmod a+x /opt/mars/mars /opt/mars/mars-entrypoint /opt/mars/vault-aws-secretsmanager /opt/mars/vault-az-keyvault
 
 COPY ssh_config /etc/ssh/ssh_config
 # Grab bitbucket.org keys and place in known_hosts

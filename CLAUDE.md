@@ -73,12 +73,12 @@ MARS_SHELL=true mars <env>
 ## Architecture
 
 ### Entry Points
-- `scripts/run.sh` - Container entrypoint, sets up user permissions, then calls `/opt/mars/mars`
+- `cmd/mars-entrypoint` - Container entrypoint, sets up user permissions, then calls `/opt/mars/mars`
 - `cmd/mars` - Go CLI entrypoint
 - `internal/terraform` - Terraform wrapper with workspace management and var file aggregation from `vars/common/` and `vars/<env>/`
 - `internal/ansible` - Ansible wrapper with vault integration (Azure KeyVault, AWS Secrets Manager)
 - `internal/packer`, `internal/alb` - Packer and ALB helper commands
-- `scripts/vault-*.py` - Python helper scripts retained for Ansible `--vault-id` integration
+- `cmd/vault-*` - Go helper binaries for Ansible `--vault-id` integration
 
 ### Ansible Roles (`ansible-roles/`)
 
