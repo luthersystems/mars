@@ -78,13 +78,14 @@ RUN /opt/mars_venv/bin/pip install -r /tmp/requirements.txt
 
 FROM golang:1.25-bookworm AS mars-cli
 ARG TARGETARCH
+ARG MARS_VERSION=dev
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY cmd ./cmd
 COPY internal ./internal
 RUN mkdir -p /out && \
-  CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" -o /out/mars ./cmd/mars && \
+  CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w -X github.com/luthersystems/mars/internal/cli.Version=${MARS_VERSION}" -o /out/mars ./cmd/mars && \
   CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" -o /out/mars-entrypoint ./cmd/mars-entrypoint && \
   CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" -o /out/insideout-reverse-import ./cmd/insideout-reverse-import && \
   CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" -o /out/vault-aws-secretsmanager ./cmd/vault-aws-secretsmanager && \

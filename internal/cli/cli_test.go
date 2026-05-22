@@ -65,6 +65,75 @@ func TestTerraformRawCommandPassesFlagsAfterDoubleDash(t *testing.T) {
 	})
 }
 
+func TestRootHelpDoesNotRequireTarget(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{name: "long", args: []string{"--help"}},
+		{name: "short", args: []string{"-h"}},
+		{name: "command", args: []string{"help"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fake := &runner.Fake{}
+			var stdout, stderr bytes.Buffer
+
+			code := Main(context.Background(), tt.args, strings.NewReader(""), &stdout, &stderr, fake)
+
+			if code != 0 {
+				t.Fatalf("exit code = %d, stderr:\n%s", code, stderr.String())
+			}
+			if !strings.Contains(stdout.String(), "Luther Systems infrastructure management tool.") {
+				t.Fatalf("stdout did not include root help, got:\n%s", stdout.String())
+			}
+			if strings.Contains(stderr.String(), "missing command") {
+				t.Fatalf("stderr contains missing command: %q", stderr.String())
+			}
+			if len(fake.Records) != 0 {
+				t.Fatalf("root help should not run external commands, got %s", fake.Output())
+			}
+		})
+	}
+}
+
+func TestRootVersionDoesNotRequireTarget(t *testing.T) {
+	oldVersion := Version
+	Version = "test-version"
+	t.Cleanup(func() {
+		Version = oldVersion
+	})
+
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{name: "flag", args: []string{"--version"}},
+		{name: "command", args: []string{"version"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fake := &runner.Fake{}
+			var stdout, stderr bytes.Buffer
+
+			code := Main(context.Background(), tt.args, strings.NewReader(""), &stdout, &stderr, fake)
+
+			if code != 0 {
+				t.Fatalf("exit code = %d, stderr:\n%s", code, stderr.String())
+			}
+			if got := stdout.String(); got != "test-version\n" {
+				t.Fatalf("stdout = %q, want test-version newline", got)
+			}
+			if strings.Contains(stderr.String(), "missing command") {
+				t.Fatalf("stderr contains missing command: %q", stderr.String())
+			}
+			if len(fake.Records) != 0 {
+				t.Fatalf("root version should not run external commands, got %s", fake.Output())
+			}
+		})
+	}
+}
+
 func TestAnsiblePlaybookUsesInventoryAndVaultDefaults(t *testing.T) {
 	withProject(t, func(dir string) {
 		writeFile(t, "vault_password.txt", "password")
