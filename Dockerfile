@@ -123,29 +123,23 @@ WORKDIR /marsproject
 COPY ansible-reqs.yml /opt/mars/ansible-reqs.yml
 RUN ansible-galaxy install -r /opt/mars/ansible-reqs.yml
 
-# Patch kubernetes.core for Helm v4 compatibility (kubernetes.core 5.4.2 lacks support).
-# These patches match fixes in upstream PR #1090 (merged to main, not yet released).
-# Remove when upgrading to a kubernetes.core release with Helm v4 support.
-RUN find / -type d -path "*/ansible_collections/kubernetes/core" 2>/dev/null | while read K8S_CORE; do \
-      # 1. Remove --all from "helm list" (removed in Helm 4, now default behavior) \
-      sed -i 's/list_command.append("--all")/pass  # --all removed in Helm v4/' "$K8S_CORE/plugins/modules/helm.py" && \
-      # 2. Remove version check that rejects Helm >=4.0.0 \
-      sed -i 's/LooseVersion(helm_version) >= LooseVersion("4.0.0")/False/' "$K8S_CORE/plugins/module_utils/helm.py"; \
-    done
-
 COPY --from=downloader /tmp/tfedit /opt/bin/tfedit
 COPY --from=downloader /tmp/tfmigrate /opt/bin/tfmigrate
+COPY --from=mars-cli /out/mars /opt/bin/mars
+COPY --from=mars-cli /out/mars-entrypoint /opt/bin/mars-entrypoint
 COPY --from=mars-cli /out/insideout-reverse-import /opt/bin/insideout-reverse-import
+COPY --from=mars-cli /out/vault-aws-secretsmanager /opt/bin/vault-aws-secretsmanager
+COPY --from=mars-cli /out/vault-az-keyvault /opt/bin/vault-az-keyvault
 COPY --from=downloader /tmp/awscliv2.zip /tmp/awscliv2.zip
 RUN unzip -d /tmp /tmp/awscliv2.zip && /tmp/aws/install && rm -rf /tmp/aws*
 
 ENTRYPOINT ["/opt/mars/mars-entrypoint"]
 
-COPY --from=mars-cli /out/mars /opt/mars/mars
-COPY --from=mars-cli /out/mars-entrypoint /opt/mars/mars-entrypoint
-COPY --from=mars-cli /out/vault-aws-secretsmanager /opt/mars/vault-aws-secretsmanager
-COPY --from=mars-cli /out/vault-az-keyvault /opt/mars/vault-az-keyvault
-RUN chmod a+x /opt/mars/mars /opt/mars/mars-entrypoint /opt/mars/vault-aws-secretsmanager /opt/mars/vault-az-keyvault
+RUN chmod a+x /opt/bin/mars /opt/bin/mars-entrypoint /opt/bin/vault-aws-secretsmanager /opt/bin/vault-az-keyvault && \
+  ln -sf /opt/bin/mars /opt/mars/mars && \
+  ln -sf /opt/bin/mars-entrypoint /opt/mars/mars-entrypoint && \
+  ln -sf /opt/bin/vault-aws-secretsmanager /opt/mars/vault-aws-secretsmanager && \
+  ln -sf /opt/bin/vault-az-keyvault /opt/mars/vault-az-keyvault
 RUN chmod a+x /opt/bin/insideout-reverse-import && ln -sf /opt/bin/insideout-reverse-import /usr/local/bin/insideout-reverse-import
 
 COPY ssh_config /etc/ssh/ssh_config
