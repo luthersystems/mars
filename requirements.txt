@@ -403,7 +403,7 @@ fabric==3.2.2
     # via azure-cli
 humanfriendly==10.0
     # via azure-cli-core
-idna==3.11
+idna==3.15
     # via requests
 invoke==2.2.1
     # via fabric
@@ -672,7 +672,7 @@ typing-extensions==4.15.0
     #   azure-storage-queue
     #   azure-synapse-artifacts
     #   pyopenssl
-urllib3==2.6.3
+urllib3==2.7.0
     # via
     #   azure-cli
     #   botocore
