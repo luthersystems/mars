@@ -49,6 +49,7 @@ build-%: Dockerfile go.mod go.sum ${GO_SOURCES} ${ANSIBLE_ROLES} ${ANSIBLE_PLUGI
 		--build-arg TFENV_VER=${TFENV_VER} \
 		--build-arg HELM_VERSION=${HELM_VERSION} \
 		--build-arg HELM_DIFF_VERSION=${HELM_DIFF_VERSION} \
+		--build-arg MARS_VERSION=${VERSION} \
 		${LOADARG} \
 		-t ${STATIC_IMAGE}:${VERSION} \
 		.

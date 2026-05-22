@@ -43,16 +43,9 @@ type CLI struct {
 	ALBDNS alb.DNSCmd `cmd:"" name:"alb-dns" help:"Print matching ALB DNS names."`
 }
 
+var Version = "dev"
+
 func Main(ctx context.Context, args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer, r runner.Runner) int {
-	if len(args) == 0 {
-		fmt.Fprintln(stderr, "no arguments provided")
-		return 1
-	}
-	if len(args) < 2 {
-		fmt.Fprintln(stderr, "missing command")
-		return 1
-	}
-	target, cleanArgs, verbosity, skipPrompt := extractTerraformGlobals(args)
 	var root CLI
 	parser, err := kong.New(
 		&root,
@@ -65,6 +58,26 @@ func Main(ctx context.Context, args []string, stdin io.Reader, stdout io.Writer,
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
+	if isRootHelp(args) {
+		if err := printRootUsage(parser); err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+		return 0
+	}
+	if isRootVersion(args) {
+		fmt.Fprintln(stdout, Version)
+		return 0
+	}
+	if len(args) == 0 {
+		fmt.Fprintln(stderr, "no arguments provided")
+		return 1
+	}
+	if len(args) < 2 {
+		fmt.Fprintln(stderr, "missing command")
+		return 1
+	}
+	target, cleanArgs, verbosity, skipPrompt := extractTerraformGlobals(args)
 	parsed, err := parser.Parse(cleanArgs)
 	if err != nil {
 		fmt.Fprintln(stderr, err)
@@ -84,6 +97,22 @@ func Main(ctx context.Context, args []string, stdin io.Reader, stdout io.Writer,
 		return runner.ExitCode(err)
 	}
 	return 0
+}
+
+func isRootHelp(args []string) bool {
+	return len(args) == 1 && (args[0] == "--help" || args[0] == "-h" || args[0] == "help")
+}
+
+func isRootVersion(args []string) bool {
+	return len(args) == 1 && (args[0] == "--version" || args[0] == "version")
+}
+
+func printRootUsage(parser *kong.Kong) error {
+	ctx, err := kong.Trace(parser, nil)
+	if err != nil {
+		return err
+	}
+	return ctx.PrintUsage(false)
 }
 
 func extractTerraformGlobals(args []string) (string, []string, int, bool) {
