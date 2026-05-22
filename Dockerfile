@@ -76,7 +76,7 @@ RUN python3 -m venv /opt/mars_venv
 RUN /opt/mars_venv/bin/pip install setuptools
 RUN /opt/mars_venv/bin/pip install -r /tmp/requirements.txt
 
-FROM golang:1.24-bookworm AS mars-cli
+FROM golang:1.25-bookworm AS mars-cli
 ARG TARGETARCH
 WORKDIR /src
 COPY go.mod go.sum ./
@@ -86,6 +86,7 @@ COPY internal ./internal
 RUN mkdir -p /out && \
   CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" -o /out/mars ./cmd/mars && \
   CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" -o /out/mars-entrypoint ./cmd/mars-entrypoint && \
+  CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" -o /out/insideout-reverse-import ./cmd/insideout-reverse-import && \
   CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" -o /out/vault-aws-secretsmanager ./cmd/vault-aws-secretsmanager && \
   CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" -o /out/vault-az-keyvault ./cmd/vault-az-keyvault
 
@@ -133,6 +134,7 @@ RUN find / -type d -path "*/ansible_collections/kubernetes/core" 2>/dev/null | w
 
 COPY --from=downloader /tmp/tfedit /opt/bin/tfedit
 COPY --from=downloader /tmp/tfmigrate /opt/bin/tfmigrate
+COPY --from=mars-cli /out/insideout-reverse-import /opt/bin/insideout-reverse-import
 COPY --from=downloader /tmp/awscliv2.zip /tmp/awscliv2.zip
 RUN unzip -d /tmp /tmp/awscliv2.zip && /tmp/aws/install && rm -rf /tmp/aws*
 
@@ -143,6 +145,7 @@ COPY --from=mars-cli /out/mars-entrypoint /opt/mars/mars-entrypoint
 COPY --from=mars-cli /out/vault-aws-secretsmanager /opt/mars/vault-aws-secretsmanager
 COPY --from=mars-cli /out/vault-az-keyvault /opt/mars/vault-az-keyvault
 RUN chmod a+x /opt/mars/mars /opt/mars/mars-entrypoint /opt/mars/vault-aws-secretsmanager /opt/mars/vault-az-keyvault
+RUN chmod a+x /opt/bin/insideout-reverse-import && ln -sf /opt/bin/insideout-reverse-import /usr/local/bin/insideout-reverse-import
 
 COPY ssh_config /etc/ssh/ssh_config
 # Grab bitbucket.org keys and place in known_hosts
