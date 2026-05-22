@@ -13,7 +13,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.41.7
 	github.com/aws/aws-sdk-go-v2/service/sts v1.42.1
 	github.com/joho/godotenv v1.5.1
-	github.com/luthersystems/insideout-terraform-presets v0.11.1-0.20260522140650-f29d1846d5e7
+	github.com/luthersystems/insideout-terraform-presets v0.11.1-0.20260522222653-4df22e660935
 	github.com/sosedoff/ansible-vault-go v0.2.0
 	gopkg.in/yaml.v3 v3.0.1
 )
