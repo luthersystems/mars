@@ -134,7 +134,8 @@ spec:
               cd /tmp
               unzip crypto-config.zip
               # TODO: copy only relevant files
-              mv crypto-config /fabric/
+              mkdir -p /fabric/crypto-config
+              cp -a crypto-config/. /fabric/crypto-config/
           volumeMounts:
             - name: fabric-artifacts
               mountPath: /fabric

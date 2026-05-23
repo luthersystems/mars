@@ -160,14 +160,14 @@ spec:
 
               cp /opt/channel-artifacts/channel-artifacts.zip /tmp
               unzip channel-artifacts.zip
-              mv channel-artifacts/* /channel-artifacts
+              cp -a channel-artifacts/. /channel-artifacts/
 
               cp /opt/collections/collections.json /collections-config/
 
               cp /opt/crypto-config/crypto-config.zip /tmp
               unzip crypto-config.zip
 
-              mv crypto-config/ordererOrganizations/{{ .Values.dlt.domain }}/orderers/orderer0.{{ .Values.dlt.domain }}/msp/tlscacerts/* /orderertls
+              cp -a crypto-config/ordererOrganizations/{{ .Values.dlt.domain }}/orderers/orderer0.{{ .Values.dlt.domain }}/msp/tlscacerts/. /orderertls/
               mkdir -p /tls/all-cas
               cd crypto-config/peerOrganizations
               cp --parents $(find . -name ca.crt) /tls/all-cas
@@ -175,11 +175,11 @@ spec:
 
               # TODO: replace domain var with proper orderer domain
               {{- if eq .Values.dlt.organization "orderer" }}
-              mv ordererOrganizations/{{ .Values.dlt.domain }}/users/Admin@{{ .Values.dlt.domain }}/msp/* /msp
-              mv ordererOrganizations/{{ .Values.dlt.domain }}/orderers/orderer{{ .Values.dlt.peerIndex }}.{{ .Values.dlt.domain }}/tls/* /tls
+              cp -a ordererOrganizations/{{ .Values.dlt.domain }}/users/Admin@{{ .Values.dlt.domain }}/msp/. /msp/
+              cp -a ordererOrganizations/{{ .Values.dlt.domain }}/orderers/orderer{{ .Values.dlt.peerIndex }}.{{ .Values.dlt.domain }}/tls/. /tls/
               {{- else }}
-              mv peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/users/Admin@{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/msp/* /msp
-              mv peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ list .Values.dlt.peerIndex . | include "fabric-cli.peer-fqdn" }}/tls/* /tls
+              cp -a peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/users/Admin@{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/msp/. /msp/
+              cp -a peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ list .Values.dlt.peerIndex . | include "fabric-cli.peer-fqdn" }}/tls/. /tls/
               {{- end }}
           volumeMounts:
             - name: orderertls

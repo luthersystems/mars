@@ -159,14 +159,14 @@ spec:
 
               cp /opt/channel-artifacts/channel-artifacts.zip /tmp
               unzip channel-artifacts.zip
-              mv channel-artifacts/* /channel-artifacts
+              cp -a channel-artifacts/. /channel-artifacts/
 
               cp /opt/crypto-config/crypto-config.zip /tmp
               unzip crypto-config.zip
               cd crypto-config
 
-              mv ordererOrganizations/{{ .Values.dlt.domain }}/orderers/{{ include "fabric-orderer.self-fqdn" . }}/msp/* /msp
-              mv ordererOrganizations/{{ .Values.dlt.domain }}/orderers/{{ include "fabric-orderer.self-fqdn" . }}/tls/* /tls
+              cp -a ordererOrganizations/{{ .Values.dlt.domain }}/orderers/{{ include "fabric-orderer.self-fqdn" . }}/msp/. /msp/
+              cp -a ordererOrganizations/{{ .Values.dlt.domain }}/orderers/{{ include "fabric-orderer.self-fqdn" . }}/tls/. /tls/
           volumeMounts:
             - name: genesisblock
               mountPath: /channel-artifacts
