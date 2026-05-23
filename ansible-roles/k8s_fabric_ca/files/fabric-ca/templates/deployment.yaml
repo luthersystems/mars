@@ -96,7 +96,7 @@ spec:
               unzip crypto-config.zip
               cd crypto-config
 
-              mv peerOrganizations/{{ .Values.dlt.domain }}/ca/* /crypto
+              cp -a peerOrganizations/{{ .Values.dlt.domain }}/ca/. /crypto/
           volumeMounts:
             - name: crypto
               mountPath: /crypto
