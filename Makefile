@@ -23,6 +23,10 @@ GRAFANA_DASHBOARDS=$(shell find grafana-dashboards)
 LOCALARCH=$(if $(filter x86_64 amd64,${HWTYPE}),amd64,$(if $(filter arm64 aarch64,${HWTYPE}),arm64,${HWTYPE}))
 ARCH ?= ${LOCALARCH}
 
+ifeq (${GITHUB_ACTIONS},true)
+BUILD_CACHE_ARGS ?= --cache-from type=gha,scope=${PROJECT}-$* --cache-to type=gha,mode=max,scope=${PROJECT}-$*
+endif
+
 .PHONY: default
 default: static
 	@
@@ -50,6 +54,7 @@ build-%: Dockerfile go.mod go.sum ${GO_SOURCES} ${ANSIBLE_ROLES} ${ANSIBLE_PLUGI
 		--build-arg HELM_VERSION=${HELM_VERSION} \
 		--build-arg HELM_DIFF_VERSION=${HELM_DIFF_VERSION} \
 		--build-arg MARS_VERSION=${VERSION} \
+		${BUILD_CACHE_ARGS} \
 		${LOADARG} \
 		-t ${STATIC_IMAGE}:${VERSION} \
 		.
