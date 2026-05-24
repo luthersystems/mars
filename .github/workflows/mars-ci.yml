@@ -25,3 +25,7 @@ jobs:
           arch: ${{ matrix.arch }}
           image: .
           git_rev: $GITHUB_SHA
+      - name: Verify terraform provider cache
+        if: matrix.image == 'mars'
+        shell: bash
+        run: ./scripts/smoke-tf-cache.sh "luthersystems/mars:${GITHUB_SHA}"

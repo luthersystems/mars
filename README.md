@@ -36,6 +36,38 @@ parsing them as Mars flags.
 mars dev terraform -- providers --help
 ```
 
+### Pre-warmed provider plugin cache
+
+The image sets `TF_PLUGIN_CACHE_DIR=/opt/tf-plugin-cache` and ships pre-warmed
+binaries for the providers pinned by `insideout-terraform-presets`:
+
+- `hashicorp/aws`
+- `hashicorp/google`
+- `hashicorp/google-beta`
+
+`terraform init` will symlink these into `.terraform/providers/` instead of
+downloading them, which both speeds up `init` and keeps Argo workflow artifact
+tarballs small (symlinks archive as a few bytes instead of ~1 GB of provider
+binary).
+
+**Lockfile requirement.** Terraform validates cache hits against the `h1:`
+hashes in `.terraform.lock.hcl`. By default a lockfile only carries the hash
+for the platform `terraform init` was run on, so a Mac-generated lockfile will
+miss the Linux cache. To get cache hits in both the amd64 and arm64 mars
+images, regenerate consumer lockfiles with both Linux platforms:
+
+```
+mars <env> terraform -- providers lock \
+  -platform=linux_amd64 -platform=linux_arm64
+```
+
+If the lockfile is missing the right hash, terraform falls back to downloading
+the provider from the registry — same behavior as before this cache existed.
+
+Provider versions are pinned at build time via `AWS_PROVIDER_VERSION` and
+`GOOGLE_PROVIDER_VERSION` ARGs in the Dockerfile. Bump them in lockstep with
+`insideout-terraform-presets`.
+
 # Setting up managed repositories
 
 Place a .mars-version file at the root of the mars managed infrastructure
