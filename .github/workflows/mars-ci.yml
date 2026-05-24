@@ -28,7 +28,4 @@ jobs:
       - name: Verify terraform provider cache
         if: matrix.image == 'mars'
         shell: bash
-        run: |
-          IMAGE=$(docker images luthersystems/mars --format '{{.Repository}}:{{.Tag}}' | head -1)
-          [ -n "$IMAGE" ] || { echo "no mars image found locally"; exit 1; }
-          ./scripts/smoke-tf-cache.sh "$IMAGE"
+        run: ./scripts/smoke-tf-cache.sh "luthersystems/mars:${GITHUB_SHA}"

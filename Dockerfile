@@ -90,9 +90,12 @@ RUN apt update -y && apt install --no-install-recommends -yq \
 # Throwaway terraform used only to populate the plugin cache. Not copied into
 # the final image; consumers still pick their TF version via tfenv.
 ARG TF_WARMUP_VERSION=1.9.8
-RUN curl -fsSL -o /tmp/tf.zip "https://releases.hashicorp.com/terraform/${TF_WARMUP_VERSION}/terraform_${TF_WARMUP_VERSION}_linux_${TARGETARCH}.zip" \
-  && unzip -d /usr/local/bin /tmp/tf.zip \
-  && rm /tmp/tf.zip
+RUN cd /tmp \
+  && curl -fsSL -o "terraform_${TF_WARMUP_VERSION}_linux_${TARGETARCH}.zip" "https://releases.hashicorp.com/terraform/${TF_WARMUP_VERSION}/terraform_${TF_WARMUP_VERSION}_linux_${TARGETARCH}.zip" \
+  && curl -fsSL -o tf_SHA256SUMS "https://releases.hashicorp.com/terraform/${TF_WARMUP_VERSION}/terraform_${TF_WARMUP_VERSION}_SHA256SUMS" \
+  && grep "  terraform_${TF_WARMUP_VERSION}_linux_${TARGETARCH}.zip$" tf_SHA256SUMS | sha256sum -c --strict - \
+  && unzip -d /usr/local/bin "terraform_${TF_WARMUP_VERSION}_linux_${TARGETARCH}.zip" \
+  && rm "terraform_${TF_WARMUP_VERSION}_linux_${TARGETARCH}.zip" tf_SHA256SUMS
 
 # Provider versions are kept in sync with insideout-terraform-presets.
 # Bump these together with the presets repo to keep cache hits useful.
