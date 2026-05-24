@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.7
+
 FROM ubuntu:24.04 AS downloader
 ARG TARGETARCH
 ENV TARGETARCH=$TARGETARCH
@@ -75,6 +77,42 @@ RUN mkdir -p /opt/mars
 RUN python3 -m venv /opt/mars_venv
 RUN /opt/mars_venv/bin/pip install setuptools
 RUN /opt/mars_venv/bin/pip install -r /tmp/requirements.txt
+
+FROM ubuntu:24.04 AS tf-providers
+ARG TARGETARCH
+ENV TF_PLUGIN_CACHE_DIR=/opt/tf-plugin-cache
+
+RUN apt update -y && apt install --no-install-recommends -yq \
+  ca-certificates \
+  curl \
+  unzip
+
+# Throwaway terraform used only to populate the plugin cache. Not copied into
+# the final image; consumers still pick their TF version via tfenv.
+ARG TF_WARMUP_VERSION=1.9.8
+RUN curl -fsSL -o /tmp/tf.zip "https://releases.hashicorp.com/terraform/${TF_WARMUP_VERSION}/terraform_${TF_WARMUP_VERSION}_linux_${TARGETARCH}.zip" \
+  && unzip -d /usr/local/bin /tmp/tf.zip \
+  && rm /tmp/tf.zip
+
+# Provider versions are kept in sync with insideout-terraform-presets.
+# Bump these together with the presets repo to keep cache hits useful.
+ARG AWS_PROVIDER_VERSION=6.45.0
+ARG GOOGLE_PROVIDER_VERSION=6.10.0
+
+RUN mkdir -p ${TF_PLUGIN_CACHE_DIR} /tmp/warmup
+WORKDIR /tmp/warmup
+RUN printf '%s\n' \
+  'terraform {' \
+  '  required_providers {' \
+  "    aws         = { source = \"hashicorp/aws\",         version = \"= ${AWS_PROVIDER_VERSION}\" }" \
+  "    google      = { source = \"hashicorp/google\",      version = \"= ${GOOGLE_PROVIDER_VERSION}\" }" \
+  "    google-beta = { source = \"hashicorp/google-beta\", version = \"= ${GOOGLE_PROVIDER_VERSION}\" }" \
+  '  }' \
+  '}' \
+  > main.tf
+RUN terraform init -input=false -backend=false
+# Ensure runtime users can read the cache even when Docker copies as root.
+RUN chmod -R a+rX ${TF_PLUGIN_CACHE_DIR}
 
 FROM golang:1.25-bookworm AS mars-cli
 ARG TARGETARCH
@@ -158,6 +196,13 @@ COPY grafana-dashboards /opt/grafana-dashboards
 COPY --from=downloader /tmp/tfenv /opt/tfenv
 RUN mkdir -p /opt/tfenv/versions && chmod -R a+w /opt/tfenv/versions && echo 'trust-tfenv: yes' > /opt/tfenv/use-gpgv
 ENV PATH="/opt/tfenv/bin:/opt/bin:${PATH}"
+
+# Pre-warmed terraform provider cache for the providers pinned by
+# insideout-terraform-presets. Consumers get cache hits as long as their
+# .terraform.lock.hcl carries linux_amd64 / linux_arm64 h1 hashes; otherwise
+# terraform falls back to downloading from the registry as before.
+COPY --from=tf-providers /opt/tf-plugin-cache /opt/tf-plugin-cache
+ENV TF_PLUGIN_CACHE_DIR=/opt/tf-plugin-cache
 
 COPY --from=downloader /usr/local/bin/helm /opt/bin/helm
 
