@@ -103,7 +103,7 @@ RUN cd /tmp \
 # /etc/terraformrc below configures a filesystem_mirror for these exact
 # versions. Drift falls back to a slower direct registry download (see the
 # etc/terraformrc comments), it does not break init.
-ARG AWS_PROVIDER_VERSION=6.45.0
+ARG AWS_PROVIDER_VERSION=6.46.0
 ARG GOOGLE_PROVIDER_VERSION=6.10.0
 
 RUN mkdir -p ${TF_PLUGIN_CACHE_DIR} /tmp/warmup
@@ -203,6 +203,24 @@ COPY grafana-dashboards /opt/grafana-dashboards
 COPY --from=downloader /tmp/tfenv /opt/tfenv
 RUN mkdir -p /opt/tfenv/versions && chmod -R a+w /opt/tfenv/versions && echo 'trust-tfenv: yes' > /opt/tfenv/use-gpgv
 ENV PATH="/opt/tfenv/bin:/opt/bin:${PATH}"
+
+# Pre-install the terraform versions commonly requested by consumers via
+# `.terraform-version`. Without this, each Argo pod's first `tfenv install`
+# round-trips to releases.hashicorp.com (download tarball + SHA + GPG verify
+# + unzip) — observed at ~30s per pod, which is pure dead time when the
+# version doesn't change.
+#
+# Default tracks TF_WARMUP_VERSION (1.9.8) — the same terraform used to warm
+# the plugin cache in the tf-providers stage, and the version consumers
+# (e.g. sandbox-infrastructure-template) should pin to in their
+# `.terraform-version` to get a cache hit. Consumers pinned to a different
+# version still work — tfenv falls back to downloading at runtime — this is
+# a fast-path, not a hard pin.
+ARG TFENV_PREINSTALL_VERSIONS="1.9.8"
+RUN for v in ${TFENV_PREINSTALL_VERSIONS}; do \
+    /opt/tfenv/bin/tfenv install "$v" \
+    && chmod -R a+rX /opt/tfenv/versions/$v ; \
+  done
 
 # Pre-warmed terraform provider cache for the providers pinned by
 # insideout-terraform-presets / sandbox-infrastructure-template.
