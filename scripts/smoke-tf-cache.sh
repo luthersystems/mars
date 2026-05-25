@@ -29,7 +29,7 @@ arch=$(uname -m | sed -e s/x86_64/amd64/ -e s/aarch64/arm64/)
 # Keep these in sync with the AWS_PROVIDER_VERSION / GOOGLE_PROVIDER_VERSION
 # build args in the Dockerfile.
 expect=(
-  "hashicorp/aws         6.45.0 terraform-provider-aws_v6.45.0_x5"
+  "hashicorp/aws         6.46.0 terraform-provider-aws_v6.46.0_x5"
   "hashicorp/google      6.10.0 terraform-provider-google_v6.10.0_x5"
   "hashicorp/google-beta 6.10.0 terraform-provider-google-beta_v6.10.0_x5"
 )
@@ -97,14 +97,31 @@ for row in "${expect[@]}"; do
   echo "OK:   ${source}@${version}/linux_${arch} (${size} bytes)"
 done
 
+# Verify pre-installed tfenv versions are present so first-time `tfenv
+# install <v>` is a no-op at runtime (saves ~30s/pod that would otherwise
+# go to downloading the terraform release tarball + verify + unzip). Keep
+# in sync with TFENV_PREINSTALL_VERSIONS in the Dockerfile.
+expect_tfenv=(
+  "1.9.8"
+)
+for v in "${expect_tfenv[@]}"; do
+  if [ -x "/opt/tfenv/versions/${v}/terraform" ]; then
+    echo "OK:   tfenv pre-installed terraform v${v}"
+  else
+    echo "FAIL: tfenv missing pre-installed terraform v${v} at /opt/tfenv/versions/${v}/terraform"
+    fail=1
+  fi
+done
+
 # End-to-end check: prove the filesystem_mirror config actually makes
 # terraform symlink (not copy) the provider into a workdir .terraform/.
 # This is the whole point of #168.
 #
-# The final image does not preinstall terraform (the `terraform` on PATH is a
-# tfenv shim that requires a version to be installed and selected). Install
-# the same throwaway version we used to warm the cache so the symlink check
-# works.
+# Uses 1.9.8 — the version pre-installed in /opt/tfenv/versions/. With the
+# pre-install above, `tfenv install 1.9.8` is a no-op rather than the
+# ~30s download + verify + unzip dance. Keeps the smoke test path
+# consistent with what real consumers (sandbox-infrastructure-template)
+# do at runtime via their .terraform-version pin.
 have_tf=0
 if command -v tfenv >/dev/null 2>&1; then
   # `tfenv install <ver>` writes under /opt/tfenv/versions/ (world-writable).
@@ -130,7 +147,7 @@ else
   cat >main.tf <<EOF
 terraform {
   required_providers {
-    aws = { source = "hashicorp/aws", version = "= 6.45.0" }
+    aws = { source = "hashicorp/aws", version = "= 6.46.0" }
   }
 }
 EOF
@@ -149,7 +166,7 @@ EOF
     # terraform symlinks the per-arch *directory* (not each provider binary
     # individually) from the filesystem_mirror into the workdir. See
     # internal/providercache/package_install.go installFromLocalDir.
-    arch_dir="${workdir}/.terraform/providers/registry.terraform.io/hashicorp/aws/6.45.0/linux_${arch}"
+    arch_dir="${workdir}/.terraform/providers/registry.terraform.io/hashicorp/aws/6.46.0/linux_${arch}"
     if [ ! -e "${arch_dir}" ]; then
       echo "FAIL: expected provider dir not present at ${arch_dir}"
       find "${workdir}/.terraform/providers" -maxdepth 6 2>&1 || true
@@ -164,7 +181,7 @@ EOF
         /opt/tf-plugin-cache/*)
           echo "OK:   terraform init symlinked aws/linux_${arch} into workdir (-> ${target})"
           # Sanity-check the symlink resolves to the actual provider binary.
-          if [ ! -x "${arch_dir}/terraform-provider-aws_v6.45.0_x5" ]; then
+          if [ ! -x "${arch_dir}/terraform-provider-aws_v6.46.0_x5" ]; then
             echo "FAIL: symlink resolves but expected binary missing or not executable"
             fail=1
           fi ;;
