@@ -48,7 +48,7 @@ resources:
   #   cpu: 100m
   #   memory: 128Mi
 
-oracleOnlyProbe: true
+httpOnlyProbe: true
 
 serviceAccount:
   create: true

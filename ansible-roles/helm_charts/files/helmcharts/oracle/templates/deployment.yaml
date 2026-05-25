@@ -38,11 +38,13 @@ spec:
               protocol: TCP
           livenessProbe:
             httpGet:
-              path: /v1/{{ .Values.app.name }}/health_check{{ if .Values.oracleOnlyProbe }}?oracle_only=true{{ end }}
+              path: /v1/{{ .Values.app.name }}/health_check{{ if .Values.httpOnlyProbe }}?http_only=true{{ end }}
               port: http
+            timeoutSeconds: 3
           readinessProbe:
             httpGet:
-              path: /v1/{{ .Values.app.name }}/health_check{{ if .Values.oracleOnlyProbe }}?oracle_only=true{{ end }}
+              path: /v1/{{ .Values.app.name }}/health_check{{ if .Values.httpOnlyProbe }}?http_only=true{{ end }}
               port: http
+            timeoutSeconds: 3
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
