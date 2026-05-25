@@ -93,18 +93,28 @@ done
 # terraform symlink (not copy) the provider into a workdir .terraform/.
 # This is the whole point of #168.
 #
-# The final image does not preinstall terraform (consumers pick a version via
-# tfenv at runtime). Install the same throwaway version we used to warm the
-# cache so the symlink check works.
-if ! command -v terraform >/dev/null 2>&1; then
-  if command -v tfenv >/dev/null 2>&1; then
-    tfenv install 1.9.8 >/dev/null 2>&1 || true
-    tfenv use 1.9.8 >/dev/null 2>&1 || true
+# The final image does not preinstall terraform (the `terraform` on PATH is a
+# tfenv shim that requires a version to be installed and selected). Install
+# the same throwaway version we used to warm the cache so the symlink check
+# works.
+have_tf=0
+if command -v tfenv >/dev/null 2>&1; then
+  # `tfenv install <ver>` writes under /opt/tfenv/versions/ (world-writable).
+  # `tfenv use <ver>` would write /opt/tfenv/version (the global selector
+  # file) which is NOT world-writable in the mars image, so we set the
+  # per-shell override env var instead. The tfenv shim respects it.
+  if tfenv install 1.9.8 >/dev/null 2>&1; then
+    export TFENV_TERRAFORM_VERSION=1.9.8
+    have_tf=1
   fi
+elif command -v terraform >/dev/null 2>&1; then
+  # Non-tfenv image (unexpected — final image installs tfenv) — try whatever
+  # is on PATH.
+  have_tf=1
 fi
 
-if ! command -v terraform >/dev/null 2>&1; then
-  echo "FAIL: no terraform available for symlink E2E test (tfenv install failed?)"
+if [ "${have_tf}" -ne 1 ]; then
+  echo "FAIL: no terraform available for symlink E2E test (tfenv install/use failed?)"
   fail=1
 else
   workdir=$(mktemp -d)
@@ -128,19 +138,28 @@ EOF
       grep -E "^- " /tmp/tfinit.log || true
       fail=1
     fi
-    bin_path="${workdir}/.terraform/providers/registry.terraform.io/hashicorp/aws/6.45.0/linux_${arch}/terraform-provider-aws_v6.45.0_x5"
-    if [ ! -e "${bin_path}" ]; then
-      echo "FAIL: expected provider entry not present at ${bin_path}"
-      ls -la "${workdir}/.terraform/providers/registry.terraform.io/hashicorp/aws/6.45.0/linux_${arch}/" 2>&1 || true
+    # terraform symlinks the per-arch *directory* (not each provider binary
+    # individually) from the filesystem_mirror into the workdir. See
+    # internal/providercache/package_install.go installFromLocalDir.
+    arch_dir="${workdir}/.terraform/providers/registry.terraform.io/hashicorp/aws/6.45.0/linux_${arch}"
+    if [ ! -e "${arch_dir}" ]; then
+      echo "FAIL: expected provider dir not present at ${arch_dir}"
+      find "${workdir}/.terraform/providers" -maxdepth 6 2>&1 || true
       fail=1
-    elif [ ! -L "${bin_path}" ]; then
-      echo "FAIL: provider at ${bin_path} is a regular file, not a symlink (filesystem_mirror is meant to symlink)"
-      ls -la "${bin_path}" 2>&1
+    elif [ ! -L "${arch_dir}" ]; then
+      echo "FAIL: provider dir ${arch_dir} is a real directory, not a symlink (filesystem_mirror is meant to symlink — Argo tar will duplicate the binary)"
+      ls -la "$(dirname "${arch_dir}")" 2>&1
       fail=1
     else
-      target=$(readlink "${bin_path}")
+      target=$(readlink "${arch_dir}")
       case "${target}" in
-        /opt/tf-plugin-cache/*) echo "OK:   terraform init symlinked aws provider into workdir (-> ${target})" ;;
+        /opt/tf-plugin-cache/*)
+          echo "OK:   terraform init symlinked aws/linux_${arch} into workdir (-> ${target})"
+          # Sanity-check the symlink resolves to the actual provider binary.
+          if [ ! -x "${arch_dir}/terraform-provider-aws_v6.45.0_x5" ]; then
+            echo "FAIL: symlink resolves but expected binary missing or not executable"
+            fail=1
+          fi ;;
         *)
           echo "FAIL: symlink target does not point into /opt/tf-plugin-cache: ${target}"
           fail=1 ;;
