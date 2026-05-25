@@ -1,12 +1,20 @@
 #!/usr/bin/env bash
 # Verify that the mars image ships a populated terraform provider plugin
-# cache for the current arch with the exact provider versions we expect.
+# cache for the current arch with the exact provider versions we expect AND
+# that the baked /etc/terraformrc makes `terraform init` symlink (not copy)
+# the per-arch provider directory into a workdir .terraform/providers/ tree.
+# See luthersystems/mars#168 for why the symlink behavior matters.
+#
 # Fails on:
-#   - missing or non-executable provider binary at the expected path
-#   - filename mismatch (wrong version or wrong provider)
-#   - more than one binary in the per-arch directory (cache shape unexpected)
-#   - implausibly small binary (build copied a stub)
-#   - TF_PLUGIN_CACHE_DIR unset or pointing somewhere unexpected
+#   - missing or non-executable provider binary at the expected cache path
+#   - filename / version mismatch in /opt/tf-plugin-cache
+#   - implausibly small provider binary (build copied a stub)
+#   - TF_PLUGIN_CACHE_DIR set (the filesystem_mirror config supersedes it)
+#   - TF_CLI_CONFIG_FILE not pointing at /etc/terraformrc
+#   - /etc/terraformrc missing or not containing a filesystem_mirror block
+#   - terraform init producing "Downloaded" lines instead of mirror hits
+#   - the per-arch provider dir in the workdir being a real directory (i.e.
+#     copy) instead of a symlink into /opt/tf-plugin-cache
 set -euo pipefail
 
 IMAGE="${1:?usage: smoke-tf-cache.sh <image>}"
