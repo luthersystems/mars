@@ -44,7 +44,7 @@ clean:
 	rm -rf build
 
 build-%: LOADARG=$(if $(findstring $*,${LOCALARCH}),--load)
-build-%: Dockerfile go.mod go.sum ${GO_SOURCES} ${ANSIBLE_ROLES} ${ANSIBLE_PLUGINS} ${GRAFANA_DASHBOARDS} ssh_config requirements.txt
+build-%: Dockerfile go.mod go.sum ${GO_SOURCES} ${ANSIBLE_ROLES} ${ANSIBLE_PLUGINS} ${GRAFANA_DASHBOARDS} ssh_config requirements.txt etc/terraformrc
 	${DOCKER} buildx build \
 		--platform linux/$* \
 		--build-arg AWSCLI_VER=${AWSCLI_VERSION} \
