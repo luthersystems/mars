@@ -97,8 +97,12 @@ RUN cd /tmp \
   && unzip -d /usr/local/bin "terraform_${TF_WARMUP_VERSION}_linux_${TARGETARCH}.zip" \
   && rm "terraform_${TF_WARMUP_VERSION}_linux_${TARGETARCH}.zip" tf_SHA256SUMS
 
-# Provider versions are kept in sync with insideout-terraform-presets.
-# Bump these together with the presets repo to keep cache hits useful.
+# Provider versions are kept in sync with insideout-terraform-presets and the
+# sandbox-infrastructure-template .terraform.lock.hcl that runs inside this
+# image. Bump these together with those repos to keep mirror hits useful —
+# /etc/terraformrc below configures a filesystem_mirror for these exact
+# versions. Drift falls back to a slower direct registry download (see the
+# etc/terraformrc comments), it does not break init.
 ARG AWS_PROVIDER_VERSION=6.45.0
 ARG GOOGLE_PROVIDER_VERSION=6.10.0
 
@@ -201,11 +205,25 @@ RUN mkdir -p /opt/tfenv/versions && chmod -R a+w /opt/tfenv/versions && echo 'tr
 ENV PATH="/opt/tfenv/bin:/opt/bin:${PATH}"
 
 # Pre-warmed terraform provider cache for the providers pinned by
-# insideout-terraform-presets. Consumers get cache hits as long as their
-# .terraform.lock.hcl carries linux_amd64 / linux_arm64 h1 hashes; otherwise
-# terraform falls back to downloading from the registry as before.
+# insideout-terraform-presets / sandbox-infrastructure-template.
 COPY --from=tf-providers /opt/tf-plugin-cache /opt/tf-plugin-cache
-ENV TF_PLUGIN_CACHE_DIR=/opt/tf-plugin-cache
+
+# Tell terraform to install the baked providers via a filesystem mirror rather
+# than the default TF_PLUGIN_CACHE_DIR path. With a filesystem_mirror, init
+# *symlinks* the per-arch provider directory into <workdir>/.terraform/
+# providers/ instead of copying its contents. That keeps the per-arch provider
+# binaries (~200 MB) out of Argo's tar of /marsproject — see
+# luthersystems/mars#168. include is a per-provider list (not a wildcard) and
+# the direct{} block is permissive so any other hashicorp/* provider, or a
+# version of these providers that drifts from the bake, still resolves via
+# direct registry download.
+COPY etc/terraformrc /etc/terraformrc
+RUN chmod a+r /etc/terraformrc
+ENV TF_CLI_CONFIG_FILE=/etc/terraformrc
+# TF_PLUGIN_CACHE_DIR is intentionally NOT set here: with the filesystem_mirror
+# block in /etc/terraformrc, the cache_dir behavior is redundant and, on older
+# terraform versions, would re-introduce the copy-instead-of-symlink path for
+# providers that fall outside the mirror's include list.
 
 COPY --from=downloader /usr/local/bin/helm /opt/bin/helm
 

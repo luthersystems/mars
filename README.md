@@ -38,35 +38,41 @@ mars dev terraform -- providers --help
 
 ### Pre-warmed provider plugin cache
 
-The image sets `TF_PLUGIN_CACHE_DIR=/opt/tf-plugin-cache` and ships pre-warmed
-binaries for the providers pinned by `insideout-terraform-presets`:
+The image ships pre-warmed binaries for the providers pinned by
+`insideout-terraform-presets` / `sandbox-infrastructure-template` at
+`/opt/tf-plugin-cache`:
 
 - `hashicorp/aws`
 - `hashicorp/google`
 - `hashicorp/google-beta`
 
-`terraform init` will symlink these into `.terraform/providers/` instead of
-downloading them, which both speeds up `init` and keeps Argo workflow artifact
-tarballs small (symlinks archive as a few bytes instead of ~1 GB of provider
-binary).
+The image's `/etc/terraformrc` (selected via `TF_CLI_CONFIG_FILE`) configures a
+`filesystem_mirror` for those three providers. `terraform init` **symlinks**
+the per-arch provider binary out of `/opt/tf-plugin-cache` into
+`<workdir>/.terraform/providers/...` rather than copying it. That keeps the
+per-arch provider binaries (~200 MB) out of Argo workflow artifact tarballs of
+`/marsproject` — the receiving pod runs the same mars image and resolves the
+symlink against its own `/opt/tf-plugin-cache`.
 
-**Lockfile requirement.** Terraform validates cache hits against the `h1:`
-hashes in `.terraform.lock.hcl`. By default a lockfile only carries the hash
-for the platform `terraform init` was run on, so a Mac-generated lockfile will
-miss the Linux cache. To get cache hits in both the amd64 and arm64 mars
-images, regenerate consumer lockfiles with both Linux platforms:
+**Version drift falls back to download.** If a consumer's `.terraform.lock.hcl`
+pins a version of one of these providers that isn't in `/opt/tf-plugin-cache`,
+terraform falls through to the `direct` installation method and downloads from
+the registry — same behavior as before this image's cache existed (just
+slower than the mirror path). For maximum cache hits, bump
+`AWS_PROVIDER_VERSION` / `GOOGLE_PROVIDER_VERSION` in the Dockerfile in
+lockstep with consumer lockfile pins, then cut a new mars tag. All other
+hashicorp providers (`random`, `null`, `time`, `tls`, ...) always resolve via
+direct registry download as before.
+
+**Lockfile platform coverage.** A lockfile generated on macOS only carries
+`darwin_*` h1 hashes by default and will fail to validate the Linux cache hit.
+Regenerate consumer lockfiles with both Linux platforms so amd64 and arm64
+mars images can use the mirror:
 
 ```
 mars <env> terraform -- providers lock \
   -platform=linux_amd64 -platform=linux_arm64
 ```
-
-If the lockfile is missing the right hash, terraform falls back to downloading
-the provider from the registry — same behavior as before this cache existed.
-
-Provider versions are pinned at build time via `AWS_PROVIDER_VERSION` and
-`GOOGLE_PROVIDER_VERSION` ARGs in the Dockerfile. Bump them in lockstep with
-`insideout-terraform-presets`.
 
 # Setting up managed repositories
 
