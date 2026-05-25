@@ -99,12 +99,10 @@ RUN cd /tmp \
 
 # Provider versions are kept in sync with insideout-terraform-presets and the
 # sandbox-infrastructure-template .terraform.lock.hcl that runs inside this
-# image. Bump these together with those repos to keep cache hits useful.
-# Note: with the filesystem_mirror config in /etc/terraformrc below, terraform
-# inside this container will refuse to download these specific providers from
-# the registry, so version drift between bake and consumer lockfiles will fail
-# `terraform init` rather than silently download. That's intentional — it
-# forces a synchronous bump rather than masking a slow path.
+# image. Bump these together with those repos to keep mirror hits useful —
+# /etc/terraformrc below configures a filesystem_mirror for these exact
+# versions. Drift falls back to a slower direct registry download (see the
+# etc/terraformrc comments), it does not break init.
 ARG AWS_PROVIDER_VERSION=6.45.0
 ARG GOOGLE_PROVIDER_VERSION=6.10.0
 
@@ -212,11 +210,13 @@ COPY --from=tf-providers /opt/tf-plugin-cache /opt/tf-plugin-cache
 
 # Tell terraform to install the baked providers via a filesystem mirror rather
 # than the default TF_PLUGIN_CACHE_DIR path. With a filesystem_mirror, init
-# *symlinks* the per-arch provider binary into <workdir>/.terraform/providers/
-# instead of copying it. That keeps the per-arch provider binaries (~200 MB)
-# out of Argo's tar of /marsproject — see luthersystems/mars#168.
-# include/exclude is intentionally a per-provider list (not a wildcard) so
-# any other hashicorp/* provider still resolves via direct registry download.
+# *symlinks* the per-arch provider directory into <workdir>/.terraform/
+# providers/ instead of copying its contents. That keeps the per-arch provider
+# binaries (~200 MB) out of Argo's tar of /marsproject — see
+# luthersystems/mars#168. include is a per-provider list (not a wildcard) and
+# the direct{} block is permissive so any other hashicorp/* provider, or a
+# version of these providers that drifts from the bake, still resolves via
+# direct registry download.
 COPY etc/terraformrc /etc/terraformrc
 RUN chmod a+r /etc/terraformrc
 ENV TF_CLI_CONFIG_FILE=/etc/terraformrc
