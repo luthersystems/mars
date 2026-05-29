@@ -42,6 +42,26 @@ runs:
       with:
         platforms: linux/${{ inputs.arch }}
 
+    # The mars image bakes terraform + providers + awscli + ansible
+    # collections into one layer; on the standard hosted ubuntu runner
+    # (~14 GB free) that intermittently hits "no space left on device"
+    # mid-bake (e.g. luthersystems/mars#175). Reclaim the preinstalled
+    # toolchains the build never uses (~20-30 GB on hosted runners).
+    # Guarded with `|| true` so it's a harmless no-op on the self-hosted
+    # arm runner, where these paths don't exist.
+    - name: Free up disk space
+      shell: bash
+      run: |
+        echo "disk before:"; df -h / | tail -1
+        sudo rm -rf \
+          /usr/local/lib/android \
+          /usr/share/dotnet \
+          /opt/ghc \
+          /usr/local/.ghcup \
+          /usr/local/share/boost \
+          /opt/hostedtoolcache/CodeQL 2>/dev/null || true
+        echo "disk after:"; df -h / | tail -1
+
     - name: Build docker image for ${{ inputs.arch }}
       shell: bash
       run: |
