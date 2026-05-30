@@ -50,6 +50,12 @@ func Main(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer
 		ImportSessionID: cfg.importSessionID,
 		ImportedAt:      time.Now().UTC(),
 		TerraformBinary: cfg.terraformBinary,
+		// Stream the engine's live phase progress + terraform subprocess
+		// output to the job's stdout so Oracle's follow=1 stream (and the
+		// InsideOut import wizard's log console) shows continuous progress
+		// for the whole run, not just the final plan. See
+		// luthersystems/mars#178.
+		Stdout: stdout,
 	})
 	if err != nil {
 		fmt.Fprintf(stderr, "insideout-reverse-import: %v\n", err)
