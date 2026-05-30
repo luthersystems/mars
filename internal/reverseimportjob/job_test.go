@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -99,6 +100,13 @@ func TestMainDecodesRequestAndPassesOptions(t *testing.T) {
 	}
 	if gotOpts.TerraformBinary != "/opt/tfenv/bin/terraform" {
 		t.Fatalf("TerraformBinary = %q", gotOpts.TerraformBinary)
+	}
+	// The engine progress sink must be the job's own stdout writer, so the
+	// live phase progress and silent-phase heartbeat (presets #702) reach
+	// Oracle's follow=1 stream. A nil sink would discard them and the job
+	// log would look frozen again.
+	if gotOpts.Stdout != io.Writer(&stdout) {
+		t.Fatalf("Options.Stdout = %v, want the job stdout writer", gotOpts.Stdout)
 	}
 	if !strings.Contains(stdout.String(), "reverse import succeeded: 1 imported, 0 add, 0 change, 0 destroy") {
 		t.Fatalf("stdout = %q", stdout.String())
