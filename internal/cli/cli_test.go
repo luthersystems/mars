@@ -33,7 +33,7 @@ func TestTerraformPlanBuildsWorkspaceAndVarFiles(t *testing.T) {
 			t.Fatalf("exit code = %d, stderr:\n%s", code, stderr.String())
 		}
 		want := [][]string{
-			{"tfenv", "install"},
+			{"flock", "/opt/tfenv/versions/.install.lock", "tfenv", "install"},
 			{"terraform", "workspace", "show"},
 			{"terraform", "workspace", "select", "dev"},
 			{"terraform", "plan", "-var-file=vars/common/common.tfvars", "-var-file=vars/dev/dev.tfvars", "-destroy", "-out=plan.out", "-target", "module.a", "-target", "module.b", "-refresh-only"},

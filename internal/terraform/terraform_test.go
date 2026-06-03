@@ -51,11 +51,11 @@ func TestPlanApplyCreatesPlanPromptsAndAppliesAcceptedPlan(t *testing.T) {
 			t.Fatalf("plan path = %q, want generated .tf-plans/tf-plan-dev-123-*.out", planPath)
 		}
 		wantPrefix := [][]string{
-			{"tfenv", "install"},
+			{"flock", tfenvInstallLockPath, "tfenv", "install"},
 			{"terraform", "workspace", "show"},
 			{"terraform", "workspace", "select", "dev"},
 			{"terraform", "plan", "-var-file=vars/common/common.tfvars", "-var-file=vars/dev/dev.tfvars", planCmd[4]},
-			{"tfenv", "install"},
+			{"flock", tfenvInstallLockPath, "tfenv", "install"},
 			{"terraform", "workspace", "show"},
 			{"terraform", "workspace", "select", "dev"},
 			{"terraform", "apply", planPath},
@@ -85,11 +85,52 @@ func TestWorkspacePromptRejectsDefaultNo(t *testing.T) {
 			t.Fatalf("error = %v, want exit code 1", err)
 		}
 		want := [][]string{
-			{"tfenv", "install"},
+			{"flock", tfenvInstallLockPath, "tfenv", "install"},
 			{"terraform", "workspace", "show"},
 		}
 		if got := fake.Commands(); !reflect.DeepEqual(got, want) {
 			t.Fatalf("commands = %#v, want prompt to stop before apply\nrecords:\n%s", got, fake.Output())
+		}
+	})
+}
+
+func TestTfenvInitUsesFlockWhenTerraformVersionExists(t *testing.T) {
+	withProject(t, func() {
+		writeFile(t, ".terraform-version", "1.7.5\n")
+		fake := &runner.Fake{}
+		s := &service{
+			runner: fake,
+			stderr: &strings.Builder{},
+		}
+
+		if err := s.tfenvInit(context.Background()); err != nil {
+			t.Fatalf("tfenvInit failed: %v", err)
+		}
+
+		want := [][]string{{"flock", tfenvInstallLockPath, "tfenv", "install"}}
+		if got := fake.Commands(); !reflect.DeepEqual(got, want) {
+			t.Fatalf("commands = %#v, want locked tfenv install\nrecords:\n%s", got, fake.Output())
+		}
+	})
+}
+
+func TestTfenvInitSkipsInstallWhenTerraformVersionMissing(t *testing.T) {
+	withProject(t, func() {
+		fake := &runner.Fake{}
+		stderr := &strings.Builder{}
+		s := &service{
+			runner: fake,
+			stderr: stderr,
+		}
+
+		if err := s.tfenvInit(context.Background()); err != nil {
+			t.Fatalf("tfenvInit failed: %v", err)
+		}
+		if got := fake.Commands(); len(got) != 0 {
+			t.Fatalf("commands = %#v, want no tfenv install\nrecords:\n%s", got, fake.Output())
+		}
+		if !strings.Contains(stderr.String(), ".terraform-version not found") {
+			t.Fatalf("stderr = %q, want missing .terraform-version warning", stderr.String())
 		}
 	})
 }

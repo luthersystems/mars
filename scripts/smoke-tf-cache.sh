@@ -40,6 +40,20 @@ expect=(
 min_bytes=50000000  # 50 MB
 
 fail=0
+if command -v flock >/dev/null 2>&1; then
+  echo "OK:   flock available for tfenv install serialization"
+else
+  echo "FAIL: flock is missing"
+  fail=1
+fi
+
+if [ -x /opt/tfenv/bin/terraform.tfenv-original ] && grep -q "terraform.tfenv-original" /opt/tfenv/bin/terraform; then
+  echo "OK:   tfenv terraform shim is flock-guarded"
+else
+  echo "FAIL: tfenv terraform shim wrapper is missing or incomplete"
+  fail=1
+fi
+
 # TF_PLUGIN_CACHE_DIR is intentionally unset under the filesystem_mirror
 # regime (see luthersystems/mars#168). Confirm the env var is NOT set so we
 # do not regress to the copy-instead-of-symlink path.

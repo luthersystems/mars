@@ -16,6 +16,8 @@ import (
 	"github.com/luthersystems/mars/internal/runner"
 )
 
+const tfenvInstallLockPath = "/opt/tfenv/versions/.install.lock"
+
 type InitCmd struct {
 	BackendConfig []string `name:"backend-config" help:"A backend config file or key=value assignment."`
 	Upgrade       bool     `name:"upgrade" help:"Upgrade modules and plugins."`
@@ -381,7 +383,11 @@ func (s *service) tfenvInit(ctx context.Context) error {
 	} else if err != nil {
 		return err
 	}
-	return s.sequence(ctx, runner.Cmd("tfenv", "install"))
+	return s.sequence(ctx, tfenvInstallCmd())
+}
+
+func tfenvInstallCmd() runner.Command {
+	return runner.Cmd("flock", tfenvInstallLockPath, "tfenv", "install")
 }
 
 func (s *service) checkEnv() error {
