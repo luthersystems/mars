@@ -147,6 +147,7 @@ RUN apt update -y && apt install --no-install-recommends -yq \
   perl \
   python3 \
   rsync \
+  util-linux \
   unzip \
   gnupg
 
@@ -202,6 +203,9 @@ COPY grafana-dashboards /opt/grafana-dashboards
 
 COPY --from=downloader /tmp/tfenv /opt/tfenv
 RUN mkdir -p /opt/tfenv/versions && chmod -R a+w /opt/tfenv/versions && echo 'trust-tfenv: yes' > /opt/tfenv/use-gpgv
+RUN mv /opt/tfenv/bin/terraform /opt/tfenv/bin/terraform.tfenv-original
+COPY scripts/tfenv-terraform-lock-wrapper.sh /opt/tfenv/bin/terraform
+RUN chmod a+x /opt/tfenv/bin/terraform /opt/tfenv/bin/terraform.tfenv-original
 ENV PATH="/opt/tfenv/bin:/opt/bin:${PATH}"
 
 # Pre-install the terraform versions commonly requested by consumers via
@@ -211,11 +215,10 @@ ENV PATH="/opt/tfenv/bin:/opt/bin:${PATH}"
 # version doesn't change.
 #
 # Default tracks TF_WARMUP_VERSION (1.9.8) — the same terraform used to warm
-# the plugin cache in the tf-providers stage, and the version consumers
-# (e.g. sandbox-infrastructure-template) should pin to in their
-# `.terraform-version` to get a cache hit. Consumers pinned to a different
-# version still work — tfenv falls back to downloading at runtime — this is
-# a fast-path, not a hard pin.
+# the plugin cache in the tf-providers stage. Consumers pinned to a different
+# version still work: tfenv falls back to downloading at runtime under the
+# Mars wrapper's flock-guarded install path. This is a fast-path, not a hard
+# pin.
 ARG TFENV_PREINSTALL_VERSIONS="1.9.8"
 RUN for v in ${TFENV_PREINSTALL_VERSIONS}; do \
     /opt/tfenv/bin/tfenv install "$v" \
