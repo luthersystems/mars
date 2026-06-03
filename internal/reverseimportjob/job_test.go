@@ -298,6 +298,66 @@ func TestMainWritesFailureResultWhenSDKReturnsFailedStatus(t *testing.T) {
 	}
 }
 
+func TestMainRejectsInsideOutImportedMarkerBeforePlan(t *testing.T) {
+	dir := t.TempDir()
+	requestPath := filepath.Join(dir, "request.json")
+	outputDir := filepath.Join(dir, "out")
+	req := reversejob.Request{
+		Version: reversejob.Version,
+		Resources: []reversejob.ResourceSpec{{
+			Identity: imported.ResourceIdentity{
+				Cloud:    "aws",
+				Type:     "aws_s3_bucket",
+				Address:  "aws_s3_bucket.example",
+				Region:   "us-west-2",
+				ImportID: "example-bucket",
+				Tags: map[string]string{
+					"InsideOutImported":      "true",
+					"InsideOutImportProject": "4b982735-ff89-4295-a3fa-8a75a554ffc9",
+				},
+			},
+		}},
+	}
+	body, err := json.Marshal(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(requestPath, body, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Main(context.Background(), []string{
+		"--request", requestPath,
+		"--out-dir", outputDir,
+		"--import-project-id", "io-current",
+	}, &stdout, &stderr, nil)
+
+	if code == 0 {
+		t.Fatalf("exit code = %d, want non-zero", code)
+	}
+	if !strings.Contains(stderr.String(), "selected resource cannot be imported") {
+		t.Fatalf("stderr = %q, want unimportable selection rejection", stderr.String())
+	}
+	if _, err := os.Stat(filepath.Join(outputDir, "imported.tf")); !os.IsNotExist(err) {
+		t.Fatalf("imported.tf should not be written before rejection, stat err=%v", err)
+	}
+	raw, err := os.ReadFile(filepath.Join(outputDir, resultFile))
+	if err != nil {
+		t.Fatalf("read result: %v", err)
+	}
+	var result reversejob.Result
+	if err := json.Unmarshal(raw, &result); err != nil {
+		t.Fatalf("decode result: %v\n%s", err, raw)
+	}
+	if result.Status != reversejob.StatusFailed {
+		t.Fatalf("status = %q, want %q", result.Status, reversejob.StatusFailed)
+	}
+	if len(result.ValidationIssues) != 1 || result.ValidationIssues[0].Code != imported.ReasonInsideOutImported {
+		t.Fatalf("validation issues = %#v, want insideout_imported", result.ValidationIssues)
+	}
+}
+
 func TestMainPreservesExistingFailureResult(t *testing.T) {
 	dir := t.TempDir()
 	requestPath := filepath.Join(dir, "request.json")
