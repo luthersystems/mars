@@ -9,9 +9,12 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
+	"github.com/luthersystems/insideout-terraform-presets/cmd/insideout-import/reversedisco"
+	"github.com/luthersystems/insideout-terraform-presets/pkg/composer/imported"
 	"github.com/luthersystems/insideout-terraform-presets/pkg/reverseimport"
 	reversejob "github.com/luthersystems/insideout-terraform-presets/pkg/reverseimport/job"
 )
@@ -22,6 +25,95 @@ const (
 )
 
 type Runner func(context.Context, reversejob.Request, reverseimport.Options) (reversejob.Result, error)
+
+// discovererFactory builds the closure-capable cloud discoverer the
+// reverse-import engine needs for selection-closure expansion and dep-chase.
+// It mirrors reversedisco.New; the package var lets tests inject a fake so
+// they can assert the engine Options are wired with a non-nil discoverer
+// without standing up real cloud clients.
+//
+// luthersystems/mars#195: before this seam existed, Main never set
+// Options.Discoverer or Options.ClosureDiscoverer, so the engine emitted the
+// selection_closure_unavailable diagnostic and silently skipped closure +
+// dep-chase.
+type discovererFactory func(ctx context.Context, cloud, region, gcpProjectID, awsEndpointURL string) (reverseimport.Discoverer, func(), error)
+
+// newDiscoverer is the production discoverer constructor. Tests override it to
+// inject a fake; production code never reassigns it.
+var newDiscoverer discovererFactory = reversedisco.New
+
+// lazyDiscoverer defers constructing the real cloud discoverer until the engine
+// first needs it (selection-closure expansion or dep-chase), which happens
+// after the engine's cheap selection validation. It implements both
+// reverseimport.Discoverer and reverseimport.ClosureDiscoverer so the engine
+// treats it as closure-capable, yet building it costs nothing until a method is
+// called — so a credential/API gap surfaces only on the closure path and does
+// not mask the engine's structured validation result for an invalid selection
+// (luthersystems/mars#195).
+//
+// Not safe for concurrent first-use; the engine drives closure then dep-chase
+// sequentially within a single run, so this is sufficient.
+type lazyDiscoverer struct {
+	newDiscoverer  discovererFactory
+	cloud          string
+	region         string
+	gcpProjectID   string
+	awsEndpointURL string
+
+	inner   reverseimport.Discoverer
+	cleanup func()
+	err     error
+	built   bool
+}
+
+// resolve builds the underlying discoverer once, caching the result (and any
+// construction error) for subsequent calls.
+func (l *lazyDiscoverer) resolve(ctx context.Context) (reverseimport.Discoverer, error) {
+	if !l.built {
+		l.built = true
+		l.inner, l.cleanup, l.err = l.newDiscoverer(ctx, l.cloud, l.region, l.gcpProjectID, l.awsEndpointURL)
+		if l.err != nil {
+			l.err = fmt.Errorf("build closure discoverer: %w", l.err)
+		}
+	}
+	return l.inner, l.err
+}
+
+func (l *lazyDiscoverer) DiscoverByID(ctx context.Context, tfType, id, region, accountID string) (imported.ImportedResource, error) {
+	d, err := l.resolve(ctx)
+	if err != nil {
+		return imported.ImportedResource{}, err
+	}
+	return d.DiscoverByID(ctx, tfType, id, region, accountID)
+}
+
+func (l *lazyDiscoverer) DiscoverClosure(ctx context.Context, req reverseimport.ClosureRequest) ([]imported.ImportedResource, error) {
+	d, err := l.resolve(ctx)
+	if err != nil {
+		return nil, err
+	}
+	closer, ok := d.(reverseimport.ClosureDiscoverer)
+	if !ok {
+		// reversedisco.New always returns a closure-capable adapter; this guards
+		// a future factory that does not.
+		return nil, fmt.Errorf("discoverer %T does not support closure discovery", d)
+	}
+	return closer.DiscoverClosure(ctx, req)
+}
+
+// Close releases the underlying discoverer's resources if it was ever built.
+func (l *lazyDiscoverer) Close() {
+	if l.cleanup != nil {
+		l.cleanup()
+	}
+}
+
+// Compile-time proof that lazyDiscoverer satisfies both engine surfaces, so the
+// engine never falls back to the selection_closure_unavailable diagnostic.
+var (
+	_ reverseimport.Discoverer        = (*lazyDiscoverer)(nil)
+	_ reverseimport.ClosureDiscoverer = (*lazyDiscoverer)(nil)
+)
 
 func Main(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer, run Runner) int {
 	if run == nil {
@@ -39,17 +131,65 @@ func Main(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer
 		return 1
 	}
 
+	// Hand the engine a closure-capable cloud discoverer. Without it the engine
+	// emits the selection_closure_unavailable diagnostic and skips both
+	// dependency-closure expansion (the "auto-included N dependencies" behavior)
+	// and dep-chase. The discoverer reuses the same cloud/region/endpoint config
+	// the run already targets, so it talks to the same account/project the
+	// import reads back. See luthersystems/mars#195.
+	//
+	// The cloud/region/GCP-project flags are optional overrides; when empty we
+	// derive them from the request the same way the engine does
+	// (reverseimport.Run derives cloud from resources[0].Identity), so the
+	// discoverer is built for the right provider even when the dispatcher omits
+	// the flags.
+	//
+	// Construction is lazy: the real cloud client (e.g. the GCP Cloud Asset gRPC
+	// client, which needs ADC + an enabled API) is built on first use by the
+	// engine's closure/dep-chase phases, which run AFTER the engine's cheap
+	// selection validation (e.g. the InsideOutImported rejection). Eagerly
+	// dialing the cloud here would let a credential/API gap mask the structured
+	// validation result the engine produces for an invalid selection.
+	cloud := firstNonEmpty(cfg.cloud, requestCloud(req))
+	region := firstNonEmpty(cfg.region, requestRegion(req))
+	gcpProjectID := firstNonEmpty(cfg.gcpProjectID, requestGCPProjectID(req))
+	discoverer := &lazyDiscoverer{
+		newDiscoverer:  newDiscoverer,
+		cloud:          cloud,
+		region:         region,
+		gcpProjectID:   gcpProjectID,
+		awsEndpointURL: cfg.awsEndpointURL,
+	}
+	defer discoverer.Close()
+
 	result, err := run(ctx, req, reverseimport.Options{
-		OutputDir:       cfg.outputDir,
-		Workdir:         cfg.workDir,
-		Cloud:           cfg.cloud,
-		Region:          cfg.region,
-		GCPProjectID:    cfg.gcpProjectID,
+		OutputDir: cfg.outputDir,
+		Workdir:   cfg.workDir,
+		// Pass the request-derived cloud context (not just the raw flags) so the
+		// engine and the discoverer built above agree on provider/region. The
+		// engine derives these the same way when they are empty, so this is
+		// purely making the two paths consistent.
+		Cloud:        cloud,
+		Region:       region,
+		GCPProjectID: gcpProjectID,
+		// DiscoverRegions scopes selection-closure discovery. For a
+		// multi-region selection (no --region override) it carries every
+		// distinct region across the selected resources so closure discovery
+		// scans them all; the engine falls back to Region only when this is
+		// empty. Mirrors the CLI reverse path.
+		DiscoverRegions: requestRegions(req, cfg.region),
 		AWSEndpointURL:  cfg.awsEndpointURL,
 		ImportProjectID: cfg.importProjectID,
 		ImportSessionID: cfg.importSessionID,
 		ImportedAt:      time.Now().UTC(),
 		TerraformBinary: cfg.terraformBinary,
+		// The concrete discoverer implements both reverseimport.Discoverer
+		// (dep-chase, DiscoverByID) and reverseimport.ClosureDiscoverer
+		// (selection-closure expansion, DiscoverClosure); the engine resolves
+		// the closure surface from Options.Discoverer when it is
+		// closure-capable (pkg/reverseimport/closure.go), so setting Discoverer
+		// wires both.
+		Discoverer: discoverer,
 		// Stream the engine's live phase progress + terraform subprocess
 		// output to the job's stdout so Oracle's follow=1 stream (and the
 		// InsideOut import wizard's log console) shows continuous progress
@@ -144,6 +284,76 @@ func readRequest(path string) (reversejob.Request, error) {
 		return reversejob.Request{}, fmt.Errorf("decode --request: %w", err)
 	}
 	return req, nil
+}
+
+// firstNonEmpty returns the first non-blank string in order, or "".
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// requestCloud / requestRegion / requestGCPProjectID derive the provider
+// context from the selected resources when the corresponding CLI flag is
+// omitted, mirroring how reverseimport.Run derives cloud from the resource
+// identities. The first resource carrying a non-empty value wins.
+func requestCloud(req reversejob.Request) string {
+	for _, r := range req.Resources {
+		if c := strings.TrimSpace(r.Identity.Cloud); c != "" {
+			return c
+		}
+	}
+	return ""
+}
+
+func requestRegion(req reversejob.Request) string {
+	for _, r := range req.Resources {
+		if region := strings.TrimSpace(r.Identity.Region); region != "" {
+			return region
+		}
+	}
+	return ""
+}
+
+func requestGCPProjectID(req reversejob.Request) string {
+	for _, r := range req.Resources {
+		if p := strings.TrimSpace(r.Identity.ProjectID); p != "" {
+			return p
+		}
+	}
+	return ""
+}
+
+// requestRegions returns the set of regions closure discovery should scan,
+// mirroring the CLI's reverse path (cmd/insideout-import/reverse.go). When the
+// caller passes a single --region override it wins (the run targets one
+// region); otherwise we collect every distinct region across the selected
+// resources so closure discovery for a multi-region selection scans them all
+// rather than just the first. The engine falls back to opts.Region only when
+// this slice is empty, so a multi-region request without an override would
+// otherwise silently discover children in just one region.
+func requestRegions(req reversejob.Request, override string) []string {
+	if o := strings.TrimSpace(override); o != "" {
+		return []string{o}
+	}
+	seen := map[string]struct{}{}
+	var out []string
+	for _, r := range req.Resources {
+		region := strings.TrimSpace(r.Identity.Region)
+		if region == "" {
+			continue
+		}
+		if _, ok := seen[region]; ok {
+			continue
+		}
+		seen[region] = struct{}{}
+		out = append(out, region)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func ensureFailureResult(outputDir string, result reversejob.Result, runErr error) error {
