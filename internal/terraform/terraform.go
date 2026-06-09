@@ -3,6 +3,7 @@ package terraform
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	tfjson "github.com/hashicorp/terraform-json"
 	"github.com/luthersystems/mars/internal/app"
 	"github.com/luthersystems/mars/internal/runner"
 )
@@ -44,6 +46,14 @@ type ApplyCmd struct {
 	Target      string `name:"target"`
 	Approve     bool   `name:"approve"`
 	RefreshOnly bool   `name:"refresh-only"`
+	// ForbidResourceChanges makes apply fail if the plan would create,
+	// update, or delete (incl. replace) ANY managed resource. State-only
+	// operations — `no-op`, `read`, and `forget` (a `removed{ destroy =
+	// false }` block) — are allowed. Generic guard: lets a caller safely
+	// apply state-only changes (e.g. forgetting adopted resources before a
+	// destroy) and fail loudly if the same apply would also touch real
+	// infrastructure.
+	ForbidResourceChanges bool `name:"forbid-resource-changes" help:"Fail if the plan would create, update, or delete any resource; allow state-only ops (forget/no-op/read)."`
 }
 
 type DestroyCmd struct {
@@ -197,6 +207,9 @@ func (c *ApplyCmd) Run(ctx context.Context, rt *app.Runtime) error {
 	if err := s.beforeWorkspaceCommand(ctx); err != nil {
 		return err
 	}
+	if c.ForbidResourceChanges {
+		return c.runGuardedApply(ctx, s)
+	}
 	var args []string
 	if c.Plan != "" {
 		args = []string{c.Plan}
@@ -213,6 +226,110 @@ func (c *ApplyCmd) Run(ctx context.Context, rt *app.Runtime) error {
 		args = append(args, "-auto-approve")
 	}
 	return s.sequence(ctx, s.workspaceSelect(), runner.Cmd("terraform", append([]string{"apply"}, args...)...))
+}
+
+// runGuardedApply implements --forbid-resource-changes: produce (or reuse) a
+// saved plan, inspect it via `terraform show -json`, fail if it would
+// create/update/delete any resource, then apply the vetted plan. Applying the
+// saved plan guarantees we execute exactly what we inspected (no TOCTOU) and
+// needs no -auto-approve (a saved plan is already approved).
+func (c *ApplyCmd) runGuardedApply(ctx context.Context, s *service) error {
+	planPath := c.Plan
+	if planPath == "" {
+		tmp, err := s.tempPlanPath()
+		if err != nil {
+			return err
+		}
+		planPath = tmp
+		planArgs := append([]string{"terraform", "plan", "-out=" + planPath}, s.varFileArgs()...)
+		if c.Target != "" {
+			planArgs = append(planArgs, "-target", c.Target)
+		}
+		if c.RefreshOnly {
+			planArgs = append(planArgs, "-refresh-only")
+		}
+		if err := s.sequence(ctx, s.workspaceSelect(), runner.Cmd(planArgs[0], planArgs[1:]...)); err != nil {
+			return err
+		}
+	}
+
+	raw, err := s.runner.Capture(ctx, runner.Cmd("terraform", "show", "-json", planPath))
+	if err != nil {
+		return fmt.Errorf("inspect plan for resource changes: %w", err)
+	}
+	if err := assertNoResourceChanges(s.stdout, raw); err != nil {
+		return err
+	}
+	// Apply the exact plan we vetted. A saved plan applies without prompting.
+	return s.sequence(ctx, s.workspaceSelect(), runner.Cmd("terraform", "apply", planPath))
+}
+
+// tempPlanPath creates a unique plan-output path under .tf-plans, mirroring
+// PlanCmd's --apply temp-file convention.
+func (s *service) tempPlanPath() (string, error) {
+	if err := os.MkdirAll(".tf-plans", 0o755); err != nil {
+		return "", err
+	}
+	clock := s.clock
+	if clock == nil {
+		clock = realClock{}
+	}
+	file, err := os.CreateTemp(".tf-plans", fmt.Sprintf("tf-plan-guard-%s-%d-*.out", s.env, clock.Unix()))
+	if err != nil {
+		return "", err
+	}
+	name := file.Name()
+	if err := file.Close(); err != nil {
+		return "", err
+	}
+	return name, nil
+}
+
+// assertNoResourceChanges parses a `terraform show -json` plan and returns an
+// error if any resource change would create, update, or delete (incl.
+// replace) real infrastructure. State-only actions — no-op, read, and forget
+// (a `removed{ destroy = false }`) — are permitted.
+func assertNoResourceChanges(out io.Writer, planJSON []byte) error {
+	var plan tfjson.Plan
+	if err := json.Unmarshal(planJSON, &plan); err != nil {
+		return fmt.Errorf("parse plan json: %w", err)
+	}
+	var offending []string
+	forgets := 0
+	for _, rc := range plan.ResourceChanges {
+		if rc == nil || rc.Change == nil {
+			continue
+		}
+		mutates := false
+		for _, a := range rc.Change.Actions {
+			switch a {
+			case tfjson.ActionCreate, tfjson.ActionUpdate, tfjson.ActionDelete:
+				mutates = true
+			case tfjson.ActionForget:
+				forgets++
+			}
+		}
+		if mutates {
+			offending = append(offending, fmt.Sprintf("%s (%s)", rc.Address, actionsLabel(rc.Change.Actions)))
+		}
+	}
+	if len(offending) > 0 {
+		sort.Strings(offending)
+		return fmt.Errorf("--forbid-resource-changes: refusing apply — plan would change %d resource(s): %s",
+			len(offending), strings.Join(offending, ", "))
+	}
+	if out != nil {
+		fmt.Fprintf(out, "forbid-resource-changes: OK — no create/update/delete; %d state-only forget(s)\n", forgets)
+	}
+	return nil
+}
+
+func actionsLabel(actions tfjson.Actions) string {
+	parts := make([]string, 0, len(actions))
+	for _, a := range actions {
+		parts = append(parts, string(a))
+	}
+	return strings.Join(parts, "+")
 }
 
 func (c *DestroyCmd) Run(ctx context.Context, rt *app.Runtime) error {
