@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/luthersystems/insideout-terraform-presets/cmd/insideout-import/reversedisco"
 	"github.com/luthersystems/insideout-terraform-presets/pkg/composer/imported"
 	"github.com/luthersystems/insideout-terraform-presets/pkg/reverseimport"
 	reversejob "github.com/luthersystems/insideout-terraform-presets/pkg/reverseimport/job"
@@ -41,10 +42,123 @@ func (fakeClosureDiscoverer) DiscoverClosure(context.Context, reverseimport.Clos
 func useFakeDiscoverer(t *testing.T) {
 	t.Helper()
 	orig := newDiscoverer
-	newDiscoverer = func(context.Context, string, string, string, string) (reverseimport.Discoverer, func(), error) {
+	newDiscoverer = func(context.Context, string, string, string, string, reversedisco.AWSAssumeRole) (reverseimport.Discoverer, func(), error) {
 		return fakeClosureDiscoverer{}, func() {}, nil
 	}
 	t.Cleanup(func() { newDiscoverer = orig })
+}
+
+// useRecordingDiscoverer swaps in a fake factory that records the
+// reversedisco.AWSAssumeRole it was constructed with. *got is only populated
+// once the lazyDiscoverer is first used; the run closure used with it (see
+// discovererProbeRunner) must trigger that first use so the factory fires.
+func useRecordingDiscoverer(t *testing.T, got *reversedisco.AWSAssumeRole) {
+	t.Helper()
+	orig := newDiscoverer
+	newDiscoverer = func(_ context.Context, _, _, _, _ string, awsAuth reversedisco.AWSAssumeRole) (reverseimport.Discoverer, func(), error) {
+		*got = awsAuth
+		return fakeClosureDiscoverer{}, func() {}, nil
+	}
+	t.Cleanup(func() { newDiscoverer = orig })
+}
+
+// discovererProbeRunner is a stand-in for reverseimport.Run that forces the
+// lazyDiscoverer Main wired to build (triggering the recording factory) by
+// calling one discoverer method, then returns success — without standing up
+// real terraform/genconfig/driftfix. Using run=nil here would drive the real
+// engine past the closure phase into terraform init/plan, making the unit
+// suite depend on a local/CI terraform install (codex P2 on #198).
+func discovererProbeRunner(t *testing.T) Runner {
+	t.Helper()
+	return func(ctx context.Context, _ reversejob.Request, opts reverseimport.Options) (reversejob.Result, error) {
+		if opts.Discoverer == nil {
+			t.Fatal("Options.Discoverer = nil: Main did not wire the closure discoverer")
+		}
+		// First use of the lazy discoverer builds it via the factory, which is
+		// exactly what records the auth. The fake factory's DiscoverByID no-ops.
+		if _, err := opts.Discoverer.DiscoverByID(ctx, "aws_kms_key", "id", "us-west-2", ""); err != nil {
+			t.Fatalf("DiscoverByID: %v", err)
+		}
+		return reversejob.Result{Version: reversejob.Version, Status: reversejob.StatusSucceeded}, nil
+	}
+}
+
+// TestMainResolvesAndPassesAssumeRoleAuth is the regression guard for
+// presets#770 in the deployed (Mars job pod) context. The pod runs as the
+// platform Argo role; terraform reaches the customer account via generated
+// assume_role { role_arn } blocks. The closure/dep-chase discoverer hits the
+// AWS SDK directly, so Main MUST resolve the same customer assume-role identity
+// (TF_VAR_bootstrap_role / TF_VAR_aws_external_id) and thread it to the
+// discoverer factory — otherwise the SDK calls run as the wrong principal and
+// the customer account returns AccessDenied (presets#739 defect 2).
+//
+// We set the TF_VAR_* env and drive Main with a probe runner that forces the
+// lazy discoverer to build (the recording factory then captures the auth),
+// without invoking real terraform. We assert the factory received exactly that
+// RoleARN/ExternalID. If the wiring drops the auth (e.g. passes an empty
+// struct), got stays zero and this fails — proving the wiring is load-bearing.
+func TestMainResolvesAndPassesAssumeRoleAuth(t *testing.T) {
+	const (
+		wantRoleARN    = "arn:aws:iam::123456789012:role/insideout-bootstrap"
+		wantExternalID = "io-external-id-xyz"
+	)
+	t.Setenv("TF_VAR_bootstrap_role", wantRoleARN)
+	t.Setenv("TF_VAR_aws_external_id", wantExternalID)
+
+	var got reversedisco.AWSAssumeRole
+	useRecordingDiscoverer(t, &got)
+
+	dir := t.TempDir()
+	requestPath := filepath.Join(dir, "request.json")
+	writeRequest(t, requestPath)
+
+	var stdout, stderr bytes.Buffer
+	Main(context.Background(), []string{
+		"--request", requestPath,
+		"--out-dir", filepath.Join(dir, "out"),
+		"--cloud", "aws",
+		"--region", "us-west-2",
+	}, &stdout, &stderr, discovererProbeRunner(t))
+
+	if got.RoleARN != wantRoleARN {
+		t.Fatalf("factory RoleARN = %q, want %q (auth not threaded to the discoverer — "+
+			"closure SDK calls would run as the wrong principal, presets#770/#739)\nstderr:\n%s",
+			got.RoleARN, wantRoleARN, stderr.String())
+	}
+	if got.ExternalID != wantExternalID {
+		t.Fatalf("factory ExternalID = %q, want %q", got.ExternalID, wantExternalID)
+	}
+}
+
+// TestMainPassesEmptyAssumeRoleAuthWhenUnset asserts the ambient-credentials
+// path: with no TF_VAR_* env and no output-dir artifacts, Main resolves an empty
+// reversedisco.AWSAssumeRole and passes it through, so the discoverer uses
+// ambient creds unchanged (the correct local-CLI behavior).
+func TestMainPassesEmptyAssumeRoleAuthWhenUnset(t *testing.T) {
+	// Defensively clear in case the ambient test env carries these.
+	t.Setenv("TF_VAR_bootstrap_role", "")
+	t.Setenv("TF_VAR_aws_external_id", "")
+
+	var got reversedisco.AWSAssumeRole
+	useRecordingDiscoverer(t, &got)
+
+	dir := t.TempDir()
+	requestPath := filepath.Join(dir, "request.json")
+	writeRequest(t, requestPath)
+
+	var stdout, stderr bytes.Buffer
+	Main(context.Background(), []string{
+		"--request", requestPath,
+		// out-dir has no tf/auto-vars or outputs/cloud-provision.json, so the
+		// file-based resolution legs find nothing and auth stays empty.
+		"--out-dir", filepath.Join(dir, "out"),
+		"--cloud", "aws",
+		"--region", "us-west-2",
+	}, &stdout, &stderr, discovererProbeRunner(t))
+
+	if got.RoleARN != "" || got.ExternalID != "" {
+		t.Fatalf("factory auth = %+v, want empty (ambient credentials)\nstderr:\n%s", got, stderr.String())
+	}
 }
 
 func TestMainRequiresRequest(t *testing.T) {
@@ -258,7 +372,7 @@ func TestMainValidatesSelectionBeforeBuildingCloudClient(t *testing.T) {
 	// and records whether it was ever called.
 	built := false
 	orig := newDiscoverer
-	newDiscoverer = func(context.Context, string, string, string, string) (reverseimport.Discoverer, func(), error) {
+	newDiscoverer = func(context.Context, string, string, string, string, reversedisco.AWSAssumeRole) (reverseimport.Discoverer, func(), error) {
 		built = true
 		return nil, func() {}, errors.New("cloud asset client unavailable: ADC missing")
 	}
