@@ -30,13 +30,21 @@ type Runner func(context.Context, reversejob.Request, reverseimport.Options) (re
 // reverse-import engine needs for selection-closure expansion and dep-chase.
 // It mirrors reversedisco.New; the package var lets tests inject a fake so
 // they can assert the engine Options are wired with a non-nil discoverer
-// without standing up real cloud clients.
+// (and the customer assume-role auth) without standing up real cloud clients.
 //
 // luthersystems/mars#195: before this seam existed, Main never set
 // Options.Discoverer or Options.ClosureDiscoverer, so the engine emitted the
 // selection_closure_unavailable diagnostic and silently skipped closure +
 // dep-chase.
-type discovererFactory func(ctx context.Context, cloud, region, gcpProjectID, awsEndpointURL string) (reverseimport.Discoverer, func(), error)
+//
+// The trailing awsAuth carries the customer-account assume-role identity
+// (presets#770). The Mars job pod runs as the platform Argo role; terraform
+// reaches the customer account via generated assume_role { role_arn } blocks.
+// The discoverer's direct AWS SDK calls must assume the SAME role, otherwise
+// they run as the wrong principal and the customer account returns AccessDenied
+// (presets#739 defect 2). Empty RoleARN means "use ambient credentials" — the
+// correct behavior for the local CLI run directly with customer creds.
+type discovererFactory func(ctx context.Context, cloud, region, gcpProjectID, awsEndpointURL string, awsAuth reversedisco.AWSAssumeRole) (reverseimport.Discoverer, func(), error)
 
 // newDiscoverer is the production discoverer constructor. Tests override it to
 // inject a fake; production code never reassigns it.
@@ -59,6 +67,12 @@ type lazyDiscoverer struct {
 	region         string
 	gcpProjectID   string
 	awsEndpointURL string
+	// awsAuth is the customer-account assume-role identity resolved eagerly at
+	// Main (cheap env/file reads, no network) and threaded through to the
+	// factory on first use so the discoverer's direct AWS SDK calls run as the
+	// same principal terraform's generated provider blocks reach the customer
+	// account with (presets#770 / #739). Empty RoleARN ⇒ ambient credentials.
+	awsAuth reversedisco.AWSAssumeRole
 
 	inner   reverseimport.Discoverer
 	cleanup func()
@@ -71,7 +85,7 @@ type lazyDiscoverer struct {
 func (l *lazyDiscoverer) resolve(ctx context.Context) (reverseimport.Discoverer, error) {
 	if !l.built {
 		l.built = true
-		l.inner, l.cleanup, l.err = l.newDiscoverer(ctx, l.cloud, l.region, l.gcpProjectID, l.awsEndpointURL)
+		l.inner, l.cleanup, l.err = l.newDiscoverer(ctx, l.cloud, l.region, l.gcpProjectID, l.awsEndpointURL, l.awsAuth)
 		if l.err != nil {
 			l.err = fmt.Errorf("build closure discoverer: %w", l.err)
 		}
@@ -153,12 +167,40 @@ func Main(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer
 	cloud := firstNonEmpty(cfg.cloud, requestCloud(req))
 	region := firstNonEmpty(cfg.region, requestRegion(req))
 	gcpProjectID := firstNonEmpty(cfg.gcpProjectID, requestGCPProjectID(req))
+
+	// Resolve the customer-account assume-role identity the discoverer's direct
+	// AWS SDK calls must adopt. The Mars job pod runs as the platform Argo role;
+	// terraform reaches the customer account via the generated provider's
+	// assume_role { role_arn } blocks. The closure/dep-chase discoverer hits the
+	// AWS SDK directly, so without the same assume-role hop it runs as the wrong
+	// principal and the customer account returns AccessDenied — presets#739
+	// defect 2, which the presets#770 graceful degradation now tolerates (a
+	// diagnostic instead of killing the run), but lossily (no closure expansion).
+	//
+	// We resolve EAGERLY here because it is a cheap, network-free read of the
+	// same sources the engine itself uses (ResolveAWSProviderAuth: the
+	// TF_VAR_bootstrap_role / TF_VAR_aws_external_id env — present in the job pod
+	// env — then outputs/cloud-provision.json, then tf/auto-vars). The cloud is
+	// still DIALED lazily, so this does not undo the validate-before-dial
+	// ordering above. An empty result (no RoleARN) is not an error: it means
+	// "ambient credentials", the correct local-CLI behavior.
+	//
+	// Resolve ERRORS are unusual (corrupt JSON in the output-dir artifacts). We
+	// log to stderr and proceed with empty (ambient) auth rather than aborting:
+	// closure is best-effort, ambient creds in the pod just yield the same
+	// AccessDenied the engine now degrades on, AND the engine's own
+	// ResolveAWSProviderAuth call inside Run will surface the identical error
+	// fatally if it actually matters for the provider blocks. Aborting here would
+	// duplicate that fatal path and lose the engine's structured result.
+	awsAuth := resolveAWSAssumeRole(cfg.outputDir, stderr)
+
 	discoverer := &lazyDiscoverer{
 		newDiscoverer:  newDiscoverer,
 		cloud:          cloud,
 		region:         region,
 		gcpProjectID:   gcpProjectID,
 		awsEndpointURL: cfg.awsEndpointURL,
+		awsAuth:        awsAuth,
 	}
 	defer discoverer.Close()
 
@@ -284,6 +326,25 @@ func readRequest(path string) (reversejob.Request, error) {
 		return reversejob.Request{}, fmt.Errorf("decode --request: %w", err)
 	}
 	return req, nil
+}
+
+// resolveAWSAssumeRole resolves the customer-account assume-role identity from
+// the same sources the reverse-import engine uses (env first, then the
+// generated output-dir artifacts) and converts it to the
+// reversedisco.AWSAssumeRole the discoverer factory takes. A resolve error is
+// logged and downgraded to empty (ambient) auth — see the rationale at the call
+// site in Main.
+func resolveAWSAssumeRole(outputDir string, stderr io.Writer) reversedisco.AWSAssumeRole {
+	auth, err := reverseimport.ResolveAWSProviderAuth(outputDir)
+	if err != nil {
+		fmt.Fprintf(stderr, "insideout-reverse-import: resolve AWS provider auth: %v; "+
+			"proceeding with ambient credentials for closure discovery\n", err)
+		return reversedisco.AWSAssumeRole{}
+	}
+	return reversedisco.AWSAssumeRole{
+		RoleARN:    auth.RoleARN,
+		ExternalID: auth.ExternalID,
+	}
 }
 
 // firstNonEmpty returns the first non-blank string in order, or "".
