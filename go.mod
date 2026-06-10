@@ -14,7 +14,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.42.1
 	github.com/hashicorp/terraform-json v0.27.2
 	github.com/joho/godotenv v1.5.1
-	github.com/luthersystems/insideout-terraform-presets v0.11.1-0.20260609234539-6f2675350c14
+	github.com/luthersystems/insideout-terraform-presets v0.11.1-0.20260610172028-6022ce37fb27
 	github.com/sosedoff/ansible-vault-go v0.2.0
 	gopkg.in/yaml.v3 v3.0.1
 )
