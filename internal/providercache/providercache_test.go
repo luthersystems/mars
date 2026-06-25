@@ -45,6 +45,9 @@ var (
 	googleArgRe = regexp.MustCompile(`(?m)^ARG GOOGLE_PROVIDER_VERSIONS="([^"]*)"`)
 	// e.g. `#   AWS    5.48.0  → sandbox tf/{cloud,vm,k8s}-provision`
 	srcOfTruthRe = regexp.MustCompile(`(?m)^#\s+(AWS|Google)\s+(\d+\.\d+\.\d+)\b`)
+	// expect-array rows in scripts/smoke-tf-cache.sh, e.g.
+	//   "hashicorp/google-beta 7.16.0 terraform-provider-google-beta_v7.16.0_x5"
+	smokeExpectRe = regexp.MustCompile(`"hashicorp/([a-z-]+)\s+(\d+\.\d+\.\d+)\s`)
 )
 
 func argVersions(t *testing.T, body string, re *regexp.Regexp, name string) []string {
@@ -112,5 +115,69 @@ func TestBakedVersionsMatchSourcesOfTruthComment(t *testing.T) {
 		t.Errorf("Google bake vs 'Sources of truth' comment drift:\n  baked   = %v\n  comment = %v\n"+
 			"Update both together (and re-check against sandbox-infrastructure-template tf/*/.terraform.lock.hcl).",
 			google, commentGoogle)
+	}
+}
+
+// smokeScriptPath resolves scripts/smoke-tf-cache.sh relative to this test file
+// (internal/providercache/ -> ../../scripts/smoke-tf-cache.sh).
+func smokeScriptPath(t *testing.T) string {
+	t.Helper()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	return filepath.Join(wd, "..", "..", "scripts", "smoke-tf-cache.sh")
+}
+
+// TestSmokeExpectMatchesBakedVersions fails if the provider versions the CI
+// smoke test (scripts/smoke-tf-cache.sh) asserts are present in the image cache
+// drift from the versions the Dockerfile actually bakes. That smoke test runs
+// only after a full (~7 min) multi-arch image build, so without this same-repo
+// guard a version bump that updates the Dockerfile ARGs but not the smoke
+// script's expect array fails late and expensively — exactly what happened when
+// the bake moved to AWS 6.46.0 / Google 7.16.0 but the script still expected
+// google 6.10.0. google-beta tracks the google version.
+func TestSmokeExpectMatchesBakedVersions(t *testing.T) {
+	dockerfile, err := os.ReadFile(dockerfilePath(t))
+	if err != nil {
+		t.Fatalf("read Dockerfile: %v", err)
+	}
+	bakedAWS := sortedUnique(argVersions(t, string(dockerfile), awsArgRe, "AWS_PROVIDER_VERSIONS"))
+	bakedGoogle := sortedUnique(argVersions(t, string(dockerfile), googleArgRe, "GOOGLE_PROVIDER_VERSIONS"))
+
+	smoke, err := os.ReadFile(smokeScriptPath(t))
+	if err != nil {
+		t.Fatalf("read smoke script: %v", err)
+	}
+
+	var smokeAWS, smokeGoogle, smokeGoogleBeta []string
+	for _, m := range smokeExpectRe.FindAllStringSubmatch(string(smoke), -1) {
+		switch m[1] {
+		case "aws":
+			smokeAWS = append(smokeAWS, m[2])
+		case "google":
+			smokeGoogle = append(smokeGoogle, m[2])
+		case "google-beta":
+			smokeGoogleBeta = append(smokeGoogleBeta, m[2])
+		}
+	}
+	smokeAWS = sortedUnique(smokeAWS)
+	smokeGoogle = sortedUnique(smokeGoogle)
+	smokeGoogleBeta = sortedUnique(smokeGoogleBeta)
+
+	if len(smokeAWS) == 0 || len(smokeGoogle) == 0 || len(smokeGoogleBeta) == 0 {
+		t.Fatalf("could not parse smoke-tf-cache.sh expect array "+
+			"(aws=%v google=%v google-beta=%v); if its format changed, update smokeExpectRe",
+			smokeAWS, smokeGoogle, smokeGoogleBeta)
+	}
+
+	if strings.Join(smokeAWS, " ") != strings.Join(bakedAWS, " ") {
+		t.Errorf("smoke-tf-cache.sh AWS versions drift from the Dockerfile bake:\n  smoke = %v\n  baked = %v", smokeAWS, bakedAWS)
+	}
+	if strings.Join(smokeGoogle, " ") != strings.Join(bakedGoogle, " ") {
+		t.Errorf("smoke-tf-cache.sh google versions drift from the Dockerfile bake:\n  smoke = %v\n  baked = %v", smokeGoogle, bakedGoogle)
+	}
+	if strings.Join(smokeGoogleBeta, " ") != strings.Join(bakedGoogle, " ") {
+		t.Errorf("smoke-tf-cache.sh google-beta versions drift from the Dockerfile google bake:\n  smoke = %v\n  baked = %v", smokeGoogleBeta, bakedGoogle)
 	}
 }

@@ -26,12 +26,13 @@ shopt -s nullglob
 arch=$(uname -m | sed -e s/x86_64/amd64/ -e s/aarch64/arm64/)
 
 # (provider-source, version, expected filename in the per-arch dir)
-# Keep these in sync with the AWS_PROVIDER_VERSION / GOOGLE_PROVIDER_VERSION
-# build args in the Dockerfile.
+# Keep these in sync with the AWS_PROVIDER_VERSIONS / GOOGLE_PROVIDER_VERSIONS
+# build args in the Dockerfile. Enforced at `go test` time by
+# TestSmokeExpectMatchesBakedVersions in internal/providercache/.
 expect=(
   "hashicorp/aws         6.46.0 terraform-provider-aws_v6.46.0_x5"
-  "hashicorp/google      6.10.0 terraform-provider-google_v6.10.0_x5"
-  "hashicorp/google-beta 6.10.0 terraform-provider-google-beta_v6.10.0_x5"
+  "hashicorp/google      7.16.0 terraform-provider-google_v7.16.0_x5"
+  "hashicorp/google-beta 7.16.0 terraform-provider-google-beta_v7.16.0_x5"
 )
 
 # Sanity floor on the provider binary size. AWS is ~750 MB, google ~100 MB.
