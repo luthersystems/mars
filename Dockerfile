@@ -98,26 +98,57 @@ RUN cd /tmp \
   && rm "terraform_${TF_WARMUP_VERSION}_linux_${TARGETARCH}.zip" tf_SHA256SUMS
 
 # Provider versions are kept in sync with insideout-terraform-presets and the
-# sandbox-infrastructure-template .terraform.lock.hcl that runs inside this
-# image. Bump these together with those repos to keep mirror hits useful —
-# /etc/terraformrc below configures a filesystem_mirror for these exact
-# versions. Drift falls back to a slower direct registry download (see the
-# etc/terraformrc comments), it does not break init.
-ARG AWS_PROVIDER_VERSION=6.46.0
-ARG GOOGLE_PROVIDER_VERSION=6.10.0
+# sandbox-infrastructure-template .terraform.lock.hcl files that run inside this
+# image. /etc/terraformrc below configures a filesystem_mirror, but it only
+# takes the fast symlink path when the baked version EXACTLY matches the
+# consumer's lockfile pin; any unbaked version falls back to a slow direct
+# registry download (see the etc/terraformrc comments) — which does not break
+# init, but on a slow/throttled egress path *can* time out the ~300MB AWS
+# provider download ("could not query provider registry ... Client.Timeout
+# exceeded while awaiting headers") and break the deploy.
+#
+# That is exactly what happened (reliable#2141 e2e): a single baked AWS 6.46.0
+# matched NONE of the sandbox stage locks (5.48.0 / 5.100.0 / 6.15.0), so every
+# stage fell back to the registry and cloud-provision's hashicorp/aws fetch
+# timed out 100% of the time. Bake the FULL set of versions the sandbox stages
+# actually pin so the mirror hits and init never touches the registry for these.
+#
+# Sources of truth — keep aligned with these lockfile pins (a CI drift guard,
+# test/provider_versions_test.go, fails if they diverge):
+#   AWS    5.48.0  → sandbox tf/{cloud,vm,k8s}-provision
+#   AWS    5.100.0 → sandbox tf/{account-provision,account-setup}
+#   AWS    6.15.0  → sandbox tf/custom-stack-provision (presets-composed stack)
+#   Google 5.45.2  → sandbox tf/cloud-provision
+#   Google 7.16.0  → sandbox tf/custom-stack-provision
+ARG AWS_PROVIDER_VERSIONS="5.48.0 5.100.0 6.15.0"
+ARG GOOGLE_PROVIDER_VERSIONS="5.45.2 7.16.0"
 
 RUN mkdir -p ${TF_PLUGIN_CACHE_DIR} /tmp/warmup
-WORKDIR /tmp/warmup
-RUN printf '%s\n' \
-  'terraform {' \
-  '  required_providers {' \
-  "    aws         = { source = \"hashicorp/aws\",         version = \"= ${AWS_PROVIDER_VERSION}\" }" \
-  "    google      = { source = \"hashicorp/google\",      version = \"= ${GOOGLE_PROVIDER_VERSION}\" }" \
-  "    google-beta = { source = \"hashicorp/google-beta\", version = \"= ${GOOGLE_PROVIDER_VERSION}\" }" \
-  '  }' \
-  '}' \
-  > main.tf
-RUN terraform init -input=false -backend=false
+# One `terraform init` per (provider, version) into the shared plugin cache;
+# the cache accumulates every version so the runtime filesystem_mirror resolves
+# every stage's pin via symlink instead of a registry download.
+RUN set -eux; \
+  for v in ${AWS_PROVIDER_VERSIONS}; do \
+    d="/tmp/warmup/aws-$v"; mkdir -p "$d"; \
+    printf '%s\n' \
+      'terraform {' \
+      '  required_providers {' \
+      "    aws = { source = \"hashicorp/aws\", version = \"= $v\" }" \
+      '  }' \
+      '}' > "$d/main.tf"; \
+    ( cd "$d" && terraform init -input=false -backend=false ); \
+  done; \
+  for v in ${GOOGLE_PROVIDER_VERSIONS}; do \
+    d="/tmp/warmup/google-$v"; mkdir -p "$d"; \
+    printf '%s\n' \
+      'terraform {' \
+      '  required_providers {' \
+      "    google      = { source = \"hashicorp/google\",      version = \"= $v\" }" \
+      "    google-beta = { source = \"hashicorp/google-beta\", version = \"= $v\" }" \
+      '  }' \
+      '}' > "$d/main.tf"; \
+    ( cd "$d" && terraform init -input=false -backend=false ); \
+  done
 # Ensure runtime users can read the cache even when Docker copies as root.
 RUN chmod -R a+rX ${TF_PLUGIN_CACHE_DIR}
 
@@ -245,6 +276,14 @@ ENV TF_CLI_CONFIG_FILE=/etc/terraformrc
 # block in /etc/terraformrc, the cache_dir behavior is redundant and, on older
 # terraform versions, would re-introduce the copy-instead-of-symlink path for
 # providers that fall outside the mirror's include list.
+#
+# Belt-and-suspenders for any provider/version that still falls through to the
+# registry `direct{}` path (drift, or a hashicorp/* provider outside the mirror
+# include list): raise the registry client timeout from its 10s default so a
+# slow-but-progressing query over a cold customer-account NAT doesn't cancel
+# "while awaiting headers" and break init (reliable#2141). The mirror is the
+# real fix; this just stops a transient slow path from being fatal.
+ENV TF_REGISTRY_CLIENT_TIMEOUT=30
 
 COPY --from=downloader /usr/local/bin/helm /opt/bin/helm
 
