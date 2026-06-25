@@ -110,18 +110,19 @@ RUN cd /tmp \
 # That is exactly what happened (reliable#2141 e2e): a single baked AWS 6.46.0
 # matched NONE of the sandbox stage locks (5.48.0 / 5.100.0 / 6.15.0), so every
 # stage fell back to the registry and cloud-provision's hashicorp/aws fetch
-# timed out 100% of the time. Bake the FULL set of versions the sandbox stages
-# actually pin so the mirror hits and init never touches the registry for these.
+# timed out 100% of the time.
+#
+# sandbox-infrastructure-template#149 then converged every stage onto a single
+# modern AWS (6.46.0) and Google (7.16.0), so the mirror only needs one version
+# of each. Bake exactly those; any future stage bump must update this block and
+# re-check against the sandbox locks.
 #
 # Sources of truth — keep aligned with these lockfile pins (a CI drift guard,
-# test/provider_versions_test.go, fails if they diverge):
-#   AWS    5.48.0  → sandbox tf/{cloud,vm,k8s}-provision
-#   AWS    5.100.0 → sandbox tf/{account-provision,account-setup}
-#   AWS    6.15.0  → sandbox tf/custom-stack-provision (presets-composed stack)
-#   Google 5.45.2  → sandbox tf/cloud-provision
-#   Google 7.16.0  → sandbox tf/custom-stack-provision
-ARG AWS_PROVIDER_VERSIONS="5.48.0 5.100.0 6.15.0"
-ARG GOOGLE_PROVIDER_VERSIONS="5.45.2 7.16.0"
+# internal/providercache/providercache_test.go, fails if they diverge):
+#   AWS    6.46.0  → sandbox tf/{account-provision,account-setup,cloud-provision,vm-provision,k8s-provision,custom-stack-provision}
+#   Google 7.16.0  → sandbox tf/{cloud-provision,custom-stack-provision}
+ARG AWS_PROVIDER_VERSIONS="6.46.0"
+ARG GOOGLE_PROVIDER_VERSIONS="7.16.0"
 
 RUN mkdir -p ${TF_PLUGIN_CACHE_DIR} /tmp/warmup
 # One `terraform init` per (provider, version) into the shared plugin cache;
