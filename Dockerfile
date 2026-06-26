@@ -113,16 +113,18 @@ RUN cd /tmp \
 # timed out 100% of the time.
 #
 # sandbox-infrastructure-template#149 then converged every stage onto a single
-# modern AWS (6.46.0) and Google (7.16.0), so the mirror only needs one version
-# of each. Bake exactly those; any future stage bump must update this block and
-# re-check against the sandbox locks.
+# modern AWS (6.52.0) and Google (6.10.0), so the mirror only needs one version
+# of each. Those exact pins are bounded by the community modules the composed
+# stacks pull: terraform-aws-modules/eks 21.x floors aws >= 6.52, and
+# terraform-google-modules cap google < 7. Bake exactly those; any future stage
+# bump must update this block and re-check against the sandbox locks.
 #
 # Sources of truth — keep aligned with these lockfile pins (a CI drift guard,
 # internal/providercache/providercache_test.go, fails if they diverge):
-#   AWS    6.46.0  → sandbox tf/{account-provision,account-setup,cloud-provision,vm-provision,k8s-provision,custom-stack-provision}
-#   Google 7.16.0  → sandbox tf/{cloud-provision,custom-stack-provision}
-ARG AWS_PROVIDER_VERSIONS="6.46.0"
-ARG GOOGLE_PROVIDER_VERSIONS="7.16.0"
+#   AWS    6.52.0  → sandbox tf/{account-provision,account-setup,cloud-provision,vm-provision,k8s-provision,custom-stack-provision}
+#   Google 6.10.0  → sandbox tf/{cloud-provision,custom-stack-provision}
+ARG AWS_PROVIDER_VERSIONS="6.52.0"
+ARG GOOGLE_PROVIDER_VERSIONS="6.10.0"
 
 RUN mkdir -p ${TF_PLUGIN_CACHE_DIR} /tmp/warmup
 # One `terraform init` per (provider, version) into the shared plugin cache;

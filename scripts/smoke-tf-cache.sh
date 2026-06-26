@@ -30,9 +30,9 @@ arch=$(uname -m | sed -e s/x86_64/amd64/ -e s/aarch64/arm64/)
 # build args in the Dockerfile. Enforced at `go test` time by
 # TestSmokeExpectMatchesBakedVersions in internal/providercache/.
 expect=(
-  "hashicorp/aws         6.46.0 terraform-provider-aws_v6.46.0_x5"
-  "hashicorp/google      7.16.0 terraform-provider-google_v7.16.0_x5"
-  "hashicorp/google-beta 7.16.0 terraform-provider-google-beta_v7.16.0_x5"
+  "hashicorp/aws         6.52.0 terraform-provider-aws_v6.52.0_x5"
+  "hashicorp/google      6.10.0 terraform-provider-google_v6.10.0_x5"
+  "hashicorp/google-beta 6.10.0 terraform-provider-google-beta_v6.10.0_x5"
 )
 
 # Sanity floor on the provider binary size. AWS is ~750 MB, google ~100 MB.
@@ -162,7 +162,7 @@ else
   cat >main.tf <<EOF
 terraform {
   required_providers {
-    aws = { source = "hashicorp/aws", version = "= 6.46.0" }
+    aws = { source = "hashicorp/aws", version = "= 6.52.0" }
   }
 }
 EOF
@@ -181,7 +181,7 @@ EOF
     # terraform symlinks the per-arch *directory* (not each provider binary
     # individually) from the filesystem_mirror into the workdir. See
     # internal/providercache/package_install.go installFromLocalDir.
-    arch_dir="${workdir}/.terraform/providers/registry.terraform.io/hashicorp/aws/6.46.0/linux_${arch}"
+    arch_dir="${workdir}/.terraform/providers/registry.terraform.io/hashicorp/aws/6.52.0/linux_${arch}"
     if [ ! -e "${arch_dir}" ]; then
       echo "FAIL: expected provider dir not present at ${arch_dir}"
       find "${workdir}/.terraform/providers" -maxdepth 6 2>&1 || true
@@ -196,7 +196,7 @@ EOF
         /opt/tf-plugin-cache/*)
           echo "OK:   terraform init symlinked aws/linux_${arch} into workdir (-> ${target})"
           # Sanity-check the symlink resolves to the actual provider binary.
-          if [ ! -x "${arch_dir}/terraform-provider-aws_v6.46.0_x5" ]; then
+          if [ ! -x "${arch_dir}/terraform-provider-aws_v6.52.0_x5" ]; then
             echo "FAIL: symlink resolves but expected binary missing or not executable"
             fail=1
           fi ;;
