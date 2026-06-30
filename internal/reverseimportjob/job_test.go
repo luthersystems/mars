@@ -698,6 +698,61 @@ func TestMainWritesFailureResultWhenSDKReturnsFailedStatus(t *testing.T) {
 	}
 }
 
+// TestMainTreatsPartialStatusAsSuccess pins the whole-account-import fix: the
+// partial-tolerant engine (presets#732/#734) returns StatusPartial when it
+// imported every plannable resource and isolated the genuinely-unimportable
+// ones. mars must treat that as a USABLE success (exit 0) — not fail the whole
+// job — so a whole-account import with a couple of unimportable orphans still
+// lands the rest. Regression target: account 141812438321 (361 imported, 2
+// orphan-skipped → partial) used to exit 1 → JOB_STATUS_FAILURE.
+func TestMainTreatsPartialStatusAsSuccess(t *testing.T) {
+	useFakeDiscoverer(t)
+	dir := t.TempDir()
+	requestPath := filepath.Join(dir, "request.json")
+	outputDir := filepath.Join(dir, "out")
+	writeRequest(t, requestPath)
+
+	const partialResult = `{"version":1,"status":"partial","resources":[{"status":"skipped"}]}`
+	run := func(_ context.Context, _ reversejob.Request, opts reverseimport.Options) (reversejob.Result, error) {
+		if err := os.MkdirAll(opts.OutputDir, 0o755); err != nil {
+			return reversejob.Result{}, err
+		}
+		// The engine writes result.json itself on the non-failure path; emulate
+		// that so we can assert mars does NOT clobber it via ensureFailureResult.
+		if err := os.WriteFile(filepath.Join(opts.OutputDir, resultFile), []byte(partialResult), 0o644); err != nil {
+			return reversejob.Result{}, err
+		}
+		return reversejob.Result{
+			Version:     reversejob.Version,
+			Status:      reversejob.StatusPartial,
+			PlanSummary: reversejob.PlanSummary{ImportCount: 361},
+		}, nil
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Main(context.Background(), []string{"--request", requestPath, "--out-dir", outputDir}, &stdout, &stderr, run)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 (partial is a usable success); stderr:\n%s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "partial") || !strings.Contains(stdout.String(), "361 imported") {
+		t.Fatalf("stdout = %q, want a partial success summary mentioning the import count", stdout.String())
+	}
+	// The partial result.json the engine wrote must survive — mars must not
+	// rewrite it as a failure result.
+	raw, err := os.ReadFile(filepath.Join(outputDir, resultFile))
+	if err != nil {
+		t.Fatalf("read result: %v", err)
+	}
+	var result reversejob.Result
+	if err := json.Unmarshal(raw, &result); err != nil {
+		t.Fatalf("decode result: %v\n%s", err, raw)
+	}
+	if result.Status != reversejob.StatusPartial {
+		t.Fatalf("status = %q, want %q (mars must not overwrite a partial result)", result.Status, reversejob.StatusPartial)
+	}
+}
+
 func TestMainRejectsInsideOutImportedMarkerBeforePlan(t *testing.T) {
 	useFakeDiscoverer(t)
 	dir := t.TempDir()
