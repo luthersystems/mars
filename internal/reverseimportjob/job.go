@@ -246,13 +246,46 @@ func Main(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer
 		}
 		return 1
 	}
-	if result.Status != "" && result.Status != reversejob.StatusSucceeded {
+	// A PARTIAL result is the partial-tolerant engine's designed-for outcome on a
+	// whole-account import (presets#732/#734): reverseimport.Run imported every
+	// plannable resource and ISOLATED the genuinely-unimportable ones — terraform
+	// `generate-config-out` produced no resource body, an unsupported type, or a
+	// first-import contract drop — into result.Resources with per-resource
+	// diagnostics. That is a USABLE import: the stack state carries every imported
+	// resource and the caller (ui-core → reliable → the import wizard) surfaces the
+	// skipped/failed set from result.json. Failing the whole job on it defeats the
+	// entire partial-tolerant engine.
+	//
+	// Before this, mars exited 1 on ANY non-succeeded status, so a whole-account
+	// import FAILED whenever a single resource could not be generated. Triggering
+	// case: account 141812438321 (staging session sess_v2_fvZSf5IfhLCb) imported
+	// 361 resources cleanly but 2 orphans (an IAM role + a KMS key whose
+	// generate-config-out produced no body) were skipped → status "partial" → mars
+	// returned 1 → JOB_STATUS_FAILURE, even though the import was fine. See
+	// reliable tf_start.go ReverseImportMarsVersion history (#835 publish-fix sweep).
+	//
+	// Only a hard failure (StatusFailed: zero imported / systemic) or an unknown
+	// non-success status remains fatal. An empty status keeps the prior lenient
+	// (success) behavior.
+	switch result.Status {
+	case "", reversejob.StatusSucceeded, reversejob.StatusPartial:
+		// usable result — fall through to the success summary below
+	default:
 		err := fmt.Errorf("reverse import ended with status %q", result.Status)
 		fmt.Fprintf(stderr, "insideout-reverse-import: %v\n", err)
 		if writeErr := ensureFailureResult(cfg.outputDir, result, err); writeErr != nil {
 			fmt.Fprintf(stderr, "insideout-reverse-import: write failure result: %v\n", writeErr)
 		}
 		return 1
+	}
+
+	if result.Status == reversejob.StatusPartial {
+		fmt.Fprintf(stdout, "reverse import completed (partial): %d imported, %d add, %d change, %d destroy — some resources were skipped/failed and isolated; see result.json for per-resource diagnostics\n",
+			result.PlanSummary.ImportCount,
+			result.PlanSummary.AddCount,
+			result.PlanSummary.ChangeCount,
+			result.PlanSummary.DestroyCount)
+		return 0
 	}
 
 	fmt.Fprintf(stdout, "reverse import succeeded: %d imported, %d add, %d change, %d destroy\n",
