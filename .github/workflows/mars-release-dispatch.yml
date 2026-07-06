@@ -1,0 +1,106 @@
+name: Release (dispatch)
+
+# On-demand mars release, cut by the official Claude App identity so Claude can
+# ship a release without a human hand-picking a tag. Reusing the App token is
+# deliberate: the default GITHUB_TOKEN cannot push a tag that triggers
+# mars-release.yml (GitHub suppresses workflow->workflow events), whereas the
+# App token (minted by claude-code-action via OIDC) does -- so this needs no
+# PAT. The agent:
+#   * computes the next version with scripts/next-release-version.sh (the ONLY
+#     sanctioned bump; MAJOR is never automated and stays human-cut),
+#   * writes release notes from the changes since the previous release tag,
+#   * cuts the tag + release with `gh release create`.
+# mars-release.yml (on: push tags) then builds + pushes the multi-arch images.
+#
+# bump: patch | minor. mars's historical cadence is minor (v0.126.0 ->
+# v0.127.0 -> ...), so that is the default; patch is available for a hotfix
+# rebuild. MAJOR implies a contract break and stays human-cut (GitHub release UI).
+#
+# Model auth: the Claude subscription token
+# (op://Reliable-Dev/CLAUDE_CODE_OAUTH_TOKEN -> repo secret CLAUDE_CODE_OAUTH_TOKEN),
+# same identity buildenv's release-patch.yml / scout-autofix.yml use.
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Which component to bump (major stays human-cut)"
+        type: choice
+        options:
+          - minor
+          - patch
+        default: minor
+      dry_run:
+        description: "Print the computed version + notes but do NOT cut the release"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write # `gh release create` (creates the tag + release)
+  id-token: write # lets claude-code-action mint the official Claude App token, so the tag push triggers mars-release.yml
+
+concurrency:
+  group: mars-release-dispatch
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Cut next release
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0 # all tags + history, so next-release-version.sh and the notes see prior releases
+      - name: Cut the release via Claude
+        uses: anthropics/claude-code-action@v1 # TODO: pin to a SHA (repo convention); the dependabot actions group will track it
+        env:
+          BUMP: ${{ inputs.bump }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        with:
+          # Official-app auth (claude-code-action mints the app token via OIDC,
+          # using `id-token: write` above). Do NOT add a `github_token:` here -- a
+          # default GITHUB_TOKEN does not trigger mars-release.yml, which this
+          # release depends on.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Cut the next mars release, with generated release notes. Do exactly
+            this and nothing else -- no source changes, no PRs, no hand-picked tags.
+
+            1. Version: run `scripts/next-release-version.sh "$BUMP"` (BUMP is the
+               env var, one of patch|minor). It prints the next tag (e.g.
+               v0.128.0) and is the ONLY sanctioned way to choose the version --
+               never invent or edit a tag. If it exits non-zero (the latest tag
+               is not a clean vMAJOR.MINOR.PATCH), STOP and do NOT release;
+               report why.
+            2. Notes: summarize what changed since the previous release. Read the
+               last tag (`git tag --list 'v[0-9]*' --sort=-v:refname | head -n1`),
+               then `git log <lasttag>..HEAD --oneline` and the merged PRs
+               (`gh pr list --state merged --base main --limit 50`). Write concise
+               plain-Markdown bullets focused on the mars image / CLI / dependency
+               changes; omit noise.
+            3. Ship: if the env var DRY_RUN is "true", PRINT the computed version
+               and the notes, then STOP -- create nothing. Otherwise run
+               `gh release create "<version>" --title "<version>" --notes "<notes>"`.
+               The tag push triggers mars-release.yml, which builds + pushes the
+               multi-arch images.
+
+            MAJOR stays human -- never bump it. Never push to a branch, never
+            open a PR, never edit source. If anything is ambiguous or the version
+            script refuses, STOP and explain rather than guessing.
+          claude_args: |
+            --allowedTools Bash,Read,Grep,Glob
+            --max-turns 30
+            --model claude-opus-4-8
+      # Capture the agent's full stream-json conversation for troubleshooting.
+      # claude-code-action hides the transcript from the job log and writes it to
+      # $RUNNER_TEMP/claude-execution-output.json (otherwise wiped on runner
+      # reclaim). always() so a failed/timed-out run is captured too. mars is a
+      # private repo, so this artifact is already access-controlled.
+      - name: Capture agent trace (conversation log)
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-dispatch-trace-${{ github.run_id }}
+          path: ${{ runner.temp }}/claude-execution-output.json
+          retention-days: 14
+          if-no-files-found: warn
