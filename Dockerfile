@@ -167,6 +167,7 @@ RUN mkdir -p /out && \
   CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w -X github.com/luthersystems/mars/internal/cli.Version=${MARS_VERSION}" -o /out/mars ./cmd/mars && \
   CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" -o /out/mars-entrypoint ./cmd/mars-entrypoint && \
   CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" -o /out/insideout-reverse-import ./cmd/insideout-reverse-import && \
+  CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" -o /out/insideout-preflight ./cmd/insideout-preflight && \
   CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" -o /out/vault-aws-secretsmanager ./cmd/vault-aws-secretsmanager && \
   CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -trimpath -ldflags="-s -w" -o /out/vault-az-keyvault ./cmd/vault-az-keyvault
 
@@ -208,6 +209,7 @@ COPY --from=downloader /tmp/tfmigrate /opt/bin/tfmigrate
 COPY --from=mars-cli /out/mars /opt/bin/mars
 COPY --from=mars-cli /out/mars-entrypoint /opt/bin/mars-entrypoint
 COPY --from=mars-cli /out/insideout-reverse-import /opt/bin/insideout-reverse-import
+COPY --from=mars-cli /out/insideout-preflight /opt/bin/insideout-preflight
 COPY --from=mars-cli /out/vault-aws-secretsmanager /opt/bin/vault-aws-secretsmanager
 COPY --from=mars-cli /out/vault-az-keyvault /opt/bin/vault-az-keyvault
 COPY --from=downloader /tmp/awscliv2.zip /tmp/awscliv2.zip
@@ -221,6 +223,7 @@ RUN chmod a+x /opt/bin/mars /opt/bin/mars-entrypoint /opt/bin/vault-aws-secretsm
   ln -sf /opt/bin/vault-aws-secretsmanager /opt/mars/vault-aws-secretsmanager && \
   ln -sf /opt/bin/vault-az-keyvault /opt/mars/vault-az-keyvault
 RUN chmod a+x /opt/bin/insideout-reverse-import && ln -sf /opt/bin/insideout-reverse-import /usr/local/bin/insideout-reverse-import
+RUN chmod a+x /opt/bin/insideout-preflight && ln -sf /opt/bin/insideout-preflight /usr/local/bin/insideout-preflight
 
 COPY ssh_config /etc/ssh/ssh_config
 # Grab bitbucket.org keys and place in known_hosts
