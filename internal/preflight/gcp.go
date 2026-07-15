@@ -26,16 +26,26 @@ type gcpChecker func(ctx context.Context, projectID string, perms []string) (gra
 // newGCPChecker builds the production checker from a service-account key. It is a
 // package var so tests can substitute an httptest-backed or synthetic checker.
 //
-// A credential-construction failure (valid JSON, type=service_account, but
-// unusable/garbage key material) is a definitive bad credential, wrapped in
-// *gcpBadCredentialError so runGCP fails closed. A client-construction failure
-// is treated as infra (fail-open).
+// A structural construction failure — JSON that clears classifyGCPCredential's
+// lenient {type,client_email} parse yet fails CredentialsFromJSONWithType's full
+// decode (e.g. a wrong-typed field) — is a definitive bad credential, wrapped in
+// *gcpBadCredentialError so runGCP fails closed. Note this does NOT include
+// garbage key MATERIAL: CredentialsFromJSONWithType builds a lazy JWT token
+// source and never parses the private_key PEM, so an unloadable key does not
+// error here — it surfaces on the first token fetch inside the checker call and
+// is classified by classifyGCPAPIError (token-endpoint rejection → fail-closed;
+// a locally-unparseable PEM → fail-open). That is a deliberate, safe divergence
+// from the shell's gcloud-activate fail-closed: such a key is already rejected
+// upstream (Oracle authenticates it at credential-validate; setupGCPCredentials
+// re-checks .type), and even if one reached here terraform would fail at plan
+// before creating anything. A client-construction failure is infra (fail-open).
 var newGCPChecker = defaultGCPChecker
 
 func defaultGCPChecker(ctx context.Context, saJSON []byte) (gcpChecker, error) {
 	// CredentialsFromJSONWithType is the non-deprecated form: it asserts the
-	// JSON is a service-account key and applies the cloud-platform scope. A bad
-	// key surfaces here as a construction error → definitive bad credential.
+	// JSON is a service-account key and applies the cloud-platform scope. Only a
+	// structural decode failure errors here (→ definitive bad credential);
+	// garbage key material is deferred to the first token fetch (see above).
 	creds, err := google.CredentialsFromJSONWithType(ctx, saJSON, google.ServiceAccount, cloudresourcemanager.CloudPlatformScope)
 	if err != nil {
 		return nil, &gcpBadCredentialError{err: err}
@@ -55,8 +65,10 @@ func defaultGCPChecker(ctx context.Context, saJSON []byte) (gcpChecker, error) {
 	}, nil
 }
 
-// gcpBadCredentialError marks a definitive bad-credential failure (unusable SA
-// key material) so runGCP fails closed rather than fail-open.
+// gcpBadCredentialError marks a definitive construction-time bad-credential
+// failure (a structural decode failure in CredentialsFromJSONWithType) so runGCP
+// fails closed rather than fail-open. Garbage key MATERIAL is not detected at
+// construction — see newGCPChecker and classifyGCPAPIError.
 type gcpBadCredentialError struct{ err error }
 
 func (e *gcpBadCredentialError) Error() string { return e.err.Error() }

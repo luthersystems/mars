@@ -43,9 +43,13 @@
 // permission list.
 //
 //   - 200 with a missing subset            → fail-closed, listing the missing perms.
-//   - Invalid/malformed SA key, or a
+//   - Malformed-JSON SA key, or a
 //     definitive token rejection
 //     (invalid_grant / HTTP 401)           → fail-closed (bad-credential message).
+//   - Unloadable key MATERIAL (bad PEM in
+//     otherwise-valid service_account JSON) → fail-open (deferred to the token
+//     fetch, which surfaces an untyped parse error; a deliberate, safe
+//     divergence from the shell — see gcp.go newGCPChecker).
 //   - HTTP 403 on the call itself, HTTP
 //     5xx, network error, timeout          → fail-open.
 //   - Non-service_account JSON type

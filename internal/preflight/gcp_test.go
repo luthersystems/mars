@@ -216,6 +216,27 @@ func TestGCP_BadCredentialFromFactory_FailClosed(t *testing.T) {
 	}
 }
 
+// TestMainRecoversPanic_FailOpen pins the panic contract: an internal panic in
+// a subcommand is recovered and converted to fail-open (exit 0), never an
+// uncaught non-zero process abort a hook might treat as fatal. Uses the
+// newGCPChecker seam to inject a panic on the live-call path.
+func TestMainRecoversPanic_FailOpen(t *testing.T) {
+	orig := newGCPChecker
+	newGCPChecker = func(context.Context, []byte) (gcpChecker, error) {
+		panic("boom: simulated internal failure")
+	}
+	t.Cleanup(func() { newGCPChecker = orig })
+
+	sa := writeSAKey(t, testSAJSON)
+	code, _, errOut := runPreflight(t, "gcp", "--project-id", "p1", "--credentials-file", sa, "--permissions", "storage.buckets.create")
+	if code != exitOK {
+		t.Fatalf("panic path exit = %d, want %d (fail-open); stderr=\n%s", code, exitOK, errOut)
+	}
+	if !strings.Contains(errOut, "WARNING") || !strings.Contains(errOut, "internal error") {
+		t.Errorf("stderr missing panic fail-open warning; got:\n%s", errOut)
+	}
+}
+
 func TestClassifyGCPCredential(t *testing.T) {
 	cases := []struct {
 		name      string

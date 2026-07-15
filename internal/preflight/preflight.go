@@ -33,7 +33,20 @@ const (
 
 // Main is the binary entry point. It dispatches on the first argument to the
 // gcp or aws subcommand and returns the process exit code.
-func Main(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+//
+// A panic in any subcommand is recovered here and converted to fail-open (exit
+// 0). The preflight is advisory, so a bug in our OWN mechanics must never brick
+// a deploy: an uncaught panic would abort the process with a non-zero status
+// (Go uses 2) that a hook could treat as fatal, whereas exit 0 is universally
+// non-fatal. Recovering also avoids dumping a raw stack trace into deploy logs.
+func Main(ctx context.Context, args []string, stdout, stderr io.Writer) (code int) {
+	defer func() {
+		if r := recover(); r != nil {
+			fprintf(stderr, "[insideout-preflight] WARNING: internal error (%v) — preflight is advisory, continuing (deploy NOT blocked).\n", r)
+			code = exitOK
+		}
+	}()
+
 	if len(args) == 0 {
 		printUsage(stderr)
 		return exitUsage
