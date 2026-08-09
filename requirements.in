@@ -1,3 +1,18 @@
+# Compile with:  pip-compile requirements.in   (Python 3.12, matching the
+# `venv` stage in the Dockerfile which builds on ubuntu:24.04).
+#
+# NOTE on `cryptography`: the pinned version in requirements.txt is capped by
+# azure-cli, not by choice. azure-cli-core pins an exact `msal` version, and
+# every msal up to and including 1.36.0 requires `cryptography<49`. azure-cli
+# 2.89.0 (latest as of 2026-08) still pins msal==1.36.0, so `cryptography>=49`
+# — and therefore the `cryptography>=50` needed to clear CVE-2026-69247 /
+# -69248 / -69249 — is unreachable through the whole azure-cli 2.84..2.89
+# range. msal 1.37.0 relaxed the cap to `cryptography<51`; the block lifts once
+# an azure-cli release pins msal>=1.37.0.
+#
+# Do NOT "fix" this by adding a `cryptography>=50` floor here. The resolver
+# does not fail on it — it silently backtracks azure-cli to 2.36.0 (2022) and
+# paramiko to 2.12.0, which is a large backward move, not a fix.
 ansible
 boto3
 python-dotenv
