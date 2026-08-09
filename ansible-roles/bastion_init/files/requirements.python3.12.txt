@@ -35,7 +35,7 @@ oauthlib==3.2.2
     #   requests-oauthlib
 packaging==24.1
     # via -r requirements.in
-pyasn1==0.6.0
+pyasn1==0.6.4
     # via
     #   pyasn1-modules
     #   rsa
