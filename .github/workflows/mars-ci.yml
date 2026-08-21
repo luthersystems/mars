@@ -5,6 +5,26 @@ on:
     branches:
       - main
 jobs:
+  # Runs the Go unit tests, which include the fast same-repo/cross-repo drift
+  # guards in internal/providercache (Dockerfile bake vs "Sources of truth"
+  # comment vs smoke-tf-cache.sh vs the insideout-terraform-presets composer
+  # pins). Without this job those guards only ran on developer machines, so a
+  # dependabot bump of the presets module — or a bake bump — could merge
+  # without ever exercising them.
+  go-test:
+    name: go test
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: go vet
+        run: go vet ./...
+      - name: go test
+        run: go test ./...
   build:
     name: ${{ matrix.image }} - ${{ matrix.arch }} docker build
     runs-on: ${{ fromJSON('{"arm64":"2vcpu-ubuntu-2204-arm","amd64":"ubuntu-22.04"}')[matrix.arch] }}
