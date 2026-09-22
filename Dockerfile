@@ -155,7 +155,7 @@ RUN set -eux; \
 # Ensure runtime users can read the cache even when Docker copies as root.
 RUN chmod -R a+rX ${TF_PLUGIN_CACHE_DIR}
 
-FROM golang:1.25-bookworm AS mars-cli
+FROM golang:1.26-bookworm AS mars-cli
 ARG TARGETARCH
 ARG MARS_VERSION=dev
 WORKDIR /src
