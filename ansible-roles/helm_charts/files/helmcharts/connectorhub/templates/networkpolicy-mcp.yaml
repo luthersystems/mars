@@ -37,16 +37,46 @@ Off by default: nothing here renders unless .Values.mcpEgress.enabled is true.
 {{- $i }}
 {{- end -}}
 
+{{- /* Prints "true" if (index . 0) is an RFC 4291 IPv6 text address: eight 1-4 digit hex groups, at
+most one "::" standing for one or more zero groups, and optionally a dotted IPv4 tail counting as two
+groups. No zone ("%eth0") or brackets. Parsed structurally rather than with one regex: RE2 has no
+lookaheads, and a single correct IPv6 pattern is too long to review. */ -}}
+{{- define "connectorhub.mcpEgress.isIPv6" -}}
+{{- $h := index . 0 }}
+{{- $ipv4 := "^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$" }}
+{{- $halves := splitList "::" $h }}
+{{- $ok := and (contains ":" $h) (le (len $halves) 2) }}
+{{- $groups := 0 }}
+{{- if $ok }}
+{{- range $hi, $half := $halves }}
+{{- if ne $half "" }}
+{{- $parts := splitList ":" $half }}
+{{- range $pi, $part := $parts }}
+{{- $last := and (eq $hi (sub (len $halves) 1)) (eq $pi (sub (len $parts) 1)) }}
+{{- if regexMatch "^[0-9a-fA-F]{1,4}$" $part }}
+{{- $groups = add $groups 1 }}
+{{- else if and $last (regexMatch $ipv4 $part) }}
+{{- $groups = add $groups 2 }}
+{{- else }}
+{{- $ok = false }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if and $ok (or (and (eq (len $halves) 1) (eq $groups 8)) (and (eq (len $halves) 2) (le $groups 7))) }}true{{ end }}
+{{- end -}}
+
 {{- /* Prints (index . 0) as a /32 or /128 CIDR if it is an IP literal, or fails naming (index . 1). */ -}}
 {{- define "connectorhub.mcpEgress.hostCIDR" -}}
 {{- $h := index . 0 | toString }}
 {{- $what := index . 1 }}
 {{- if regexMatch "^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$" $h }}
 {{- printf "%s/32" $h }}
-{{- else if and (contains ":" $h) (regexMatch "^[0-9a-fA-F:]+$" $h) }}
+{{- else if include "connectorhub.mcpEgress.isIPv6" (list $h) }}
 {{- printf "%s/128" $h }}
 {{- else }}
-{{- fail (printf "%s: %q must be an IPv4 or IPv6 address, not a hostname (NetworkPolicy matches IPs, and a name that fails DNS would make the check meaningless)" $what $h) }}
+{{- fail (printf "%s: %q must be an IPv4 address or a valid IPv6 address (no zone, no brackets), not a hostname (NetworkPolicy matches IPs, and a name that fails DNS would make the check meaningless)" $what $h) }}
 {{- end }}
 {{- end -}}
 
@@ -195,13 +225,18 @@ spec:
 {{- $t := .Values.mcpEgress.test }}
 {{- $testID := $t.toolId | default "egress-selftest" }}
 {{- include "connectorhub.mcpEgress.checkToolID" (list $testID "mcpEgress.test.toolId") }}
+{{- if hasKey (.Values.mcpEgress.allow | default dict) $testID }}
+{{- fail (printf "mcpEgress.test.toolId %q is also a key of mcpEgress.allow: the test pod would inherit that allow-list and the denied check would prove nothing. Pick a tool-id no connector uses" $testID) }}
+{{- end }}
 {{- $allowedCIDR := include "connectorhub.mcpEgress.hostCIDR" (list (required "mcpEgress.test.allowed.host is required when mcpEgress.test.enabled" $t.allowed.host) "mcpEgress.test.allowed.host") }}
 {{- $allowedPort := include "connectorhub.mcpEgress.port" (list (required "mcpEgress.test.allowed.port is required when mcpEgress.test.enabled" $t.allowed.port) "mcpEgress.test.allowed.port") }}
 ---
-# Egress allow for the `helm test` self-check pod only (tool-id
-# {{ $testID | quote }}): lets it reach mcpEgress.test.allowed, so the test
-# exercises an allow rule on top of the default deny. Rendered only while
-# mcpEgress.test.enabled is true.
+# Egress allow for the `helm test` self-check pod only: lets it reach
+# mcpEgress.test.allowed, so the test exercises an allow rule on top of the
+# default deny. Rendered only while mcpEgress.test.enabled is true. The
+# selector requires connectorhub.luthersystems.com/egress-selftest, a label
+# only the chart's test Pod carries, so a launcher-created pod never matches
+# even if its tool-id equals {{ $testID | quote }}.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -214,6 +249,8 @@ spec:
     matchLabels:
       launcher: "true"
       tool-id: {{ $testID | quote }}
+      app.kubernetes.io/instance: {{ .Release.Name | quote }}
+      connectorhub.luthersystems.com/egress-selftest: "true"
   policyTypes:
     - Egress
   egress:

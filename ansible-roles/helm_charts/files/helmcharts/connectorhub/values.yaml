@@ -211,9 +211,12 @@ mcpEgress:
   #      ports: [3128]
 
   # `helm test` connectivity check. Renders a test Pod labelled
-  # `launcher: "true", tool-id: <toolId>` plus a <fullname>-mcp-selftest-allow
-  # policy granting that tool-id TCP egress to `allowed` only. The test passes
-  # only if DNS resolves, `allowed` is reachable, and `denied` is not.
+  # `launcher: "true", tool-id: <toolId>` (so the default deny applies to it)
+  # plus `connectorhub.luthersystems.com/egress-selftest: "true"`, and a
+  # <fullname>-mcp-selftest-allow policy granting TCP egress to `allowed` only
+  # to pods carrying that selftest label. Launcher-created pods never carry it,
+  # so the selftest allow cannot reach a real connector. The test passes only
+  # if DNS resolves, `allowed` is reachable, and `denied` is not.
   test:
     enabled: false
     image: busybox:1.36.1
@@ -221,9 +224,13 @@ mcpEgress:
     # connector: pointing it at a live connector's id puts the test pod in that
     # connector's traffic path (it joins the mcp-<id> Service endpoints and can
     # be chosen by connectorhub for attach/exec/logs while it runs), and the
-    # selftest allow is then added to that connector's pods too.
+    # test pod would inherit any allow-list NetworkPolicy you add for that id
+    # outside this chart. It must not be a key of `allow` (the render fails):
+    # the test pod would inherit those rules and `denied` would prove nothing.
     toolId: egress-selftest
-    # Both hosts must be IP literals (the render fails on a hostname).
+    # Both hosts must be IP literals (the render fails on a hostname): dotted
+    # IPv4, or RFC 4291 IPv6 text (e.g. `fd00::1`, `::ffff:10.0.0.1`) without
+    # a zone (`%eth0`) or brackets.
     # `allowed` is granted to the test pod by the selftest policy.
     allowed:
       host: ""
