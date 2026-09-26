@@ -1,0 +1,227 @@
+{{- /*
+Deny-by-default network policy for the MCP tool pods that connectorhub's
+Kubernetes launcher creates at runtime (luthersystems/connectorhub#139).
+
+The launcher labels every tool Deployment's pods with
+  launcher: "true"
+  tool-id:  <connector id>
+and creates them in the connectorhub pod's own namespace (the release
+namespace). The connector id is connectorhub's types.NameToID of the connector
+name: lowercase [a-z0-9] runs joined by single dashes (repeated dashes are
+collapsed, leading/trailing dashes trimmed). Test deployments (mcp-<id>-test)
+carry the same tool-id as the managed one, so an allow entry covers both.
+
+Off by default: nothing here renders unless .Values.mcpEgress.enabled is true.
+*/ -}}
+
+{{- /* Fails unless (index . 0) is a connectorhub tool-id; (index . 1) names the value. */ -}}
+{{- define "connectorhub.mcpEgress.checkToolID" -}}
+{{- $id := index . 0 }}
+{{- $what := index . 1 }}
+{{- if not (and (kindIs "string" $id) (regexMatch "^[a-z0-9]+(-[a-z0-9]+)*$" (toString $id)) (le (len (toString $id)) 63)) }}
+{{- fail (printf "%s: %q is not a valid connectorhub tool-id (lowercase [a-z0-9] runs joined by single dashes, no leading/trailing dash, max 63 chars)" $what (toString $id)) }}
+{{- end }}
+{{- end -}}
+
+{{- /* Prints (index . 0) as an integer port 1-65535, or fails naming (index . 1). */ -}}
+{{- define "connectorhub.mcpEgress.port" -}}
+{{- $v := index . 0 }}
+{{- $what := index . 1 }}
+{{- if not (or (kindIs "float64" $v) (kindIs "int" $v) (kindIs "int64" $v)) }}
+{{- fail (printf "%s: port %q must be an integer 1-65535 (named ports cannot resolve against an ipBlock)" $what (toString $v)) }}
+{{- end }}
+{{- $i := int64 $v }}
+{{- if or (ne (float64 $i) (float64 $v)) (lt $i 1) (gt $i 65535) }}
+{{- fail (printf "%s: port %v must be an integer 1-65535" $what $v) }}
+{{- end }}
+{{- $i }}
+{{- end -}}
+
+{{- /* Prints (index . 0) as a /32 or /128 CIDR if it is an IP literal, or fails naming (index . 1). */ -}}
+{{- define "connectorhub.mcpEgress.hostCIDR" -}}
+{{- $h := index . 0 | toString }}
+{{- $what := index . 1 }}
+{{- if regexMatch "^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$" $h }}
+{{- printf "%s/32" $h }}
+{{- else if and (contains ":" $h) (regexMatch "^[0-9a-fA-F:]+$" $h) }}
+{{- printf "%s/128" $h }}
+{{- else }}
+{{- fail (printf "%s: %q must be an IPv4 or IPv6 address, not a hostname (NetworkPolicy matches IPs, and a name that fails DNS would make the check meaningless)" $what $h) }}
+{{- end }}
+{{- end -}}
+
+{{- /* NetworkPolicy name for (index . 0)=fullname, (index . 1)=suffix: "<fullname>-<suffix>", or a
+truncated prefix plus a hash of the suffix when that exceeds 63 chars, so long names never collide. */ -}}
+{{- define "connectorhub.mcpEgress.name" -}}
+{{- $name := printf "%s-%s" (index . 0) (index . 1) }}
+{{- if gt (len $name) 63 }}
+{{- $name = printf "%s-%s" ($name | trunc 52 | trimSuffix "-") (sha256sum (index . 1) | trunc 10) }}
+{{- end }}
+{{- $name }}
+{{- end -}}
+
+{{- if .Values.mcpEgress.enabled }}
+{{- $root := . }}
+{{- $fullname := include "connectorhub.fullname" . }}
+{{- $dns := .Values.mcpEgress.dns }}
+---
+# Default deny for all launcher-created MCP pods: no ingress except from
+# connectorhub itself, no egress except cluster DNS.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "connectorhub.mcpEgress.name" (list $fullname "mcp-default-deny") }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "connectorhub.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      launcher: "true"
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "connectorhub.labels.match" . | nindent 14 }}
+        {{- with .Values.mcpEgress.extraIngressFrom }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+  {{- if $dns.enabled }}
+  {{- if not (kindIs "slice" ($dns.to | default list)) }}
+  {{- fail "mcpEgress.dns.to must be a list of NetworkPolicy peers (e.g. [{namespaceSelector: ..., podSelector: ...}])" }}
+  {{- end }}
+  {{- if not (kindIs "slice" ($dns.cidrs | default list)) }}
+  {{- fail "mcpEgress.dns.cidrs must be a list of CIDRs" }}
+  {{- end }}
+  {{- if and (not $dns.to) (not $dns.cidrs) }}
+  {{- fail "mcpEgress.dns.enabled needs at least one peer in mcpEgress.dns.to or mcpEgress.dns.cidrs (an empty `to` would allow port 53 to every destination); set dns.enabled=false for no DNS" }}
+  {{- end }}
+  egress:
+    - to:
+        {{- with $dns.to }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- range $dns.cidrs }}
+        - ipBlock:
+            cidr: {{ . | quote }}
+        {{- end }}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+  {{- else }}
+  egress: []
+  {{- end }}
+{{- range $toolID := keys (.Values.mcpEgress.allow | default dict) | sortAlpha }}
+{{- $rules := index $root.Values.mcpEgress.allow $toolID }}
+{{- include "connectorhub.mcpEgress.checkToolID" (list $toolID "mcpEgress.allow") }}
+{{- if not (kindIs "slice" $rules) }}
+{{- fail (printf "mcpEgress.allow.%s must be a list of {cidr, ports} entries" $toolID) }}
+{{- end }}
+---
+# Egress allow-list for MCP tool {{ $toolID | quote }}. NetworkPolicies are
+# additive: this widens the default deny above for this tool's pods only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "connectorhub.mcpEgress.name" (list $fullname (printf "mcp-allow-%s" $toolID)) }}
+  namespace: {{ $root.Release.Namespace }}
+  labels:
+    {{- include "connectorhub.labels" $root | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      launcher: "true"
+      tool-id: {{ $toolID | quote }}
+  policyTypes:
+    - Egress
+  {{- if not $rules }}
+  egress: []
+  {{- else }}
+  egress:
+    {{- range $i, $rule := $rules }}
+    {{- $where := printf "mcpEgress.allow.%s[%d]" $toolID $i }}
+    {{- if not (kindIs "map" $rule) }}
+    {{- fail (printf "%s must be a map with a cidr (and optional except, ports)" $where) }}
+    {{- end }}
+    {{- if not $rule.cidr }}
+    {{- fail (printf "%s: cidr is required" $where) }}
+    {{- end }}
+    {{- if not (kindIs "slice" ($rule.ports | default list)) }}
+    {{- fail (printf "%s: ports must be a list" $where) }}
+    {{- end }}
+    - to:
+        - ipBlock:
+            cidr: {{ $rule.cidr | quote }}
+            {{- with $rule.except }}
+            except:
+              {{- range . }}
+              - {{ . | quote }}
+              {{- end }}
+            {{- end }}
+      {{- /* No ports (omitted or []) = every port to that CIDR, per Kubernetes semantics. */}}
+      {{- with $rule.ports }}
+      ports:
+        {{- range $p := . }}
+        {{- if kindIs "map" $p }}
+        {{- $port := include "connectorhub.mcpEgress.port" (list (required (printf "%s: port objects need a port" $where) $p.port) $where) }}
+        {{- $proto := $p.protocol | default "TCP" }}
+        {{- if not (has $proto (list "TCP" "UDP" "SCTP")) }}
+        {{- fail (printf "%s: protocol %q must be TCP, UDP or SCTP" $where (toString $proto)) }}
+        {{- end }}
+        - protocol: {{ $proto }}
+          port: {{ $port }}
+          {{- with $p.endPort }}
+          {{- $end := include "connectorhub.mcpEgress.port" (list . (printf "%s endPort" $where)) }}
+          {{- if lt (atoi $end) (atoi $port) }}
+          {{- fail (printf "%s: endPort %s is below port %s" $where $end $port) }}
+          {{- end }}
+          endPort: {{ $end }}
+          {{- end }}
+        {{- else }}
+        - protocol: TCP
+          port: {{ include "connectorhub.mcpEgress.port" (list $p $where) }}
+        {{- end }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- if .Values.mcpEgress.test.enabled }}
+{{- $t := .Values.mcpEgress.test }}
+{{- $testID := $t.toolId | default "egress-selftest" }}
+{{- include "connectorhub.mcpEgress.checkToolID" (list $testID "mcpEgress.test.toolId") }}
+{{- $allowedCIDR := include "connectorhub.mcpEgress.hostCIDR" (list (required "mcpEgress.test.allowed.host is required when mcpEgress.test.enabled" $t.allowed.host) "mcpEgress.test.allowed.host") }}
+{{- $allowedPort := include "connectorhub.mcpEgress.port" (list (required "mcpEgress.test.allowed.port is required when mcpEgress.test.enabled" $t.allowed.port) "mcpEgress.test.allowed.port") }}
+---
+# Egress allow for the `helm test` self-check pod only (tool-id
+# {{ $testID | quote }}): lets it reach mcpEgress.test.allowed, so the test
+# exercises an allow rule on top of the default deny. Rendered only while
+# mcpEgress.test.enabled is true.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "connectorhub.mcpEgress.name" (list $fullname "mcp-selftest-allow") }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "connectorhub.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      launcher: "true"
+      tool-id: {{ $testID | quote }}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: {{ $allowedCIDR | quote }}
+      ports:
+        - protocol: TCP
+          port: {{ $allowedPort }}
+{{- end }}
+{{- end }}

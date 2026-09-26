@@ -105,3 +105,142 @@ affinity: {}
 verbose: false
 
 local: false
+
+# Deny-by-default network policy for the MCP tool pods that connectorhub's
+# Kubernetes launcher creates at runtime (luthersystems/connectorhub#139).
+#
+# The launcher creates one Deployment per connector in the release namespace,
+# with pod labels `launcher: "true"` and `tool-id: <connector id>`. The
+# connector id is connectorhub's sanitized connector name: lowercase [a-z0-9]
+# runs joined by single dashes (e.g. "My Slack_Bot" -> "my-slackbot",
+# "a  -- b" -> "a-b"). Test deployments (mcp-<id>-test) share the tool-id, so
+# one allow entry covers both.
+#
+# When enabled, this renders:
+#   - <fullname>-mcp-default-deny: selects every `launcher: "true"` pod; allows
+#     ingress only from the connectorhub pods of this release (plus
+#     extraIngressFrom) and egress only to cluster DNS (see `dns`).
+#   - <fullname>-mcp-allow-<tool-id>: one per `allow` entry; additionally
+#     allows that tool's pods egress to the listed CIDRs/ports.
+#   - <fullname>-mcp-selftest-allow: only while `test.enabled`; see `test`.
+#
+# Caveats (read before enabling):
+#   - NetworkPolicy is IP-based only. SaaS backends (Slack, Google,
+#     Salesforce, ...) sit behind large, changing IP ranges, so allowing them
+#     by CIDR is impractical. Those need an egress proxy (and an allow entry
+#     for the proxy's IP/port) or an FQDN-capable policy engine
+#     (Cilium/Calico). That is an infra decision outside this chart.
+#   - The policies are only enforced if the cluster's CNI enforces
+#     NetworkPolicy. On EKS the VPC CNI network-policy agent must be enabled
+#     (aws-node `enableNetworkPolicy: "true"`), otherwise these objects are
+#     accepted and silently ignored.
+#   - Enforcement may not be deny-from-start. With the EKS VPC CNI agent in its
+#     default `NETWORK_POLICY_ENFORCING_MODE=standard`, a newly created pod is
+#     allow-all until its policies are attached, so a freshly launched tool
+#     can briefly reach anything. For deny-from-start set aws-node
+#     `NETWORK_POLICY_ENFORCING_MODE=strict`. Verify this on your CNI version.
+#   - The default deny also blocks the node-local metadata endpoints: IMDS
+#     (169.254.169.254) and EKS Pod Identity (169.254.170.23). A tool that
+#     needs AWS credentials from them must allow them explicitly, e.g.
+#     `- cidr: 169.254.170.23/32` with `ports: [80]`.
+#   - Only the launcher-created MCP pods are restricted. The connectorhub pod's
+#     own egress is not restricted by this policy.
+#   - Stdio-transport tools are driven via the Kubernetes API (exec/attach),
+#     which NetworkPolicy does not affect. HTTP-transport tools are reached
+#     from connectorhub over their Service, which the ingress rule allows.
+#
+# Verify on a cluster with `helm test <release>` after enabling `test` below.
+mcpEgress:
+  enabled: false
+
+  # Cluster DNS, the only egress every MCP pod keeps under the default deny,
+  # on UDP and TCP port 53.
+  dns:
+    enabled: true
+    # NetworkPolicy peers for the cluster resolver. This is a list, so an
+    # override replaces the default entry wholesale rather than merging into
+    # it. The default matches kube-dns/CoreDNS on EKS and most distributions
+    # (`k8s-app: kube-dns` in kube-system). At least one of `to` or `cidrs`
+    # must be non-empty while dns.enabled (an empty `to` in the rendered rule
+    # would mean "port 53 anywhere"); set dns.enabled=false for no DNS.
+    to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: kube-system
+        podSelector:
+          matchLabels:
+            k8s-app: kube-dns
+    # Extra DNS resolver CIDRs, e.g. NodeLocal DNSCache ("169.254.20.10/32").
+    cidrs: []
+
+  # Additional NetworkPolicy peers allowed to reach MCP pods, besides this
+  # release's connectorhub pods. Raw `from` entries.
+  extraIngressFrom: []
+  #  - podSelector:
+  #      matchLabels:
+  #        app.kubernetes.io/name: mcp-inspector
+
+  # Per-tool egress allow-list: map of tool-id -> list of rules.
+  # Keys must be exact connectorhub tool-ids (validated: lowercase [a-z0-9]
+  # runs joined by single dashes, max 63 chars); a key that matches no
+  # connector silently allows nothing, so check it against the running pods'
+  # `tool-id` label.
+  # Each rule: `cidr` (required), optional `except` (list of CIDRs), optional
+  # `ports`. A port is an integer 1-65535 (TCP) or {port, protocol, endPort}
+  # with integer port/endPort and protocol TCP (default), UDP or SCTP. Named
+  # ports are rejected: they cannot resolve against an ipBlock.
+  # Port semantics follow Kubernetes:
+  #   - `ports` omitted OR `ports: []` allows EVERY port to that CIDR.
+  #   - Only an empty rule list, `allow.<tool-id>: []`, keeps the tool at
+  #     DNS-only.
+  allow: {}
+  #  postgres-prod:
+  #    - cidr: 10.20.0.0/16
+  #      ports: [5432]
+  #  internal-api:
+  #    - cidr: 10.30.4.0/24
+  #      ports:
+  #        - 443
+  #        - port: 8000
+  #          endPort: 8100
+  #        - port: 5353
+  #          protocol: UDP
+  #  slack:
+  #    # SaaS: point the tool at an egress proxy and allow only the proxy.
+  #    - cidr: 10.0.50.10/32
+  #      ports: [3128]
+
+  # `helm test` connectivity check. Renders a test Pod labelled
+  # `launcher: "true", tool-id: <toolId>` plus a <fullname>-mcp-selftest-allow
+  # policy granting that tool-id TCP egress to `allowed` only. The test passes
+  # only if DNS resolves, `allowed` is reachable, and `denied` is not.
+  test:
+    enabled: false
+    image: busybox:1.36.1
+    # Synthetic tool-id for the test pod. Keep it distinct from every real
+    # connector: pointing it at a live connector's id puts the test pod in that
+    # connector's traffic path (it joins the mcp-<id> Service endpoints and can
+    # be chosen by connectorhub for attach/exec/logs while it runs), and the
+    # selftest allow is then added to that connector's pods too.
+    toolId: egress-selftest
+    # Both hosts must be IP literals (the render fails on a hostname).
+    # `allowed` is granted to the test pod by the selftest policy.
+    allowed:
+      host: ""
+      port: ""
+    # `denied` must be outside every CIDR the default deny or the selftest
+    # policy allow, AND reachable from this namespace without the policy
+    # (otherwise "unreachable" proves nothing). controlCheck verifies the
+    # latter first from an unlabelled pod; disable it only if that pod is
+    # itself subject to another egress policy you cannot change.
+    denied:
+      host: "1.1.1.1"
+      port: 443
+    controlCheck: true
+    timeoutSeconds: 5
+    checkDns: true
+    # Resolved with busybox nslookup, which skips resolv.conf search domains
+    # for any name containing a dot, so use a fully qualified name. The
+    # default assumes the cluster domain is `cluster.local`; change the suffix
+    # if yours differs (kubelet `clusterDomain`).
+    dnsName: kubernetes.default.svc.cluster.local
