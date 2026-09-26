@@ -10,7 +10,14 @@ tool. That tool-id is synthetic on purpose: a pod carrying a live connector's
 tool-id would join that connector's mcp-<id> Service endpoints and could be
 picked by connectorhub for attach/exec/logs while the test runs. Its only
 extra egress is the <fullname>-mcp-selftest-allow policy, which grants
-test.allowed and renders only while the test is enabled. It is a bare Pod,
+test.allowed and renders only while the test is enabled. That policy also
+requires the connectorhub.luthersystems.com/egress-selftest label, which only
+this pod sets (the launcher sets only launcher and tool-id), so it does not
+widen egress for a launcher-created pod; and the render fails if toolId is a
+key of this release's mcpEgress.allow, whose rules this pod would otherwise
+inherit. The pod still inherits any other NetworkPolicy in the namespace that
+selects on its tool-id (e.g. another connectorhub release's
+mcpEgress.allow.<toolId>), so keep toolId unique across the namespace. It is a bare Pod,
 not a Deployment, so connectorhub's reconciler (which lists launcher=true
 Deployments) never sees or deletes it.
 
@@ -90,8 +97,15 @@ metadata:
   name: {{ include "connectorhub.mcpEgress.name" (list $fullname "test-mcp-egress") }}
   namespace: {{ .Release.Namespace }}
   labels:
+    # launcher + tool-id: the default deny must select this pod exactly as it
+    # selects a tool, or the test proves nothing. instance + egress-selftest:
+    # only this pod matches the selftest allow (the launcher does not set the
+    # egress-selftest label). Not app.kubernetes.io/name, which with instance
+    # would put it behind connectorhub's own Service.
     launcher: "true"
     tool-id: {{ $testID | quote }}
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    connectorhub.luthersystems.com/egress-selftest: "true"
   annotations:
     "helm.sh/hook": test
     "helm.sh/hook-weight": "0"
