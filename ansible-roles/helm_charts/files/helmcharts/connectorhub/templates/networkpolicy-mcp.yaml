@@ -39,14 +39,16 @@ Off by default: nothing here renders unless .Values.mcpEgress.enabled is true.
 
 {{- /* Prints "true" if (index . 0) is an RFC 4291 IPv6 text address: eight 1-4 digit hex groups, at
 most one "::" standing for one or more zero groups, and optionally a dotted IPv4 tail counting as two
-groups. No zone ("%eth0") or brackets. Parsed structurally rather than with one regex: RE2 has no
-lookaheads, and a single correct IPv6 pattern is too long to review. */ -}}
+groups. No zone ("%eth0") or brackets. Prints "mapped" instead for an IPv4-mapped address
+(::ffff:0:0/96, in any spelling), and nothing if invalid. Parsed structurally rather than with one
+regex: RE2 has no lookaheads, and a single correct IPv6 pattern is too long to review. */ -}}
 {{- define "connectorhub.mcpEgress.isIPv6" -}}
 {{- $h := index . 0 }}
 {{- $ipv4 := "^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$" }}
 {{- $halves := splitList "::" $h }}
 {{- $ok := and (contains ":" $h) (le (len $halves) 2) }}
 {{- $groups := 0 }}
+{{- $seqs := list (list) (list) }}
 {{- if $ok }}
 {{- range $hi, $half := $halves }}
 {{- if ne $half "" }}
@@ -55,8 +57,10 @@ lookaheads, and a single correct IPv6 pattern is too long to review. */ -}}
 {{- $last := and (eq $hi (sub (len $halves) 1)) (eq $pi (sub (len $parts) 1)) }}
 {{- if regexMatch "^[0-9a-fA-F]{1,4}$" $part }}
 {{- $groups = add $groups 1 }}
+{{- $seqs = list (ternary (append (index $seqs 0) (lower $part)) (index $seqs 0) (eq $hi 0)) (ternary (index $seqs 1) (append (index $seqs 1) (lower $part)) (eq $hi 0)) }}
 {{- else if and $last (regexMatch $ipv4 $part) }}
 {{- $groups = add $groups 2 }}
+{{- $seqs = list (ternary (concat (index $seqs 0) (list "v4" "v4")) (index $seqs 0) (eq $hi 0)) (ternary (index $seqs 1) (concat (index $seqs 1) (list "v4" "v4")) (eq $hi 0)) }}
 {{- else }}
 {{- $ok = false }}
 {{- end }}
@@ -64,17 +68,29 @@ lookaheads, and a single correct IPv6 pattern is too long to review. */ -}}
 {{- end }}
 {{- end }}
 {{- end }}
-{{- if and $ok (or (and (eq (len $halves) 1) (eq $groups 8)) (and (eq (len $halves) 2) (le $groups 7))) }}true{{ end }}
+{{- if and $ok (or (and (eq (len $halves) 1) (eq $groups 8)) (and (eq (len $halves) 2) (le $groups 7))) }}
+{{- $full := index $seqs 0 }}
+{{- range until (int (sub 8 $groups)) }}{{ $full = append $full "0" }}{{ end }}
+{{- $full = concat $full (index $seqs 1) }}
+{{- $mapped := eq (index $full 5) "ffff" }}
+{{- range $i := until 5 }}{{ if not (regexMatch "^0+$" (index $full $i)) }}{{ $mapped = false }}{{ end }}{{ end }}
+{{- ternary "mapped" "true" $mapped }}
+{{- end }}
 {{- end -}}
 
 {{- /* Prints (index . 0) as a /32 or /128 CIDR if it is an IP literal, or fails naming (index . 1). */ -}}
 {{- define "connectorhub.mcpEgress.hostCIDR" -}}
-{{- $h := index . 0 | toString }}
 {{- $what := index . 1 }}
+{{- if not (kindIs "string" (index . 0)) }}
+{{- fail (printf "%s: must be a string IP literal, got %s %v (quote it in YAML)" $what (kindOf (index . 0)) (index . 0)) }}
+{{- end }}
+{{- $h := index . 0 }}
 {{- if regexMatch "^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$" $h }}
 {{- printf "%s/32" $h }}
-{{- else if include "connectorhub.mcpEgress.isIPv6" (list $h) }}
+{{- else if eq (include "connectorhub.mcpEgress.isIPv6" (list $h)) "true" }}
 {{- printf "%s/128" $h }}
+{{- else if eq (include "connectorhub.mcpEgress.isIPv6" (list $h)) "mapped" }}
+{{- fail (printf "%s: %q is an IPv4-mapped IPv6 address; write the dotted IPv4 form instead (the traffic is IPv4, so a /128 ipBlock would not match it)" $what $h) }}
 {{- else }}
 {{- fail (printf "%s: %q must be an IPv4 address or a valid IPv6 address (no zone, no brackets), not a hostname (NetworkPolicy matches IPs, and a name that fails DNS would make the check meaningless)" $what $h) }}
 {{- end }}
@@ -235,8 +251,9 @@ spec:
 # mcpEgress.test.allowed, so the test exercises an allow rule on top of the
 # default deny. Rendered only while mcpEgress.test.enabled is true. The
 # selector requires connectorhub.luthersystems.com/egress-selftest, a label
-# only the chart's test Pod carries, so a launcher-created pod never matches
-# even if its tool-id equals {{ $testID | quote }}.
+# only the chart's test Pod sets (the connectorhub launcher sets only launcher
+# and tool-id), so a launcher-created pod does not match even if its tool-id
+# equals {{ $testID | quote }}.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
