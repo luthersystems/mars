@@ -1,0 +1,127 @@
+{{- /*
+Deny-by-default network policy for the MCP tool pods that connectorhub's
+Kubernetes launcher creates at runtime (luthersystems/connectorhub#139).
+
+The launcher labels every tool Deployment's pods with
+  launcher: "true"
+  tool-id:  <connector id>
+and creates them in the connectorhub pod's own namespace (the release
+namespace). The connector id is connectorhub's sanitized form of the connector
+name: lowercase, [a-z0-9-] only, no leading/trailing dash. Test deployments
+(mcp-<id>-test) carry the same tool-id as the managed one, so an allow entry
+covers both.
+
+Off by default: nothing here renders unless .Values.mcpEgress.enabled is true.
+*/ -}}
+{{- if .Values.mcpEgress.enabled }}
+{{- $root := . }}
+{{- $fullname := include "connectorhub.fullname" . }}
+---
+# Default deny for all launcher-created MCP pods: no ingress except from
+# connectorhub itself, no egress except cluster DNS.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ printf "%s-mcp-default-deny" $fullname | trunc 63 | trimSuffix "-" }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "connectorhub.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      launcher: "true"
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "connectorhub.labels.match" . | nindent 14 }}
+        {{- with .Values.mcpEgress.extraIngressFrom }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+  {{- if .Values.mcpEgress.dns.enabled }}
+  egress:
+    - to:
+        - namespaceSelector:
+            {{- toYaml .Values.mcpEgress.dns.namespaceSelector | nindent 12 }}
+          podSelector:
+            {{- toYaml .Values.mcpEgress.dns.podSelector | nindent 12 }}
+        {{- range .Values.mcpEgress.dns.cidrs }}
+        - ipBlock:
+            cidr: {{ . | quote }}
+        {{- end }}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+  {{- else }}
+  egress: []
+  {{- end }}
+{{- range $toolID := keys (.Values.mcpEgress.allow | default dict) | sortAlpha }}
+{{- $rules := index $root.Values.mcpEgress.allow $toolID }}
+{{- if not (regexMatch "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$" $toolID) }}
+{{- fail (printf "mcpEgress.allow: %q is not a valid connectorhub tool-id (lowercase [a-z0-9-], max 63 chars, no leading/trailing dash)" $toolID) }}
+{{- end }}
+{{- if not (kindIs "slice" $rules) }}
+{{- fail (printf "mcpEgress.allow.%s must be a list of {cidr, ports} entries" $toolID) }}
+{{- end }}
+{{- $name := printf "%s-mcp-allow-%s" $fullname $toolID }}
+{{- if gt (len $name) 63 }}
+{{- $name = printf "%s-%s" ($name | trunc 52 | trimSuffix "-") (sha256sum $toolID | trunc 10) }}
+{{- end }}
+---
+# Egress allow-list for MCP tool {{ $toolID | quote }}. NetworkPolicies are
+# additive: this widens the default deny above for this tool's pods only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}
+  namespace: {{ $root.Release.Namespace }}
+  labels:
+    {{- include "connectorhub.labels" $root | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      launcher: "true"
+      tool-id: {{ $toolID | quote }}
+  policyTypes:
+    - Egress
+  {{- if not $rules }}
+  egress: []
+  {{- else }}
+  egress:
+    {{- range $i, $rule := $rules }}
+    {{- if not $rule.cidr }}
+    {{- fail (printf "mcpEgress.allow.%s[%d]: cidr is required" $toolID $i) }}
+    {{- end }}
+    - to:
+        - ipBlock:
+            cidr: {{ $rule.cidr | quote }}
+            {{- with $rule.except }}
+            except:
+              {{- range . }}
+              - {{ . | quote }}
+              {{- end }}
+            {{- end }}
+      {{- with $rule.ports }}
+      ports:
+        {{- range $p := . }}
+        {{- if kindIs "map" $p }}
+        - protocol: {{ $p.protocol | default "TCP" }}
+          port: {{ required (printf "mcpEgress.allow.%s[%d]: port objects need a port" $toolID $i) $p.port }}
+          {{- with $p.endPort }}
+          endPort: {{ . }}
+          {{- end }}
+        {{- else }}
+        - protocol: TCP
+          port: {{ $p }}
+        {{- end }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}

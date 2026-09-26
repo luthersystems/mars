@@ -105,3 +105,101 @@ affinity: {}
 verbose: false
 
 local: false
+
+# Deny-by-default network policy for the MCP tool pods that connectorhub's
+# Kubernetes launcher creates at runtime (luthersystems/connectorhub#139).
+#
+# The launcher creates one Deployment per connector in the release namespace,
+# with pod labels `launcher: "true"` and `tool-id: <connector id>`. The
+# connector id is connectorhub's sanitized connector name: lowercase, [a-z0-9-]
+# only (e.g. "My Slack_Bot" -> "my-slackbot"). Test deployments
+# (mcp-<id>-test) share the tool-id, so one allow entry covers both.
+#
+# When enabled, this renders:
+#   - <fullname>-mcp-default-deny: selects every `launcher: "true"` pod; allows
+#     ingress only from the connectorhub pods of this release (plus
+#     extraIngressFrom) and egress only to cluster DNS (see `dns`).
+#   - <fullname>-mcp-allow-<tool-id>: one per `allow` entry; additionally
+#     allows that tool's pods egress to the listed CIDRs/ports.
+#
+# Caveats (read before enabling):
+#   - NetworkPolicy is IP-based only. SaaS backends (Slack, Google,
+#     Salesforce, ...) sit behind large, changing IP ranges, so allowing them
+#     by CIDR is impractical. Those need an egress proxy (and an allow entry
+#     for the proxy's IP/port) or an FQDN-capable policy engine
+#     (Cilium/Calico). That is an infra decision outside this chart.
+#   - The policies are only enforced if the cluster's CNI enforces
+#     NetworkPolicy. On EKS the VPC CNI network-policy agent must be enabled
+#     (aws-node `enableNetworkPolicy: "true"`), otherwise these objects are
+#     accepted and silently ignored.
+#   - Only the launcher-created MCP pods are restricted. The connectorhub pod's
+#     own egress is not restricted by this policy.
+#   - Stdio-transport tools are driven via the Kubernetes API (exec/attach),
+#     which NetworkPolicy does not affect. HTTP-transport tools are reached
+#     from connectorhub over their Service, which the ingress rule allows.
+#
+# Verify on a cluster with `helm test <release>` after enabling `test` below.
+mcpEgress:
+  enabled: false
+
+  # Cluster DNS, the only egress every MCP pod keeps under the default deny.
+  # Defaults match kube-dns/CoreDNS on EKS and most distributions
+  # (`k8s-app: kube-dns` in kube-system). Adjust for your cluster.
+  dns:
+    enabled: true
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: kube-system
+    podSelector:
+      matchLabels:
+        k8s-app: kube-dns
+    # Extra DNS resolver CIDRs, e.g. NodeLocal DNSCache ("169.254.20.10/32").
+    cidrs: []
+
+  # Additional NetworkPolicy peers allowed to reach MCP pods, besides this
+  # release's connectorhub pods. Raw `from` entries.
+  extraIngressFrom: []
+  #  - podSelector:
+  #      matchLabels:
+  #        app.kubernetes.io/name: mcp-inspector
+
+  # Per-tool egress allow-list: map of tool-id -> list of rules.
+  # Each rule: `cidr` (required), optional `except` (list of CIDRs), optional
+  # `ports`. A port is either a number (TCP) or {port, protocol, endPort}.
+  # Omitting `ports` allows every port to that CIDR. An empty list keeps the
+  # tool at DNS-only.
+  allow: {}
+  #  postgres-prod:
+  #    - cidr: 10.20.0.0/16
+  #      ports: [5432]
+  #  internal-api:
+  #    - cidr: 10.30.4.0/24
+  #      ports:
+  #        - 443
+  #        - port: 8000
+  #          endPort: 8100
+  #        - port: 5353
+  #          protocol: UDP
+  #  slack:
+  #    # SaaS: point the tool at an egress proxy and allow only the proxy.
+  #    - cidr: 10.0.50.10/32
+  #      ports: [3128]
+
+  # `helm test` connectivity check. The test pod carries
+  # `launcher: "true", tool-id: <toolId>`, so it is subject to the same
+  # policies as that tool. It passes only if DNS resolves, `allowed` is
+  # reachable (must be granted to toolId in `allow`), and `denied` is not.
+  # Use IP addresses for the hosts: the policy matches IPs, not names.
+  test:
+    enabled: false
+    image: busybox:1.36.1
+    toolId: ""
+    allowed:
+      host: ""
+      port: ""
+    denied:
+      host: "1.1.1.1"
+      port: 443
+    timeoutSeconds: 5
+    checkDns: true
+    dnsName: kubernetes.default

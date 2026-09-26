@@ -1,0 +1,87 @@
+{{- /*
+`helm test` connectivity check for the MCP egress policies in
+networkpolicy-mcp.yaml. Renders only when both mcpEgress.enabled and
+mcpEgress.test.enabled are true.
+
+The test pod wears the same labels the connectorhub launcher puts on MCP tool
+pods (launcher: "true", tool-id: <mcpEgress.test.toolId>), so the policies
+apply to it exactly as they would to that tool. It is a bare Pod, not a
+Deployment, so connectorhub's reconciler (which lists launcher=true
+Deployments) never sees or deletes it.
+
+It passes only if:
+  - cluster DNS resolves (the default-deny still allows DNS), when checkDns;
+  - a TCP connect to test.allowed succeeds (must be inside a CIDR/port that
+    mcpEgress.allow grants test.toolId);
+  - a TCP connect to test.denied fails (must be outside every allowed CIDR).
+*/ -}}
+{{- if and .Values.mcpEgress.enabled .Values.mcpEgress.test.enabled }}
+{{- $t := .Values.mcpEgress.test }}
+{{- $allowedHost := required "mcpEgress.test.allowed.host is required when mcpEgress.test.enabled" $t.allowed.host }}
+{{- $allowedPort := required "mcpEgress.test.allowed.port is required when mcpEgress.test.enabled" $t.allowed.port }}
+{{- $deniedHost := required "mcpEgress.test.denied.host is required when mcpEgress.test.enabled" $t.denied.host }}
+{{- $deniedPort := required "mcpEgress.test.denied.port is required when mcpEgress.test.enabled" $t.denied.port }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ printf "%s-test-mcp-egress" (include "connectorhub.fullname" .) | trunc 63 | trimSuffix "-" }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    launcher: "true"
+    tool-id: {{ required "mcpEgress.test.toolId is required when mcpEgress.test.enabled" $t.toolId | quote }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+  containers:
+    - name: egress-check
+      image: {{ $t.image | quote }}
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+      env:
+        - name: ALLOWED_HOST
+          value: {{ $allowedHost | quote }}
+        - name: ALLOWED_PORT
+          value: {{ $allowedPort | quote }}
+        - name: DENIED_HOST
+          value: {{ $deniedHost | quote }}
+        - name: DENIED_PORT
+          value: {{ $deniedPort | quote }}
+        - name: TIMEOUT
+          value: {{ $t.timeoutSeconds | default 5 | quote }}
+        - name: CHECK_DNS
+          value: {{ if $t.checkDns }}"true"{{ else }}"false"{{ end }}
+        - name: DNS_NAME
+          value: {{ $t.dnsName | default "kubernetes.default" | quote }}
+      command:
+        - sh
+        - -c
+        - |
+          set -u
+          rc=0
+          if [ "$CHECK_DNS" = "true" ]; then
+            if nslookup "$DNS_NAME" >/dev/null 2>&1; then
+              echo "PASS dns: resolved $DNS_NAME"
+            else
+              echo "FAIL dns: could not resolve $DNS_NAME"; rc=1
+            fi
+          fi
+          if nc -z -w "$TIMEOUT" "$ALLOWED_HOST" "$ALLOWED_PORT"; then
+            echo "PASS allowed: connected to $ALLOWED_HOST:$ALLOWED_PORT"
+          else
+            echo "FAIL allowed: could not connect to $ALLOWED_HOST:$ALLOWED_PORT"; rc=1
+          fi
+          if nc -z -w "$TIMEOUT" "$DENIED_HOST" "$DENIED_PORT"; then
+            echo "FAIL denied: connected to $DENIED_HOST:$DENIED_PORT (egress not blocked)"; rc=1
+          else
+            echo "PASS denied: $DENIED_HOST:$DENIED_PORT unreachable"
+          fi
+          exit $rc
+{{- end }}
