@@ -3,34 +3,98 @@
 networkpolicy-mcp.yaml. Renders only when both mcpEgress.enabled and
 mcpEgress.test.enabled are true.
 
-The test pod wears the same labels the connectorhub launcher puts on MCP tool
-pods (launcher: "true", tool-id: <mcpEgress.test.toolId>), so the policies
-apply to it exactly as they would to that tool. It is a bare Pod, not a
-Deployment, so connectorhub's reconciler (which lists launcher=true
+The check pod wears the labels the connectorhub launcher puts on MCP tool pods
+(launcher: "true", tool-id: <mcpEgress.test.toolId>, default
+"egress-selftest"), so the default deny applies to it exactly as it does to a
+tool. That tool-id is synthetic on purpose: a pod carrying a live connector's
+tool-id would join that connector's mcp-<id> Service endpoints and could be
+picked by connectorhub for attach/exec/logs while the test runs. Its only
+extra egress is the <fullname>-mcp-selftest-allow policy, which grants
+test.allowed and renders only while the test is enabled. It is a bare Pod,
+not a Deployment, so connectorhub's reconciler (which lists launcher=true
 Deployments) never sees or deletes it.
 
 It passes only if:
-  - cluster DNS resolves (the default-deny still allows DNS), when checkDns;
-  - a TCP connect to test.allowed succeeds (must be inside a CIDR/port that
-    mcpEgress.allow grants test.toolId);
-  - a TCP connect to test.denied fails (must be outside every allowed CIDR).
+  - (control, when controlCheck) a pod WITHOUT the launcher labels can reach
+    test.denied, proving the destination is reachable when no MCP policy
+    applies; this runs first (lower hook weight);
+  - cluster DNS resolves test.dnsName (the default deny still allows DNS),
+    when checkDns;
+  - a TCP connect to test.allowed succeeds (granted by the selftest policy);
+  - a TCP connect to test.denied fails.
 */ -}}
 {{- if and .Values.mcpEgress.enabled .Values.mcpEgress.test.enabled }}
 {{- $t := .Values.mcpEgress.test }}
+{{- $testID := $t.toolId | default "egress-selftest" }}
 {{- $allowedHost := required "mcpEgress.test.allowed.host is required when mcpEgress.test.enabled" $t.allowed.host }}
-{{- $allowedPort := required "mcpEgress.test.allowed.port is required when mcpEgress.test.enabled" $t.allowed.port }}
+{{- $allowedPort := include "connectorhub.mcpEgress.port" (list (required "mcpEgress.test.allowed.port is required when mcpEgress.test.enabled" $t.allowed.port) "mcpEgress.test.allowed.port") }}
 {{- $deniedHost := required "mcpEgress.test.denied.host is required when mcpEgress.test.enabled" $t.denied.host }}
-{{- $deniedPort := required "mcpEgress.test.denied.port is required when mcpEgress.test.enabled" $t.denied.port }}
+{{- $_ := include "connectorhub.mcpEgress.hostCIDR" (list $deniedHost "mcpEgress.test.denied.host") }}
+{{- $deniedPort := include "connectorhub.mcpEgress.port" (list (required "mcpEgress.test.denied.port is required when mcpEgress.test.enabled" $t.denied.port) "mcpEgress.test.denied.port") }}
+{{- $timeout := $t.timeoutSeconds | default 5 }}
+{{- $fullname := include "connectorhub.fullname" . }}
+{{- if $t.controlCheck }}
+---
+# Control: same image and destination, but no launcher labels, so no MCP
+# policy selects it. If this cannot reach test.denied, a "denied" PASS below
+# would prove nothing (no internet egress, a namespace-wide policy, ...).
 apiVersion: v1
 kind: Pod
 metadata:
-  name: {{ printf "%s-test-mcp-egress" (include "connectorhub.fullname" .) | trunc 63 | trimSuffix "-" }}
+  name: {{ include "connectorhub.mcpEgress.name" (list $fullname "test-mcp-egress-control") }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    # Deliberately not the full connectorhub.labels: name+instance would put
+    # this pod behind connectorhub's own Service.
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: mcp-egress-test-control
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+  containers:
+    - name: egress-control
+      image: {{ $t.image | quote }}
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+      env:
+        - name: DENIED_HOST
+          value: {{ $deniedHost | quote }}
+        - name: DENIED_PORT
+          value: {{ $deniedPort | quote }}
+        - name: TIMEOUT
+          value: {{ $timeout | quote }}
+      command:
+        - sh
+        - -c
+        - |
+          if nc -z -w "$TIMEOUT" "$DENIED_HOST" "$DENIED_PORT"; then
+            echo "PASS control: $DENIED_HOST:$DENIED_PORT reachable without MCP policy"
+          else
+            echo "FAIL control: $DENIED_HOST:$DENIED_PORT unreachable even without MCP policy; the denied check would be inconclusive. Pick a test.denied reachable from this namespace, or set test.controlCheck=false."
+            exit 1
+          fi
+{{- end }}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "connectorhub.mcpEgress.name" (list $fullname "test-mcp-egress") }}
   namespace: {{ .Release.Namespace }}
   labels:
     launcher: "true"
-    tool-id: {{ required "mcpEgress.test.toolId is required when mcpEgress.test.enabled" $t.toolId | quote }}
+    tool-id: {{ $testID | quote }}
   annotations:
     "helm.sh/hook": test
+    "helm.sh/hook-weight": "0"
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
   restartPolicy: Never
@@ -55,11 +119,11 @@ spec:
         - name: DENIED_PORT
           value: {{ $deniedPort | quote }}
         - name: TIMEOUT
-          value: {{ $t.timeoutSeconds | default 5 | quote }}
+          value: {{ $timeout | quote }}
         - name: CHECK_DNS
           value: {{ if $t.checkDns }}"true"{{ else }}"false"{{ end }}
         - name: DNS_NAME
-          value: {{ $t.dnsName | default "kubernetes.default" | quote }}
+          value: {{ $t.dnsName | default "kubernetes.default.svc.cluster.local" | quote }}
       command:
         - sh
         - -c
