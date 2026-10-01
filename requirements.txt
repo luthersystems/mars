@@ -674,7 +674,7 @@ typing-extensions==4.15.0
     #   azure-storage-queue
     #   azure-synapse-artifacts
     #   pyopenssl
-urllib3==2.7.0
+urllib3==2.8.0
     # via
     #   azure-cli
     #   botocore
