@@ -42,10 +42,10 @@ type PlanCmd struct {
 }
 
 type ApplyCmd struct {
-	Plan        string `name:"plan"`
-	Target      string `name:"target"`
-	Approve     bool   `name:"approve"`
-	RefreshOnly bool   `name:"refresh-only"`
+	Plan        string   `name:"plan"`
+	Target      []string `name:"target"`
+	Approve     bool     `name:"approve"`
+	RefreshOnly bool     `name:"refresh-only"`
 	// ForbidResourceChanges makes apply fail if the plan would create,
 	// update, or delete (incl. replace) ANY managed resource. State-only
 	// operations — `no-op`, `read`, and `forget` (a `removed{ destroy =
@@ -216,8 +216,8 @@ func (c *ApplyCmd) Run(ctx context.Context, rt *app.Runtime) error {
 	} else {
 		args = s.varFileArgs()
 	}
-	if c.Target != "" {
-		args = append(args, "-target", c.Target)
+	for _, target := range c.Target {
+		args = append(args, "-target", target)
 	}
 	if c.RefreshOnly {
 		args = append(args, "-refresh-only")
@@ -242,8 +242,8 @@ func (c *ApplyCmd) runGuardedApply(ctx context.Context, s *service) error {
 		}
 		planPath = tmp
 		planArgs := append([]string{"terraform", "plan", "-out=" + planPath}, s.varFileArgs()...)
-		if c.Target != "" {
-			planArgs = append(planArgs, "-target", c.Target)
+		for _, target := range c.Target {
+			planArgs = append(planArgs, "-target", target)
 		}
 		if c.RefreshOnly {
 			planArgs = append(planArgs, "-refresh-only")

@@ -51,7 +51,8 @@ mars <env> plan                           # Plan changes
 mars <env> plan --apply                   # Plan and apply in one step
 mars <env> apply                          # Apply changes
 mars <env> apply --approve                # Apply without confirmation
-mars <env> plan --target=<resource>       # Target specific resource
+mars <env> plan --target=<resource>       # Repeat --target for multiple resources
+mars <env> apply --target=<a> --target=<b> # Repeatable for apply too
 mars <env> terraform output <name>        # Get terraform output
 
 # Ansible operations

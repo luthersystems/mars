@@ -44,6 +44,59 @@ func TestTerraformPlanBuildsWorkspaceAndVarFiles(t *testing.T) {
 	})
 }
 
+func TestApplyMultipleTargets(t *testing.T) {
+	for _, guarded := range []bool{false, true} {
+		name := "plain"
+		if guarded {
+			name = "forbid-resource-changes"
+		}
+		t.Run(name, func(t *testing.T) {
+			withProject(t, func(dir string) {
+				writeFile(t, ".terraform-version", "1.7.3\n")
+				writeFile(t, "vars/common/common.tfvars", "")
+				writeFile(t, "vars/dev/dev.tfvars", "")
+				fake := &runner.Fake{CaptureOut: [][]byte{
+					[]byte("default\n"),
+					[]byte(`{"format_version":"1.2","resource_changes":[]}`),
+				}}
+				var stdout, stderr bytes.Buffer
+				args := []string{"dev", "--skip-prompt", "apply", "--target", "a", "--target", "b", "--approve"}
+				if guarded {
+					args = append(args, "--forbid-resource-changes")
+				}
+
+				code := Main(context.Background(), args, strings.NewReader(""), &stdout, &stderr, fake)
+
+				if code != 0 {
+					t.Fatalf("exit code = %d, stderr:\n%s", code, stderr.String())
+				}
+				want := [][]string{
+					{"flock", "/opt/tfenv/versions/.install.lock", "tfenv", "install"},
+					{"terraform", "workspace", "show"},
+					{"terraform", "workspace", "select", "dev"},
+				}
+				if guarded {
+					plans, err := filepath.Glob(".tf-plans/tf-plan-guard-dev-*.out")
+					if err != nil || len(plans) != 1 {
+						t.Fatalf("generated plans = %v, err = %v; want one plan", plans, err)
+					}
+					want = append(want,
+						[]string{"terraform", "plan", "-out=" + plans[0], "-var-file=vars/common/common.tfvars", "-var-file=vars/dev/dev.tfvars", "-target", "a", "-target", "b"},
+						[]string{"terraform", "show", "-json", plans[0]},
+						[]string{"terraform", "workspace", "select", "dev"},
+						[]string{"terraform", "apply", plans[0]},
+					)
+				} else {
+					want = append(want, []string{"terraform", "apply", "-var-file=vars/common/common.tfvars", "-var-file=vars/dev/dev.tfvars", "-target", "a", "-target", "b", "-auto-approve"})
+				}
+				if got := fake.Commands(); !reflect.DeepEqual(got, want) {
+					t.Fatalf("commands = %#v, want %#v\nrecords:\n%s", got, want, fake.Output())
+				}
+			})
+		})
+	}
+}
+
 func TestTerraformRawCommandPassesFlagsAfterDoubleDash(t *testing.T) {
 	withProject(t, func(dir string) {
 		writeFile(t, ".terraform-version", "1.7.3\n")
