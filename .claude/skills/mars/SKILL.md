@@ -24,7 +24,8 @@ mars <env> init --reconfigure             # Reconfigure backend
 mars <env> plan                           # Show planned changes
 mars <env> plan --apply                   # Plan then apply (interactive prompt)
 # NOTE: --approve is NOT valid with plan. Use "apply --approve" to skip prompts.
-mars <env> plan --target=<resource>       # Target specific resource
+mars <env> plan --target=<resource>       # Repeat --target for multiple resources
+mars <env> apply --target=<a> --target=<b> # Repeatable for apply too
 mars <env> plan --destroy                 # Plan destruction
 mars <env> apply                          # Apply changes (prompts)
 mars <env> apply --approve                # Apply without confirmation
