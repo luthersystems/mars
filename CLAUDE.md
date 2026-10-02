@@ -128,4 +128,6 @@ echo 1.7.3 > .terraform-version
 - `.github/workflows/mars-ci.yml` - Builds on PRs to main (amd64 + arm64)
 - `.github/workflows/mars-release.yml` - Triggered by git tags, builds and pushes multi-arch images to DockerHub
 - Images are built with Docker buildx for both amd64 and arm64 architectures
+- Releases log in to Docker Hub with OIDC (`.github/actions/configure-dockerhub`), not a stored token. The connection ID is set in that action (not a secret, no repo variable). PR CI pulls public images anonymously. The OIDC token lasts 60 minutes, so keep each Docker step under 60 minutes and log in again before a later Docker step
+- Releases log in to Docker Hub with OIDC (`.github/actions/configure-dockerhub`), not a stored token. The connection ID is set in that action (not a secret, no repo variable). PR CI pulls public images anonymously. The OIDC token lasts 60 minutes, so keep each Docker step under 60 minutes and log in again before a later Docker step
 - To release: create a git tag (e.g., `v0.92.0`) and push it - GitHub Actions handles the rest
