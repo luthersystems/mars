@@ -19,14 +19,17 @@ dlt:
   mspID: Org1MSP
   userID: User1
   chaincodeID: com_luthersystems_chaincode_substrate01
-  env:
-    # Disable the Test API by default (/v1/ch/connectors/test)
-    CH_ENABLE_TEST_API: "false"
-    # Disable real connections in test endpoint by default (forces mock mode)
-    CH_ENABLE_TEST_REAL_MCP: "false"
-    # Disable the Admin API  by default(/v1/ch/config, /v1/ch/connectors/{id}/call)
-    CH_ENABLE_ADMIN_API: "false"
-  
+
+# Container env vars (templates/deployment.yaml). A consumer's env map merges
+# with these defaults, so it sets only the keys it changes.
+env:
+  # Disable the Test API by default (/v1/ch/connectors/test)
+  CH_ENABLE_TEST_API: "false"
+  # Disable real connections in test endpoint by default (forces mock mode)
+  CH_ENABLE_TEST_REAL_MCP: "false"
+  # Disable the Admin API by default (/v1/ch/config, /v1/ch/connectors/{id}/call)
+  CH_ENABLE_ADMIN_API: "false"
+
 sdk:
   secretName: connectorhub-config
   # configMapName: connectorhub-config  # Use this instead of secretName to create a ConfigMap
