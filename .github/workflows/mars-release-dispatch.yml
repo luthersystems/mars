@@ -18,9 +18,9 @@ name: Release (dispatch)
 # v0.127.0 -> ...), so that is the default; patch is available for a hotfix
 # rebuild. MAJOR implies a contract break and stays human-cut (GitHub release UI).
 #
-# Model auth: the Claude subscription token
-# (op://Reliable-Dev/CLAUDE_CODE_OAUTH_TOKEN -> repo secret CLAUDE_CODE_OAUTH_TOKEN),
-# same identity buildenv's release-patch.yml / scout-autofix.yml use.
+# Model auth: Amazon Bedrock via GitHub OIDC, assuming the AWS role
+# github-actions-claude-bedrock (managed in luthersystems/common-infrastructure
+# storage/github_actions_claude_bedrock.tf). No token to rotate, no weekly cap.
 on:
   workflow_dispatch:
     inputs:
@@ -46,7 +46,7 @@ on:
 
 permissions:
   contents: write # `gh release create` (creates the tag + release)
-  id-token: write # lets claude-code-action mint the official Claude App token, so the tag push triggers mars-release.yml
+  id-token: write # used for the AWS role (Bedrock) and the Claude App token (so the tag push triggers mars-release.yml)
 
 concurrency:
   group: mars-release-dispatch
@@ -61,6 +61,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # all tags + history, so next-release-version.sh and the notes see prior releases
+      - name: Configure AWS credentials for Bedrock (OIDC)
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::637423319757:role/github-actions-claude-bedrock
+          aws-region: us-west-2
       - name: Cut the release via Claude
         uses: anthropics/claude-code-action@v1 # TODO: pin to a SHA (repo convention); the dependabot actions group will track it
         env:
@@ -73,7 +78,7 @@ jobs:
           # using `id-token: write` above). Do NOT add a `github_token:` here -- a
           # default GITHUB_TOKEN does not trigger mars-release.yml, which this
           # release depends on.
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          use_bedrock: "true" # model auth via the AWS role assumed above
           prompt: |
             Cut a mars release. Do exactly this and nothing else -- no source
             changes, no PRs, no branch pushes.
@@ -108,7 +113,7 @@ jobs:
           claude_args: |
             --allowedTools Bash,Read,Grep,Glob
             --max-turns 30
-            --model claude-opus-4-8
+            --model us.anthropic.claude-opus-5-5
       # Capture the agent's full stream-json conversation for troubleshooting.
       # claude-code-action hides the transcript from the job log and writes it to
       # $RUNNER_TEMP/claude-execution-output.json (otherwise wiped on runner
