@@ -17,13 +17,16 @@ metadata:
     service.beta.kubernetes.io/aws-load-balancer-internal: "true"
     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
     service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: Project={{ .Values.global.lutherProjectID }},Environment={{ .Values.global.lutherEnv }},Organization={{ .Values.dlt.organization }},Component={{.Values.dlt.component}},Resource=elb
-    {{- /* Health check the operations port (/healthz) as before. It is not a
-    listener on the load balancer: with ip targets the NLB checks the pod port
+    {{- if .Values.service.useNLB }}
+    {{- /* Health check the operations port (/healthz). It is not a listener
+    on the load balancer: with ip targets the NLB checks the pod port
     directly. A plain TCP check on the TLS peer port would log a failed TLS
-    handshake for every probe. */}}
+    handshake for every probe. The classic ELB checks a NodePort, and 9443 is
+    not a Service port, so it keeps its default check. */}}
     service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: http
-    service.beta.kubernetes.io/aws-load-balancer-healthcheck-port:  {{ .Values.internal.container.operationsPort | quote }}
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: {{ .Values.internal.container.operationsPort | quote }}
     service.beta.kubernetes.io/aws-load-balancer-healthcheck-path: /healthz
+    {{- end }}
     {{- end }}
 spec:
   type: {{ .Values.service.type }}

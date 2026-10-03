@@ -58,7 +58,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "histogram_quantile(0.97, sum(rate({__name__=~\"fabric(client|gateway)_tx_sim_dur_ms_bucket\"}[5m])) by (le))",
+          "expr": "histogram_quantile(0.97, sum(rate(fabricclient_tx_sim_dur_ms_bucket[5m]) or rate(fabricgateway_tx_sim_dur_ms_bucket[5m])) by (le))",
           "hide": false,
           "instant": false,
           "legendFormat": "duration",
@@ -147,7 +147,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "histogram_quantile(0.97, sum(rate({__name__=~\"fabric(client|gateway)_tx_commit_dur_ms_bucket\"}[5m])) by (le))",
+          "expr": "histogram_quantile(0.97, sum(rate(fabricclient_tx_commit_dur_ms_bucket[5m]) or rate(fabricgateway_tx_commit_dur_ms_bucket[5m])) by (le))",
           "hide": false,
           "instant": false,
           "legendFormat": "duration",
@@ -235,7 +235,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum (rate({__name__=~\"fabric(client|gateway)_tx_total\"}[5m])) * 60",
+          "expr": "sum (rate(fabricclient_tx_total[5m]) or rate(fabricgateway_tx_total[5m])) * 60",
           "interval": "",
           "legendFormat": "calls",
           "refId": "A"
@@ -410,7 +410,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum by (group,code) (rate({__name__=~\"fabric(client|gateway)_tx_sim_err_total\"}[5m])) * 60",
+          "expr": "sum by (group,code) (rate(fabricclient_tx_sim_err_total[5m]) or rate(fabricgateway_tx_sim_err_total[5m])) * 60",
           "legendFormat": "{{group}}/{{code}}",
           "refId": "A"
         }
@@ -496,8 +496,8 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum by (code) (rate({__name__=~\"fabric(client|gateway)_tx_commit_err_total\"}[5m])) * 60",
-          "legendFormat": "{{group}}/{{code}}",
+          "expr": "sum by (code) (rate(fabricclient_tx_commit_err_total[5m]) or rate(fabricgateway_tx_commit_err_total[5m])) * 60",
+          "legendFormat": "{{code}}",
           "refId": "A"
         }
       ],
@@ -582,7 +582,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum (rate({__name__=~\"fabric(client|gateway)_tx_retry_total\"}[5m])) * 60",
+          "expr": "sum (rate(fabricclient_tx_retry_total[5m]) or rate(fabricgateway_tx_retry_total[5m])) * 60",
           "legendFormat": "retries",
           "refId": "A"
         }
@@ -756,7 +756,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum (rate({__name__=~\"fabric(client|gateway)_tx_sim_total\"}[5m])) * 60",
+          "expr": "sum (rate(fabricclient_tx_sim_total[5m]) or rate(fabricgateway_tx_sim_total[5m])) * 60",
           "legendFormat": "simulations",
           "refId": "A"
         }
@@ -842,7 +842,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum (rate({__name__=~\"fabric(client|gateway)_tx_commit_total\"}[5m])) * 60",
+          "expr": "sum (rate(fabricclient_tx_commit_total[5m]) or rate(fabricgateway_tx_commit_total[5m])) * 60",
           "legendFormat": "commits",
           "refId": "A"
         }
