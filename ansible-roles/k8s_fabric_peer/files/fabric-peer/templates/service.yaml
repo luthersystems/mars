@@ -5,8 +5,6 @@ metadata:
   labels:
     {{- include "fabric-peer.labels" . | nindent 4 }}
   annotations:
-    prometheus.io/scrape: "true"
-    prometheus.io/port: {{ .Values.internal.container.operationsPort | quote }}
     external-dns.alpha.kubernetes.io/hostname: {{ include "fabric-peer.self-fqdn" . }}
     {{- if eq .Values.service.type "LoadBalancer" }}
     {{- if .Values.service.useNLB }}
@@ -19,6 +17,10 @@ metadata:
     service.beta.kubernetes.io/aws-load-balancer-internal: "true"
     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
     service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: Project={{ .Values.global.lutherProjectID }},Environment={{ .Values.global.lutherEnv }},Organization={{ .Values.dlt.organization }},Component={{.Values.dlt.component}},Resource=elb
+    {{- /* Health check the operations port (/healthz) as before. It is not a
+    listener on the load balancer: with ip targets the NLB checks the pod port
+    directly. A plain TCP check on the TLS peer port would log a failed TLS
+    handshake for every probe. */}}
     service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: http
     service.beta.kubernetes.io/aws-load-balancer-healthcheck-port:  {{ .Values.internal.container.operationsPort | quote }}
     service.beta.kubernetes.io/aws-load-balancer-healthcheck-path: /healthz
@@ -38,6 +40,24 @@ spec:
       targetPort: grpc-svc
       protocol: TCP
       name: grpc-svc
+  selector:
+    app.kubernetes.io/name: {{ include "fabric-peer.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+---
+# The operations port (metrics, /healthz) is for in-cluster use only. It has
+# its own ClusterIP service, so it is never published on the load balancer.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ printf "%s-ops" (include "fabric-peer.fullname" . | trunc 59 | trimSuffix "-") }}
+  labels:
+    {{- include "fabric-peer.labels" . | nindent 4 }}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: {{ .Values.internal.container.operationsPort | quote }}
+spec:
+  type: ClusterIP
+  ports:
     - port: {{ .Values.internal.container.operationsPort }}
       targetPort: http-op
       protocol: TCP
