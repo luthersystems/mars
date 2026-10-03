@@ -5,10 +5,13 @@ package grafanadashboards
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"sort"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -57,16 +60,8 @@ func TestDashboardQueries(t *testing.T) {
 // TestFabricEndorsementPanel checks the metric name of the endorsement
 // duration panel. Fabric peers export endorser_proposal_duration.
 func TestFabricEndorsementPanel(t *testing.T) {
-	raw, err := os.ReadFile(filepath.Join(repoRoot(t), "grafana-dashboards", "fabric.json"))
-	if err != nil {
-		t.Fatalf("read: %v", err)
-	}
-	var doc any
-	if err := json.Unmarshal(raw, &doc); err != nil {
-		t.Fatalf("invalid JSON: %v", err)
-	}
 	found := false
-	for _, expr := range exprs(doc) {
+	for _, expr := range exprs(readDashboard(t, "fabric.json")) {
 		if strings.Contains(expr, "endorser_") {
 			found = true
 			if !strings.Contains(expr, "endorser_proposal_duration_bucket") {
@@ -77,6 +72,193 @@ func TestFabricEndorsementPanel(t *testing.T) {
 	if !found {
 		t.Error("fabric.json has no endorsement duration query")
 	}
+}
+
+// The gateway exports these metrics in both client modes, with the prefix
+// fabricclient_ or fabricgateway_. See substrate
+// internal/shiroclient/fabricclient/fabricclient.go and
+// internal/shiroclient/fabricgateway/metrics.go.
+var (
+	gatewayPrefixes   = []string{"fabricclient_", "fabricgateway_"}
+	gatewayCounters   = []string{"tx_total", "tx_sim_total", "tx_commit_total", "tx_retry_total", "tx_sim_err_total", "tx_commit_err_total"}
+	gatewayHistograms = []string{"tx_sim_dur_ms", "tx_commit_dur_ms"}
+)
+
+// otherShiroGWMetrics lists the other metrics that shiro-gw.json queries.
+// The gateway does not export them. Their panels are older than this test.
+var otherShiroGWMetrics = []string{"grpc_client_handled_total"}
+
+// TestShiroGWMetricNames checks every metric name that shiro-gw.json
+// queries. A __name__ selector must match one gateway metric under both
+// prefixes. A bare name must be in otherShiroGWMetrics. The dashboard must
+// query each gateway metric.
+func TestShiroGWMetricNames(t *testing.T) {
+	// series maps each series name to its gateway metric without prefix.
+	series := map[string]string{}
+	for _, prefix := range gatewayPrefixes {
+		for _, name := range gatewayCounters {
+			series[prefix+name] = name
+		}
+		for _, name := range gatewayHistograms {
+			for _, suffix := range []string{"_bucket", "_sum", "_count"} {
+				series[prefix+name+suffix] = name
+			}
+		}
+	}
+	other := map[string]bool{}
+	for _, name := range otherShiroGWMetrics {
+		other[name] = true
+	}
+
+	queried := map[string]bool{}
+	for _, expr := range exprs(readDashboard(t, "shiro-gw.json")) {
+		selectors, bare, err := metricNames(expr)
+		if err != nil {
+			t.Errorf("%v: %s", err, expr)
+			continue
+		}
+		if len(selectors)+len(bare) == 0 {
+			t.Errorf("no metric name in query: %s", expr)
+		}
+		for _, sel := range selectors {
+			re, err := regexp.Compile("^(?:" + sel + ")$")
+			if err != nil {
+				t.Errorf("__name__ selector %q: %v: %s", sel, err, expr)
+				continue
+			}
+			var matched []string
+			for name := range series {
+				if re.MatchString(name) {
+					matched = append(matched, name)
+				}
+			}
+			sort.Strings(matched)
+			if len(matched) != len(gatewayPrefixes) || !sameMetric(matched, series) {
+				t.Errorf("__name__ selector %q matches gateway series %v; want one gateway metric under both prefixes: %s", sel, matched, expr)
+				continue
+			}
+			queried[series[matched[0]]] = true
+		}
+		for _, name := range bare {
+			if !other[name] {
+				t.Errorf("query names unknown metric %q; use {__name__=~\"fabric(client|gateway)_<name>\"} for a gateway metric: %s", name, expr)
+			}
+		}
+	}
+	for _, name := range append(append([]string{}, gatewayCounters...), gatewayHistograms...) {
+		if !queried[name] {
+			t.Errorf("shiro-gw.json does not query gateway metric %s", name)
+		}
+	}
+}
+
+// sameMetric reports whether the series in matched have one prefix each
+// and the same series name without the prefix.
+func sameMetric(matched []string, series map[string]string) bool {
+	var rest string
+	for i, prefix := range gatewayPrefixes {
+		var name string
+		for _, m := range matched {
+			if strings.HasPrefix(m, prefix) {
+				name = strings.TrimPrefix(m, prefix)
+			}
+		}
+		if name == "" || (i > 0 && name != rest) {
+			return false
+		}
+		rest = name
+	}
+	return true
+}
+
+var (
+	nameMatcherRE = regexp.MustCompile(`__name__\s*(=~|!~|!=|=)\s*("(?:[^"\\]|\\.)*")`)
+	stringRE      = regexp.MustCompile(`"(?:[^"\\]|\\.)*"`)
+	labelBlockRE  = regexp.MustCompile(`\{[^}]*\}`)
+	rangeRE       = regexp.MustCompile(`\[[^\]]*\]`)
+	labelListRE   = regexp.MustCompile(`\b(?:by|without|on|ignoring|group_left|group_right)\s*\([^)]*\)`)
+)
+
+// promqlWords are PromQL keywords that are not metric names.
+var promqlWords = map[string]bool{
+	"and": true, "or": true, "unless": true, "bool": true, "offset": true, "atan2": true,
+	"by": true, "without": true, "on": true, "ignoring": true, "group_left": true, "group_right": true,
+	"inf": true, "nan": true,
+}
+
+// metricNames returns the __name__ selector regexps and the bare metric
+// names in a PromQL expression. An identifier followed by "(" is a
+// function or an aggregation, not a metric name.
+func metricNames(expr string) (selectors, bare []string, err error) {
+	for _, m := range nameMatcherRE.FindAllStringSubmatch(expr, -1) {
+		value, err := strconv.Unquote(m[2])
+		if err != nil {
+			return nil, nil, fmt.Errorf("__name__ value %s: %w", m[2], err)
+		}
+		switch m[1] {
+		case "=~":
+			selectors = append(selectors, value)
+		case "=":
+			selectors = append(selectors, regexp.QuoteMeta(value))
+		default:
+			return nil, nil, fmt.Errorf("negative __name__ matcher %s", m[0])
+		}
+	}
+
+	s := stringRE.ReplaceAllString(expr, `""`)
+	s = labelBlockRE.ReplaceAllString(s, " ")
+	s = rangeRE.ReplaceAllString(s, " ")
+	s = labelListRE.ReplaceAllString(s, " ")
+	for i := 0; i < len(s); {
+		switch c := s[i]; {
+		case isIdentStart(c):
+			j := i + 1
+			for j < len(s) && isIdentChar(s[j]) {
+				j++
+			}
+			k := j
+			for k < len(s) && (s[k] == ' ' || s[k] == '\t' || s[k] == '\n') {
+				k++
+			}
+			if word := s[i:j]; (k == len(s) || s[k] != '(') && !promqlWords[word] {
+				bare = append(bare, word)
+			}
+			i = j
+		case c >= '0' && c <= '9', c == '.', c == '$':
+			// A number (1e3) or a Grafana variable is one token.
+			j := i + 1
+			for j < len(s) && (isIdentChar(s[j]) || s[j] == '.') {
+				j++
+			}
+			i = j
+		default:
+			i++
+		}
+	}
+	return selectors, bare, nil
+}
+
+func isIdentStart(c byte) bool {
+	return c == '_' || c == ':' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+}
+
+func isIdentChar(c byte) bool {
+	return isIdentStart(c) || (c >= '0' && c <= '9')
+}
+
+// readDashboard decodes grafana-dashboards/<name>.
+func readDashboard(t *testing.T, name string) any {
+	t.Helper()
+
+	raw, err := os.ReadFile(filepath.Join(repoRoot(t), "grafana-dashboards", name))
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	var doc any
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	return doc
 }
 
 // exprs returns every "expr" string in a decoded dashboard.
