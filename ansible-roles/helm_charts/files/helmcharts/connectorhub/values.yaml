@@ -57,8 +57,11 @@ ports:
 
 persistentVolume:
   create: true
-  storageClassName: gp2
-  storageSize: 10Gi
+  # The volume holds only the connectorhub checkpoint file, so 2Gi is enough.
+  # storageClassName and a smaller storageSize cannot change on an existing
+  # PVC. Existing installs must pin their current values.
+  storageClassName: gp3-encrypted
+  storageSize: 2Gi
   typeOverride: ""
 
 ingress:

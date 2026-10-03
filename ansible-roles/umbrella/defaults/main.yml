@@ -8,7 +8,10 @@ umbrella_app_name: project
 umbrella_helm_chart: "{{ helm_charts_root_path }}/umbrella"
 umbrella_charts: []
 umbrella_connectorhub_separate_pvc: false
-umbrella_connectorhub_storage_size: 10Gi
-umbrella_connectorhub_storage_class: gp2-encrypted
+# The connectorhub volume holds only its checkpoint file, so 2Gi is enough.
+# The storage class, and a smaller size, cannot change on an existing PVC.
+# Existing installs must pin their current values (gp2-encrypted, 10Gi).
+umbrella_connectorhub_storage_size: 2Gi
+umbrella_connectorhub_storage_class: gp3-encrypted
 umbrella_connectorhub_volume_type_override: ""
 umbrella_lutherauth_secrets: false
