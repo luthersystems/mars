@@ -235,7 +235,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(endorser_proposal_duration_bucket[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate({__name__=~\"endorser_(propsal|proposal)_duration_bucket\"}[5m])))",
           "legendFormat": "p95",
           "refId": "A"
         }

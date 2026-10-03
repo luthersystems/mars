@@ -57,15 +57,45 @@ func TestDashboardQueries(t *testing.T) {
 	}
 }
 
-// TestFabricEndorsementPanel checks the metric name of the endorsement
-// duration panel. Fabric peers export endorser_proposal_duration.
+// endorsementBuckets are the two names of the Fabric endorsement duration
+// histogram. Fabric v1.4.2 to v1.4.4 export endorser_propsal_duration
+// (misspelled). v1.4.5 and later export endorser_proposal_duration. A peer
+// exports one of them, never both.
+var endorsementBuckets = []string{"endorser_propsal_duration_bucket", "endorser_proposal_duration_bucket"}
+
+// TestFabricEndorsementPanel checks that the endorsement duration panel
+// selects both names of the histogram, so it shows data for every Fabric
+// version that mars deploys.
 func TestFabricEndorsementPanel(t *testing.T) {
 	found := false
 	for _, expr := range exprs(readDashboard(t, "fabric.json")) {
-		if strings.Contains(expr, "endorser_") {
-			found = true
-			if !strings.Contains(expr, "endorser_proposal_duration_bucket") {
-				t.Errorf("endorsement panel queries an unknown metric: %s", expr)
+		if !strings.Contains(expr, "endorser_") {
+			continue
+		}
+		found = true
+		selectors, bare, err := metricNames(expr)
+		if err != nil {
+			t.Errorf("%v: %s", err, expr)
+			continue
+		}
+		for _, name := range bare {
+			t.Errorf("query names %s only; use {__name__=~\"endorser_(propsal|proposal)_duration_bucket\"}: %s", name, expr)
+		}
+		for _, want := range endorsementBuckets {
+			matched := false
+			for _, name := range bare {
+				matched = matched || name == want
+			}
+			for _, sel := range selectors {
+				re, err := regexp.Compile("^(?:" + sel + ")$")
+				if err != nil {
+					t.Errorf("__name__ selector %q: %v: %s", sel, err, expr)
+					continue
+				}
+				matched = matched || re.MatchString(want)
+			}
+			if !matched {
+				t.Errorf("endorsement query does not select %s: %s", want, expr)
 			}
 		}
 	}
