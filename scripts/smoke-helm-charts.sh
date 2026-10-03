@@ -113,18 +113,22 @@ want_service "classic load balancer has no operations port" \
   "peer0-org1-fabric-peer LoadBalancer grpc-gossip,grpc-svc, no" \
   --set service.useNLB=false
 
-# The health check must use the peer listener (gossipPort, 7051). Fabric 2.x
-# serves nothing on service.port (7053), so a check there never passes.
+# The health check stays as before the operations port left the load
+# balancer: HTTP /healthz on the operations port (9443). With ip targets the
+# NLB checks the pod port directly, so it needs no listener. A plain TCP check
+# on the TLS peer port (7051) would log a failed TLS handshake for each probe.
 for lb in "" "--set service.useNLB=false"; do
   # shellcheck disable=SC2086 # split the optional flags
-  if helm template peer0-org1 "${PEER_CHART}" \
+  out=$(helm template peer0-org1 "${PEER_CHART}" \
     --show-only templates/service.yaml \
     --set serviceAccount.name=sa --set dlt.organization=org1 \
-    --set dlt.domain=example.com ${lb} 2>&1 |
-    grep -qx "    service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: \"7051\""; then
-    echo "OK:   peer health check uses the gossip port ${lb}"
+    --set dlt.domain=example.com ${lb} 2>&1)
+  if printf "%s\n" "${out}" | grep -qx "    service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: http" &&
+    printf "%s\n" "${out}" | grep -Eqx "    service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: +\"9443\"" &&
+    printf "%s\n" "${out}" | grep -qx "    service.beta.kubernetes.io/aws-load-balancer-healthcheck-path: /healthz"; then
+    echo "OK:   peer health check is HTTP /healthz on the operations port ${lb}"
   else
-    echo "FAIL: peer health check does not use the gossip port (7051) ${lb}"
+    echo "FAIL: peer health check is not HTTP /healthz on port 9443 ${lb}"
     fail=1
   fi
 done
