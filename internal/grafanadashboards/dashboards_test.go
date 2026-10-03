@@ -70,6 +70,39 @@ func TestDashboardQueries(t *testing.T) {
 	}
 }
 
+// TestLegendLabels checks that a panel legend names only labels the query
+// keeps. After sum by (a, b), every other label is gone, so {{c}} in the
+// legend renders empty.
+func TestLegendLabels(t *testing.T) {
+	sumBy := regexp.MustCompile(`^\s*(?:sum|avg|min|max|count)\s+by\s*\(([^)]*)\)`)
+	placeholder := regexp.MustCompile(`\{\{\s*(\w+)\s*\}\}`)
+	dir := filepath.Join(repoRoot(t), "grafana-dashboards")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("read %s: %v", dir, err)
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		t.Run(name, func(t *testing.T) {
+			for _, target := range targets(readDashboard(t, name)) {
+				m := sumBy.FindStringSubmatch(target.expr)
+				if m == nil {
+					continue
+				}
+				kept := map[string]bool{}
+				for _, label := range strings.Split(m[1], ",") {
+					kept[strings.TrimSpace(label)] = true
+				}
+				for _, p := range placeholder.FindAllStringSubmatch(target.legend, -1) {
+					if !kept[p[1]] {
+						t.Errorf("legend %q uses {{%s}}, which %q drops", target.legend, p[1], m[0])
+					}
+				}
+			}
+		})
+	}
+}
+
 // TestFabricEndorsementPanel checks the metric name of the endorsement
 // duration panel. Fabric peers export endorser_proposal_duration.
 func TestFabricEndorsementPanel(t *testing.T) {
@@ -270,6 +303,29 @@ func exprs(v any) []string {
 	case []any:
 		for _, child := range v {
 			out = append(out, exprs(child)...)
+		}
+	}
+	return out
+}
+
+type target struct{ expr, legend string }
+
+// targets returns every object with an "expr" string in a decoded
+// dashboard, with its "legendFormat" if it has one.
+func targets(v any) []target {
+	var out []target
+	switch v := v.(type) {
+	case map[string]any:
+		if expr, ok := v["expr"].(string); ok {
+			legend, _ := v["legendFormat"].(string)
+			out = append(out, target{expr, legend})
+		}
+		for _, child := range v {
+			out = append(out, targets(child)...)
+		}
+	case []any:
+		for _, child := range v {
+			out = append(out, targets(child)...)
 		}
 	}
 	return out

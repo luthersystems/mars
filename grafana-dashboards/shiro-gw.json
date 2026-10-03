@@ -497,7 +497,7 @@
       "targets": [
         {
           "expr": "sum by (code) (rate(fabricclient_tx_commit_err_total[5m]) or rate(fabricgateway_tx_commit_err_total[5m])) * 60",
-          "legendFormat": "{{group}}/{{code}}",
+          "legendFormat": "{{code}}",
           "refId": "A"
         }
       ],
