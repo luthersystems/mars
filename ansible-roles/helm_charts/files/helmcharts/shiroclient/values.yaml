@@ -41,6 +41,13 @@ ports:
   app: 8082
   metrics: 9602
 
+# startupProbe holds off the liveness and readiness probes until the gateway
+# opens its metrics port. A slow start-up then does not cause a restart loop.
+# The default allows 180s (36 x 5s).
+startupProbe:
+  periodSeconds: 5
+  failureThreshold: 36
+
 # The calling role must set these values, which are different for each project.
 aws: {}
 #  accessKeyID: ""
