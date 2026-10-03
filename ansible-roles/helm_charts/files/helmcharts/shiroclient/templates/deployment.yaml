@@ -144,13 +144,15 @@ spec:
             - name: metrics
               containerPort: {{ .Values.ports.metrics }}
               protocol: TCP
+          {{- with .Values.startupProbe }}
           startupProbe:
+            {{- if not (or .httpGet .exec .tcpSocket .grpc) }}
             httpGet:
               path: /metrics
               port: metrics
-            {{- with .Values.startupProbe }}
-            {{- toYaml . | nindent 12 }}
             {{- end }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           livenessProbe:
             httpGet:
               path: /metrics

@@ -144,6 +144,32 @@ else
   echo "OK:   classic ELB renders no health check annotations"
 fi
 
+# shiroclient gateway: the startupProbe renders by default, startupProbe:
+# null turns it off, and a custom handler replaces the default httpGet.
+startup_probe() {
+  helm template sc "${CHARTS}/shiroclient" --show-only templates/deployment.yaml \
+    --set runMode=gateway "$@" 2>&1 |
+    awk "/^          startupProbe:/{p=1;print;next} p&&/^          [a-zA-Z]/{p=0} p"
+}
+# (description, wanted handler line count "httpGet exec", helm args...)
+want_probe() {
+  desc="$1"; want="$2"; shift 2
+  out=$(startup_probe "$@")
+  got="$(printf "%s\n" "${out}" | grep -c "^            httpGet:") $(printf "%s\n" "${out}" | grep -c "^            exec:")"
+  if [ "${got}" = "${want}" ]; then
+    echo "OK:   ${desc}"
+  else
+    echo "FAIL: ${desc}: httpGet/exec count ${got}, want ${want}:"
+    printf "%s\n" "${out}"
+    fail=1
+  fi
+}
+want_probe "shiroclient startupProbe renders by default" "1 0"
+want_probe "shiroclient startupProbe null turns it off" "0 0" \
+  --set startupProbe=null
+want_probe "shiroclient startupProbe custom handler replaces httpGet" "0 1" \
+  --set-json "startupProbe={\"exec\":{\"command\":[\"true\"]},\"periodSeconds\":5}"
+
 # A long fullname must not truncate <fullname>-ops back to <fullname>.
 long=$(printf "a%.0s" $(seq 63))
 if out=$(helm template peer0-org1 "${PEER_CHART}" \
