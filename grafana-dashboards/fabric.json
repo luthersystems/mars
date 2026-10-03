@@ -235,8 +235,8 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, endorser_propsal_duration_bucket)",
-          "legendFormat": "{{app_kubernetes_io_instance}}/{{chaincode}}/{{success}}",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(endorser_proposal_duration_bucket[5m])))",
+          "legendFormat": "p95",
           "refId": "A"
         }
       ],

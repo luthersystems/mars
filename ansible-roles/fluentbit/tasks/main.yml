@@ -17,11 +17,14 @@
     update_repo_cache: yes
     wait: true
     values:
-      serviceAccounts:
-        server:
-          name: aws-for-fluent-bit
-          annotations:
-            eks.amazonaws.com/role-arn: "{{ k8s_fluentbit_iam_arn }}"
+      # aws-for-fluent-bit reads serviceAccount (singular). Add the IRSA
+      # annotation only when k8s_fluentbit_iam_arn is set. An empty value
+      # renders no annotation, as before.
+      serviceAccount:
+        name: aws-for-fluent-bit
+        annotations: >-
+          {{ {'eks.amazonaws.com/role-arn': k8s_fluentbit_iam_arn}
+          if k8s_fluentbit_iam_arn | length > 0 else {} }}
       cloudWatchLogs:
         region: "{{ k8s_fluentbit_region }}"
         logGroupTemplate: "{{ k8s_fluentbit_log_group_name }}"
