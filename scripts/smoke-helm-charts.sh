@@ -113,25 +113,36 @@ want_service "classic load balancer has no operations port" \
   "peer0-org1-fabric-peer LoadBalancer grpc-gossip,grpc-svc, no" \
   --set service.useNLB=false
 
-# The health check stays as before the operations port left the load
-# balancer: HTTP /healthz on the operations port (9443). With ip targets the
-# NLB checks the pod port directly, so it needs no listener. A plain TCP check
-# on the TLS peer port (7051) would log a failed TLS handshake for each probe.
-for lb in "" "--set service.useNLB=false"; do
-  # shellcheck disable=SC2086 # split the optional flags
-  out=$(helm template peer0-org1 "${PEER_CHART}" \
+# NLB (ip targets): health check HTTP /healthz on the operations port (9443).
+# The NLB checks the pod port directly, so 9443 needs no listener. A plain
+# TCP check on the TLS peer port (7051) would log a failed TLS handshake for
+# each probe.
+peer_svc() {
+  helm template peer0-org1 "${PEER_CHART}" \
     --show-only templates/service.yaml \
     --set serviceAccount.name=sa --set dlt.organization=org1 \
-    --set dlt.domain=example.com ${lb} 2>&1)
-  if printf "%s\n" "${out}" | grep -qx "    service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: http" &&
-    printf "%s\n" "${out}" | grep -Eqx "    service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: +\"9443\"" &&
-    printf "%s\n" "${out}" | grep -qx "    service.beta.kubernetes.io/aws-load-balancer-healthcheck-path: /healthz"; then
-    echo "OK:   peer health check is HTTP /healthz on the operations port ${lb}"
-  else
-    echo "FAIL: peer health check is not HTTP /healthz on port 9443 ${lb}"
-    fail=1
-  fi
-done
+    --set dlt.domain=example.com "$@" 2>&1
+}
+out=$(peer_svc)
+if printf "%s\n" "${out}" | grep -qx "    service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: http" &&
+  printf "%s\n" "${out}" | grep -Eqx "    service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: +\"9443\"" &&
+  printf "%s\n" "${out}" | grep -qx "    service.beta.kubernetes.io/aws-load-balancer-healthcheck-path: /healthz"; then
+  echo "OK:   NLB health check is HTTP /healthz on the operations port"
+else
+  echo "FAIL: NLB health check is not HTTP /healthz on port 9443"
+  fail=1
+fi
+
+# Classic ELB (instance targets): the health check goes to a NodePort, and
+# 9443 is not a Service port, so it has none. Render no health check
+# annotations; the ELB then checks the NodePort of the first Service port.
+out=$(peer_svc --set service.useNLB=false)
+if printf "%s\n" "${out}" | grep -q "aws-load-balancer-healthcheck-"; then
+  echo "FAIL: classic ELB renders health check annotations for a non-Service port"
+  fail=1
+else
+  echo "OK:   classic ELB renders no health check annotations"
+fi
 
 # A long fullname must not truncate <fullname>-ops back to <fullname>.
 long=$(printf "a%.0s" $(seq 63))
