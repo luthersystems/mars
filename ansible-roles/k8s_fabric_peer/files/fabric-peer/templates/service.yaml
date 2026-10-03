@@ -52,7 +52,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ printf "%s-ops" (include "fabric-peer.fullname" . | trunc 59 | trimSuffix "-") }}
+  name: {{ include "fabric-peer.ops-fullname" . }}
   labels:
     {{- include "fabric-peer.labels" . | nindent 4 }}
   annotations:

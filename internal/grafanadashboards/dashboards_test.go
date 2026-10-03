@@ -103,21 +103,171 @@ func TestLegendLabels(t *testing.T) {
 	}
 }
 
-// TestFabricEndorsementPanel checks the metric name of the endorsement
-// duration panel. Fabric peers export endorser_proposal_duration.
+// endorsementBuckets are the two names of the Fabric endorsement duration
+// histogram. Fabric v1.4.2 to v1.4.4 export endorser_propsal_duration
+// (misspelled). v1.4.5 and later export endorser_proposal_duration. A peer
+// exports one of them, never both.
+var endorsementBuckets = []string{"endorser_propsal_duration_bucket", "endorser_proposal_duration_bucket"}
+
+// TestFabricEndorsementPanel checks that the endorsement duration panel
+// selects both names of the histogram, so it shows data for every Fabric
+// version that mars deploys.
 func TestFabricEndorsementPanel(t *testing.T) {
 	found := false
 	for _, expr := range exprs(readDashboard(t, "fabric.json")) {
-		if strings.Contains(expr, "endorser_") {
-			found = true
-			if !strings.Contains(expr, "endorser_proposal_duration_bucket") {
-				t.Errorf("endorsement panel queries an unknown metric: %s", expr)
+		if !strings.Contains(expr, "endorser_") {
+			continue
+		}
+		found = true
+		selectors, bare, err := metricNames(expr)
+		if err != nil {
+			t.Errorf("%v: %s", err, expr)
+			continue
+		}
+		for _, name := range bare {
+			t.Errorf("query names %s only; use {__name__=~\"endorser_(propsal|proposal)_duration_bucket\"}: %s", name, expr)
+		}
+		for _, want := range endorsementBuckets {
+			matched := false
+			for _, name := range bare {
+				matched = matched || name == want
+			}
+			for _, sel := range selectors {
+				re, err := regexp.Compile("^(?:" + sel + ")$")
+				if err != nil {
+					t.Errorf("__name__ selector %q: %v: %s", sel, err, expr)
+					continue
+				}
+				matched = matched || re.MatchString(want)
+			}
+			if !matched {
+				t.Errorf("endorsement query does not select %s: %s", want, expr)
 			}
 		}
 	}
 	if !found {
 		t.Error("fabric.json has no endorsement duration query")
 	}
+}
+
+// times1000RE matches a conversion from seconds to milliseconds.
+var times1000RE = regexp.MustCompile(`\*\s*1000\b|\b1000\s*\*`)
+
+// TestDurationPanelUnits checks the unit of each histogram_quantile panel
+// against the unit the metric records. Fabric and Prometheus record
+// *_duration and *_seconds histograms in seconds. Fabric observes
+// endorser_proposal_duration with time.Since(startTime).Seconds() in
+// core/endorser/endorser.go (v1.4.2 to v2.5.15). The gateway records
+// *_ms histograms in milliseconds. A panel must show the recorded unit, or
+// multiply seconds by 1000 and show ms.
+func TestDurationPanelUnits(t *testing.T) {
+	dir := filepath.Join(repoRoot(t), "grafana-dashboards")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("read %s: %v", dir, err)
+	}
+	checked := 0
+	for _, entry := range entries {
+		name := entry.Name()
+		for _, panel := range panels(readDashboard(t, name)) {
+			targets, _ := panel["targets"].([]any)
+			for _, raw := range targets {
+				target, _ := raw.(map[string]any)
+				expr, _ := target["expr"].(string)
+				if !strings.Contains(expr, "histogram_quantile(") {
+					continue
+				}
+				selectors, bare, err := metricNames(expr)
+				if err != nil {
+					t.Errorf("%s: %v: %s", name, err, expr)
+					continue
+				}
+				for _, metric := range append(selectors, bare...) {
+					want := recordedUnit(metric)
+					if want == "" {
+						continue
+					}
+					if want == "s" && times1000RE.MatchString(expr) {
+						want = "ms"
+					}
+					checked++
+					if got := targetUnit(panel, target); got != want {
+						t.Errorf("%s: panel %q shows %s in unit %q, want %q: %s", name, panel["title"], metric, got, want, expr)
+					}
+				}
+			}
+		}
+	}
+	if checked == 0 {
+		t.Error("no histogram_quantile panel over a duration metric")
+	}
+}
+
+// recordedUnit returns the unit that a histogram records, from its name:
+// "s", "ms", or "" if the name does not say. metric can be a __name__
+// regexp.
+func recordedUnit(metric string) string {
+	name := strings.TrimSuffix(metric, "_bucket")
+	switch {
+	case strings.HasSuffix(name, "_seconds"), strings.HasSuffix(name, "_duration"):
+		return "s"
+	case strings.HasSuffix(name, "_ms"):
+		return "ms"
+	}
+	return ""
+}
+
+// targetUnit returns the unit of the axis that shows target. A graph panel
+// shows a series on its left y axis, unless a series override with the
+// series legend as alias moves it to the right axis. Grafana renders a
+// {{label}} in the legend, so only a literal legend matches an alias here.
+// Other panels use fieldConfig.defaults.unit.
+func targetUnit(panel, target map[string]any) string {
+	yaxes, ok := panel["yaxes"].([]any)
+	if !ok {
+		fieldConfig, _ := panel["fieldConfig"].(map[string]any)
+		defaults, _ := fieldConfig["defaults"].(map[string]any)
+		unit, _ := defaults["unit"].(string)
+		return unit
+	}
+	axis := 0
+	legend, _ := target["legendFormat"].(string)
+	overrides, _ := panel["seriesOverrides"].([]any)
+	for _, raw := range overrides {
+		override, _ := raw.(map[string]any)
+		if alias, _ := override["alias"].(string); alias != legend {
+			continue
+		}
+		if yaxis, ok := override["yaxis"].(float64); ok && yaxis == 2 {
+			axis = 1
+		}
+	}
+	if axis >= len(yaxes) {
+		return ""
+	}
+	y, _ := yaxes[axis].(map[string]any)
+	format, _ := y["format"].(string)
+	return format
+}
+
+// panels returns every panel in a decoded dashboard: each object with a
+// "targets" list, rows and nested panels included.
+func panels(v any) []map[string]any {
+	var out []map[string]any
+	switch v := v.(type) {
+	case map[string]any:
+		if _, ok := v["targets"].([]any); ok {
+			out = append(out, v)
+		}
+		for _, child := range v {
+			out = append(out, panels(child)...)
+		}
+	case []any:
+		for _, child := range v {
+			out = append(out, panels(child)...)
+		}
+	}
+	return out
 }
 
 // The gateway exports these metrics in both client modes, with the prefix
