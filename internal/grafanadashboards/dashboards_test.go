@@ -74,6 +74,126 @@ func TestFabricEndorsementPanel(t *testing.T) {
 	}
 }
 
+// times1000RE matches a conversion from seconds to milliseconds.
+var times1000RE = regexp.MustCompile(`\*\s*1000\b|\b1000\s*\*`)
+
+// TestDurationPanelUnits checks the unit of each histogram_quantile panel
+// against the unit the metric records. Fabric and Prometheus record
+// *_duration and *_seconds histograms in seconds. Fabric observes
+// endorser_proposal_duration with time.Since(startTime).Seconds() in
+// core/endorser/endorser.go (v1.4.2 to v2.5.15). The gateway records
+// *_ms histograms in milliseconds. A panel must show the recorded unit, or
+// multiply seconds by 1000 and show ms.
+func TestDurationPanelUnits(t *testing.T) {
+	dir := filepath.Join(repoRoot(t), "grafana-dashboards")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("read %s: %v", dir, err)
+	}
+	checked := 0
+	for _, entry := range entries {
+		name := entry.Name()
+		for _, panel := range panels(readDashboard(t, name)) {
+			targets, _ := panel["targets"].([]any)
+			for _, raw := range targets {
+				target, _ := raw.(map[string]any)
+				expr, _ := target["expr"].(string)
+				if !strings.Contains(expr, "histogram_quantile(") {
+					continue
+				}
+				selectors, bare, err := metricNames(expr)
+				if err != nil {
+					t.Errorf("%s: %v: %s", name, err, expr)
+					continue
+				}
+				for _, metric := range append(selectors, bare...) {
+					want := recordedUnit(metric)
+					if want == "" {
+						continue
+					}
+					if want == "s" && times1000RE.MatchString(expr) {
+						want = "ms"
+					}
+					checked++
+					if got := targetUnit(panel, target); got != want {
+						t.Errorf("%s: panel %q shows %s in unit %q, want %q: %s", name, panel["title"], metric, got, want, expr)
+					}
+				}
+			}
+		}
+	}
+	if checked == 0 {
+		t.Error("no histogram_quantile panel over a duration metric")
+	}
+}
+
+// recordedUnit returns the unit that a histogram records, from its name:
+// "s", "ms", or "" if the name does not say. metric can be a __name__
+// regexp.
+func recordedUnit(metric string) string {
+	name := strings.TrimSuffix(metric, "_bucket")
+	switch {
+	case strings.HasSuffix(name, "_seconds"), strings.HasSuffix(name, "_duration"):
+		return "s"
+	case strings.HasSuffix(name, "_ms"):
+		return "ms"
+	}
+	return ""
+}
+
+// targetUnit returns the unit of the axis that shows target. A graph panel
+// shows a series on its left y axis, unless a series override with the
+// series legend as alias moves it to the right axis. Grafana renders a
+// {{label}} in the legend, so only a literal legend matches an alias here.
+// Other panels use fieldConfig.defaults.unit.
+func targetUnit(panel, target map[string]any) string {
+	yaxes, ok := panel["yaxes"].([]any)
+	if !ok {
+		fieldConfig, _ := panel["fieldConfig"].(map[string]any)
+		defaults, _ := fieldConfig["defaults"].(map[string]any)
+		unit, _ := defaults["unit"].(string)
+		return unit
+	}
+	axis := 0
+	legend, _ := target["legendFormat"].(string)
+	overrides, _ := panel["seriesOverrides"].([]any)
+	for _, raw := range overrides {
+		override, _ := raw.(map[string]any)
+		if alias, _ := override["alias"].(string); alias != legend {
+			continue
+		}
+		if yaxis, ok := override["yaxis"].(float64); ok && yaxis == 2 {
+			axis = 1
+		}
+	}
+	if axis >= len(yaxes) {
+		return ""
+	}
+	y, _ := yaxes[axis].(map[string]any)
+	format, _ := y["format"].(string)
+	return format
+}
+
+// panels returns every panel in a decoded dashboard: each object with a
+// "targets" list, rows and nested panels included.
+func panels(v any) []map[string]any {
+	var out []map[string]any
+	switch v := v.(type) {
+	case map[string]any:
+		if _, ok := v["targets"].([]any); ok {
+			out = append(out, v)
+		}
+		for _, child := range v {
+			out = append(out, panels(child)...)
+		}
+	case []any:
+		for _, child := range v {
+			out = append(out, panels(child)...)
+		}
+	}
+	return out
+}
+
 // The gateway exports these metrics in both client modes, with the prefix
 // fabricclient_ or fabricgateway_. See substrate
 // internal/shiroclient/fabricclient/fabricclient.go and

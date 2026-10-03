@@ -855,7 +855,7 @@
           "hide": false,
           "interval": "",
           "intervalFactor": 2,
-          "legendFormat": "duration-{{p99}}",
+          "legendFormat": "duration-p99",
           "refId": "A",
           "step": 20
         },
