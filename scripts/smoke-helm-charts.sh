@@ -20,6 +20,8 @@
 #   - an env override that drops the other defaults (Helm must merge maps)
 #   - fabric-peer: http-op or the scrape annotations on the load balancer
 #     service, or no ClusterIP operations service
+#   - fabric-peer: two services with the same name, or a changed
+#     <release>-ops name for a fabric-peer<N>-<org> release
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -71,10 +73,12 @@ want_env "env override wins" CH_ENABLE_TEST_API true \
 want_env "env override keeps the other defaults" CH_ENABLE_ADMIN_API false \
   --set env.CH_ENABLE_TEST_API=true
 
-# fabric-peer services. Each document of templates/service.yaml is printed
-# as one line per service: "<name> <type> <ports> <scrape>".
+# fabric-peer services of release $1. Each document of
+# templates/service.yaml is printed as one line per service:
+# "<name> <type> <ports> <scrape>".
 peer_services() {
-  helm template peer0-org1 "${PEER_CHART}" \
+  rel="$1"; shift
+  helm template "${rel}" "${PEER_CHART}" \
     --show-only templates/service.yaml \
     --set serviceAccount.name=sa --set dlt.organization=org1 \
     --set dlt.domain=example.com "$@" |
@@ -87,10 +91,15 @@ peer_services() {
       END { if (n) print n, t, p, s }"
 }
 
-# (description, wanted line, helm args...)
+# (description, wanted line, helm args...) for the release peer0-org1.
 want_service() {
-  desc="$1"; want="$2"; shift 2
-  if ! out=$(peer_services "$@" 2>&1); then
+  want_service_as peer0-org1 "$@"
+}
+
+# (release name, description, wanted line, helm args...)
+want_service_as() {
+  rel="$1"; desc="$2"; want="$3"; shift 3
+  if ! out=$(peer_services "${rel}" "$@" 2>&1); then
     echo "FAIL: ${desc}: helm template failed:"
     echo "${out}"
     fail=1
@@ -133,19 +142,54 @@ for lb in "" "--set service.useNLB=false"; do
   fi
 done
 
-# A long fullname must not truncate <fullname>-ops back to <fullname>.
-long=$(printf "a%.0s" $(seq 63))
-if out=$(helm template peer0-org1 "${PEER_CHART}" \
-  --show-only templates/service.yaml \
-  --set serviceAccount.name=sa --set dlt.organization=org1 \
-  --set dlt.domain=example.com --set fullnameOverride="${long}" 2>&1) &&
-  [ "$(printf "%s\n" "${out}" | grep -c "^  name: ")" = 2 ] &&
-  [ "$(printf "%s\n" "${out}" | sed -n "s/^  name: //p" | sort -u | wc -l)" = 2 ]; then
-  echo "OK:   long fullname gives two distinct peer service names"
-else
-  echo "FAIL: long fullname: peer service names collide or render fails"
-  fail=1
-fi
+# The role names each peer release fabric-peer<N>-<org>. The -ops name of
+# such a release must not change, or an upgrade renames the Service.
+for rel in fabric-peer0-org1 fabric-peer12-example-organization; do
+  want_service_as "${rel}" "release ${rel} keeps its service name" \
+    "${rel} LoadBalancer grpc-gossip,grpc-svc, no"
+  want_service_as "${rel}" "release ${rel} keeps its -ops service name" \
+    "${rel}-ops ClusterIP http-op, yes"
+done
+
+# A 63-character fullname keeps its truncated -ops name.
+a59=$(printf "a%.0s" $(seq 59))
+want_service "63-character fullname keeps its -ops service name" \
+  "${a59}-ops ClusterIP http-op, yes" --set fullnameOverride="${a59}aaaa"
+
+# (description, helm args...): the two peer services get distinct names,
+# and each name is a DNS-1035 label of at most 63 characters.
+want_distinct_services() {
+  desc="$1"; shift
+  if ! out=$(peer_services peer0-org1 "$@" 2>&1); then
+    echo "FAIL: ${desc}: helm template failed:"
+    echo "${out}"
+    fail=1
+    return
+  fi
+  names=$(printf "%s\n" "${out}" | cut -d" " -f1)
+  if [ "$(printf "%s\n" "${names}" | grep -c .)" = 2 ] &&
+    [ "$(printf "%s\n" "${names}" | sort -u | grep -c .)" = 2 ] &&
+    ! printf "%s\n" "${names}" | grep -Evxq "[a-z]([-a-z0-9]{0,61}[a-z0-9])?"; then
+    echo "OK:   ${desc}"
+  else
+    echo "FAIL: ${desc}: want two distinct valid service names, got:"
+    printf "%s\n" "${names}"
+    fail=1
+  fi
+}
+
+# A fullname of 62 or 63 characters that ends in -ops truncates to itself
+# plus -ops. The -ops service must still get its own name.
+a58=$(printf "a%.0s" $(seq 58))
+want_distinct_services "63-character fullname gives two distinct service names" \
+  --set fullnameOverride="${a59}aaaa"
+want_distinct_services "63-character fullname ending in -ops gives two distinct service names" \
+  --set fullnameOverride="${a59}-ops"
+want_distinct_services "62-character fullname ending in -ops gives two distinct service names" \
+  --set fullnameOverride="${a58}-ops"
+# peer0-org1-<nameOverride> is a 62-character fullname too.
+want_distinct_services "62-character fullname from nameOverride gives two distinct service names" \
+  --set nameOverride="${a58:11}-ops"
 
 exit ${fail}
 '

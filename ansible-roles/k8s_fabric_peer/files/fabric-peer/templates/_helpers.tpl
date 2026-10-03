@@ -25,6 +25,22 @@ If release name contains chart name it will be used as a full name.
 {{- end -}}
 
 {{/*
+Create the name of the operations Service: "<fullname>-ops", truncated to
+63 chars. A 62 or 63 char fullname that ends in "-ops" truncates to the
+fullname itself. Then the name is the fullname truncated to 54 chars, plus
+"-" and the first 8 hex digits of the fullname's sha256. Other fullnames
+keep "<fullname>-ops".
+*/}}
+{{- define "fabric-peer.ops-fullname" -}}
+{{- $fullname := include "fabric-peer.fullname" . -}}
+{{- $name := printf "%s-ops" ($fullname | trunc 59 | trimSuffix "-") -}}
+{{- if eq $name $fullname -}}
+{{- $name = printf "%s-%s" ($fullname | trunc 54 | trimSuffix "-") ($fullname | sha256sum | trunc 8) -}}
+{{- end -}}
+{{- $name -}}
+{{- end -}}
+
+{{/*
 Create chart name and version as used by the chart label.
 */}}
 {{- define "fabric-peer.chart" -}}
