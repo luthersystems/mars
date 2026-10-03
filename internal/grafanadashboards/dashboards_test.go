@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -29,8 +28,13 @@ func TestDashboardQueries(t *testing.T) {
 
 	byLe := regexp.MustCompile(`by\s*\(\s*le\b`)
 	// One gateway client mode exports fabricclient_*, the other
-	// fabricgateway_*. A bare name shows data for one mode only.
-	bareGatewayName := regexp.MustCompile(`\bfabric(client|gateway)_\w+`)
+	// fabricgateway_*. A query must read both: rate(fabricclient_x[w]) or
+	// rate(fabricgateway_x[w]). A single name shows one mode only. A
+	// __name__ regex across both prefixes fails ("vector cannot contain
+	// metrics with the same labelset") when one target exports both,
+	// because rate() drops the name.
+	gatewayName := regexp.MustCompile(`\bfabric(client|gateway)_(\w+)`)
+	nameRegexBothModes := regexp.MustCompile(`__name__\s*=~\s*"[^"]*fabric\(`)
 
 	for _, entry := range entries {
 		name := entry.Name()
@@ -49,8 +53,17 @@ func TestDashboardQueries(t *testing.T) {
 						t.Errorf("histogram_quantile needs rate() and a by (le) sum: %s", expr)
 					}
 				}
-				if m := bareGatewayName.FindString(expr); m != "" {
-					t.Errorf("%s matches one gateway client mode only; use {__name__=~\"fabric(client|gateway)_...\"}: %s", m, expr)
+				if nameRegexBothModes.MatchString(expr) {
+					t.Errorf("a __name__ regex across both gateway prefixes fails when one target exports both; use rate(fabricclient_x[5m]) or rate(fabricgateway_x[5m]): %s", expr)
+				}
+				for _, m := range gatewayName.FindAllStringSubmatch(expr, -1) {
+					other := "fabricgateway_"
+					if m[1] == "gateway" {
+						other = "fabricclient_"
+					}
+					if !regexp.MustCompile(`\b` + other + regexp.QuoteMeta(m[2]) + `\b`).MatchString(expr) {
+						t.Errorf("%s matches one gateway client mode only; add %s%s: %s", m[0], other, m[2], expr)
+					}
 				}
 			}
 		})
@@ -89,9 +102,9 @@ var (
 var otherShiroGWMetrics = []string{"grpc_client_handled_total"}
 
 // TestShiroGWMetricNames checks every metric name that shiro-gw.json
-// queries. A __name__ selector must match one gateway metric under both
-// prefixes. A bare name must be in otherShiroGWMetrics. The dashboard must
-// query each gateway metric.
+// queries. A gateway metric must be queried under both prefixes in the same
+// expression. Any other name must be in otherShiroGWMetrics. __name__
+// selectors are not used. The dashboard must query each gateway metric.
 func TestShiroGWMetricNames(t *testing.T) {
 	// series maps each series name to its gateway metric without prefix.
 	series := map[string]string{}
@@ -121,27 +134,27 @@ func TestShiroGWMetricNames(t *testing.T) {
 			t.Errorf("no metric name in query: %s", expr)
 		}
 		for _, sel := range selectors {
-			re, err := regexp.Compile("^(?:" + sel + ")$")
-			if err != nil {
-				t.Errorf("__name__ selector %q: %v: %s", sel, err, expr)
-				continue
-			}
-			var matched []string
-			for name := range series {
-				if re.MatchString(name) {
-					matched = append(matched, name)
-				}
-			}
-			sort.Strings(matched)
-			if len(matched) != len(gatewayPrefixes) || !sameMetric(matched, series) {
-				t.Errorf("__name__ selector %q matches gateway series %v; want one gateway metric under both prefixes: %s", sel, matched, expr)
-				continue
-			}
-			queried[series[matched[0]]] = true
+			t.Errorf("__name__ selector %q: query each gateway prefix by name instead: %s", sel, expr)
+		}
+		names := map[string]bool{}
+		for _, name := range bare {
+			names[name] = true
 		}
 		for _, name := range bare {
-			if !other[name] {
-				t.Errorf("query names unknown metric %q; use {__name__=~\"fabric(client|gateway)_<name>\"} for a gateway metric: %s", name, expr)
+			metric, ok := series[name]
+			if !ok {
+				if !other[name] {
+					t.Errorf("query names unknown metric %q: %s", name, expr)
+				}
+				continue
+			}
+			rest := strings.TrimPrefix(strings.TrimPrefix(name, "fabricclient_"), "fabricgateway_")
+			both := true
+			for _, prefix := range gatewayPrefixes {
+				both = both && names[prefix+rest]
+			}
+			if both {
+				queried[metric] = true
 			}
 		}
 	}
@@ -150,25 +163,6 @@ func TestShiroGWMetricNames(t *testing.T) {
 			t.Errorf("shiro-gw.json does not query gateway metric %s", name)
 		}
 	}
-}
-
-// sameMetric reports whether the series in matched have one prefix each
-// and the same series name without the prefix.
-func sameMetric(matched []string, series map[string]string) bool {
-	var rest string
-	for i, prefix := range gatewayPrefixes {
-		var name string
-		for _, m := range matched {
-			if strings.HasPrefix(m, prefix) {
-				name = strings.TrimPrefix(m, prefix)
-			}
-		}
-		if name == "" || (i > 0 && name != rest) {
-			return false
-		}
-		rest = name
-	}
-	return true
 }
 
 var (
