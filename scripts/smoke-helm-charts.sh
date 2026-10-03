@@ -113,6 +113,36 @@ want_service "classic load balancer has no operations port" \
   "peer0-org1-fabric-peer LoadBalancer grpc-gossip,grpc-svc, no" \
   --set service.useNLB=false
 
+# The health check must use the peer listener (gossipPort, 7051). Fabric 2.x
+# serves nothing on service.port (7053), so a check there never passes.
+for lb in "" "--set service.useNLB=false"; do
+  # shellcheck disable=SC2086 # split the optional flags
+  if helm template peer0-org1 "${PEER_CHART}" \
+    --show-only templates/service.yaml \
+    --set serviceAccount.name=sa --set dlt.organization=org1 \
+    --set dlt.domain=example.com ${lb} 2>&1 |
+    grep -qx "    service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: \"7051\""; then
+    echo "OK:   peer health check uses the gossip port ${lb}"
+  else
+    echo "FAIL: peer health check does not use the gossip port (7051) ${lb}"
+    fail=1
+  fi
+done
+
+# A long fullname must not truncate <fullname>-ops back to <fullname>.
+long=$(printf "a%.0s" $(seq 63))
+if out=$(helm template peer0-org1 "${PEER_CHART}" \
+  --show-only templates/service.yaml \
+  --set serviceAccount.name=sa --set dlt.organization=org1 \
+  --set dlt.domain=example.com --set fullnameOverride="${long}" 2>&1) &&
+  [ "$(printf "%s\n" "${out}" | grep -c "^  name: ")" = 2 ] &&
+  [ "$(printf "%s\n" "${out}" | sed -n "s/^  name: //p" | sort -u | wc -l)" = 2 ]; then
+  echo "OK:   long fullname gives two distinct peer service names"
+else
+  echo "FAIL: long fullname: peer service names collide or render fails"
+  fail=1
+fi
+
 exit ${fail}
 '
 

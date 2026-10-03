@@ -17,11 +17,13 @@ metadata:
     service.beta.kubernetes.io/aws-load-balancer-internal: "true"
     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
     service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: Project={{ .Values.global.lutherProjectID }},Environment={{ .Values.global.lutherEnv }},Organization={{ .Values.dlt.organization }},Component={{.Values.dlt.component}},Resource=elb
-    {{- /* The operations port is not on the load balancer, so check the port
-    that each target group serves. Pods that fail the /healthz readiness probe
-    leave the endpoints, so the load balancer stops sending them traffic. */}}
+    {{- /* The operations port is not on the load balancer, so check the peer
+    listener (gossipPort) for every target group. Fabric 2.x serves only that
+    port; nothing listens on service.port, so traffic-port would fail there.
+    Pods that fail the /healthz readiness probe leave the endpoints, so the
+    load balancer stops sending them traffic. */}}
     service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: tcp
-    service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: traffic-port
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: {{ .Values.internal.container.gossipPort | quote }}
     {{- end }}
 spec:
   type: {{ .Values.service.type }}
@@ -47,7 +49,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ printf "%s-ops" (include "fabric-peer.fullname" .) | trunc 63 | trimSuffix "-" }}
+  name: {{ printf "%s-ops" (include "fabric-peer.fullname" . | trunc 59 | trimSuffix "-") }}
   labels:
     {{- include "fabric-peer.labels" . | nindent 4 }}
   annotations:
