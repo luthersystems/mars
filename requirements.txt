@@ -525,7 +525,7 @@ msrest==0.7.1
     #   azure-synapse-accesscontrol
     #   azure-synapse-managedprivateendpoints
     #   azure-synapse-spark
-oauthlib==3.3.1
+oauthlib==4.0.0
     # via requests-oauthlib
 packaging==26.0
     # via
