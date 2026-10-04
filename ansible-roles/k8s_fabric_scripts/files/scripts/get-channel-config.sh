@@ -27,7 +27,7 @@ pod_exec "$pod" mkdir -p $WORKDIR
 
 pod_exec "$pod" peer channel fetch config \
          -o "$ORDERER" -c "$CHANNEL" \
-         --tls --cafile "$ORDERER_CA" \
+         "${ORDERER_TLS_ARGS[@]}" \
          "$REMOTE_BLOCK_PATH"
 
 pod_exec "$pod" configtxlator proto_decode \

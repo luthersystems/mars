@@ -1,6 +1,9 @@
 # The Fabric roles set FABRIC_DOMAIN from their *_domain_root var. The default
 # only suits luther.systems networks and scripts that never reach the orderer.
 FABRIC_DOMAIN="${FABRIC_DOMAIN:-luther.systems}"
+# Set FABRIC_ORDERER_DOMAIN when the orderer org's domain differs from
+# FABRIC_DOMAIN.
+ORDERER_DOMAIN="${FABRIC_ORDERER_DOMAIN:-$FABRIC_DOMAIN}"
 
 if [ -z "$NAMESPACE" ]; then
     echo "No NAMESPACE" >&2
@@ -15,11 +18,21 @@ fi
 
 # CHANNEL may be overridden if it is already defined
 CHANNEL="${CHANNEL:-luther}"
-ORDERER="orderer0.${FABRIC_DOMAIN}:7050"
-ORDERER_CA="/etc/hyperledger/fabric/orderertls/tlsca.${FABRIC_DOMAIN}-cert.pem"
+ORDERER="orderer0.${ORDERER_DOMAIN}:7050"
+ORDERER_CA="/etc/hyperledger/fabric/orderertls/tlsca.${ORDERER_DOMAIN}-cert.pem"
 COLLECTIONS_PATH=/etc/hyperledger/fabric/collections-config/collections.json
 CORE_PEER_TLS_CERT_FILE="/etc/hyperledger/fabric/tls/server.crt"
 CORE_PEER_TLS_KEY_FILE="/etc/hyperledger/fabric/tls/server.key"
+
+# Set FABRIC_ORDERER_CLIENT_AUTH=true when the orderer requires client TLS
+# (General.TLS.ClientAuthRequired). Orderer calls then present the peer's TLS
+# cert and key.
+ORDERER_CLIENT_AUTH_ARGS=()
+if [[ "${FABRIC_ORDERER_CLIENT_AUTH:-false}" == "true" ]]; then
+    ORDERER_CLIENT_AUTH_ARGS=(--clientauth --certfile "$CORE_PEER_TLS_CERT_FILE" --keyfile "$CORE_PEER_TLS_KEY_FILE")
+fi
+# The ${a[@]+...} form keeps an empty array safe under set -u on older bash.
+ORDERER_TLS_ARGS=(--tls --cafile "$ORDERER_CA" ${ORDERER_CLIENT_AUTH_ARGS[@]+"${ORDERER_CLIENT_AUTH_ARGS[@]}"})
 
 select_first_cli_pod() {
     select_cli_pods "$@" | head -n 1

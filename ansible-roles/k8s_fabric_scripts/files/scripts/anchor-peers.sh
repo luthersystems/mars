@@ -40,8 +40,7 @@ pod_exec "$pod" \
     peer channel update \
     -f "$ANCHORTX" \
     -o "$ORDERER" -c "$CHANNEL" \
-    --tls --cafile "$ORDERER_CA"
-# mutual TLS (--clientauth): luthersystems/mars#266
+    "${ORDERER_TLS_ARGS[@]}"
 
 if [[ $? -ne 0 ]]; then
     echo "Unable to set anchor peers for $MSP" >&2

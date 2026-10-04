@@ -87,3 +87,10 @@ Create the name of the fabric cli service account to use
 {{- define "fabric-cli.serviceAccountName" -}}
 {{ default "default" .Values.serviceAccount.name }}
 {{- end -}}
+
+{{/*
+The orderer org's domain: dlt.ordererDomain, or dlt.domain when unset.
+*/}}
+{{- define "fabric-cli.orderer-domain" -}}
+{{- .Values.dlt.ordererDomain | default .Values.dlt.domain -}}
+{{- end -}}

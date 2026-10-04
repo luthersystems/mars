@@ -12,6 +12,9 @@ dlt:
   organization: org1
   domain: luther.systems
   cryptoConfigSecret: ""
+  # Set to an org domain (e.g. org1.luther.systems) to delete every private
+  # key in crypto-config except that org's user keys. Empty keeps all keys.
+  keepKeysOnlyForOrg: ""
   cryptoConfigRootPath: "/tmp/fabric/crypto-config"  # Can be "./crypto-config" for relative path
   peerIndex: 0
   kubernetes-namespace: "ui"

@@ -20,16 +20,14 @@ pod_exec "$pod" mkdir -p $WORKDIR
 if pod_exec "$pod" \
      peer channel fetch oldest "$WORKDIR/$CHANNELBLOCK" \
      -o "$ORDERER" -c "$CHANNEL" \
-     --tls --cafile "$ORDERER_CA"; then
-     # mutual TLS (--clientauth): luthersystems/mars#266
+     "${ORDERER_TLS_ARGS[@]}"; then
     echo "Channel previously created" >&2
 else
     echo "Creating channel" >&2
-    # mutual TLS (--clientauth): luthersystems/mars#266
     pod_exec "$pod" \
          peer channel create -f "$CHANNELTX" \
          -o "$ORDERER" -c "$CHANNEL" \
-         --tls --cafile "$ORDERER_CA" \
+         "${ORDERER_TLS_ARGS[@]}" \
 	 --outputBlock "$WORKDIR/$CHANNELBLOCK"
 fi
 

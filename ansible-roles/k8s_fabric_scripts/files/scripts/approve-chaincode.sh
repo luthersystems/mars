@@ -29,10 +29,9 @@ fi
 
 changed=0
 if ! approvedByOrg "$pod"; then
-    # mutual TLS (--clientauth): luthersystems/mars#266
     if ! pod_exec "$pod" peer lifecycle chaincode approveformyorg \
-             --channelID "$CHANNEL" --tls \
-             --cafile "$ORDERER_CA" --orderer "$ORDERER" \
+             --channelID "$CHANNEL" "${ORDERER_TLS_ARGS[@]}" \
+             --orderer "$ORDERER" \
              --name "$CC_NAME" --version "$CC_VERSION" \
              --collections-config "$COLLECTIONS_PATH" \
              --signature-policy "$ENDORSEMENT_POLICY" \

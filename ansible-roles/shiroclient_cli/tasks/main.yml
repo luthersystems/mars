@@ -37,5 +37,6 @@
       awsCLIVersion: "{{shiroclient_cli_aws_cli_version}}"
       dlt:
         cryptoConfigSecret: "{{shiroclient_cli_crypto_config}}"
+        keepKeysOnlyForOrg: "{{shiroclient_cli_keep_keys_only_for_org}}"
       local: "{{mars_local | default(false)}}"
   environment: "{{ kubectl_env }}"

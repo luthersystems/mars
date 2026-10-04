@@ -24,6 +24,8 @@ dlt:
   mspID: Org1MSP
   peerIndex: 0
   domain: luther.systems
+  # Orderer org domain. Empty means the orderer shares dlt.domain.
+  ordererDomain: ""
   cryptoConfigSecret: ""
 
 image:

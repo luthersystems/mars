@@ -300,13 +300,9 @@ spec:
               mountPath: /buildpacks
         {{- end }}
         {{- if .Values.dockerChaincode }}
-        # Consider turning chaincode-archive-bootstrap into a sidecar
-        # that periodically syncs chaincode archives into a volume that is
-        # shared between it and the fabric-peer container.  Without continuous
-        # sync the peer needs to restart in order to install/initialize a new
-        # version of substrate (not the end of the world because substrate
-        # upgrades still require downtime).
-        # See luthersystems/mars#268.
+        # chaincode-archive-bootstrap fetches the substrate archive once, at pod
+        # start, so a new substrate version needs a pod restart. Substrate
+        # upgrades already need downtime, so a syncing sidecar would gain nothing.
         - name: chaincode-archive-bootstrap
           image: "amazon/aws-cli:{{ .Values.awsCLIVersion }}"
           env:
@@ -335,8 +331,7 @@ spec:
               cd /tmp
               unzip crypto-config.zip
               cd crypto-config
-              # Orderer paths assume the orderer shares dlt.domain; see luthersystems/mars#267
-              cp -a ordererOrganizations/{{ .Values.dlt.domain }}/orderers/orderer0.{{ .Values.dlt.domain }}/msp/tlscacerts/. /orderertls/
+              cp -a ordererOrganizations/{{ include "fabric-peer.orderer-domain" . }}/orderers/orderer0.{{ include "fabric-peer.orderer-domain" . }}/msp/tlscacerts/. /orderertls/
               cp -a peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ include "fabric-peer.self-fqdn" . }}/msp/. /msp/
               cp -a peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ include "fabric-peer.self-fqdn" . }}/tls/. /tls/
               cp -a peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/users/Admin@{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/msp/. /adminmsp/
@@ -364,7 +359,7 @@ spec:
           args:
             - |
               set -xe;
-              aws s3 cp --recursive "s3://{{ .Values.global.aws.staticBucket }}/{{ .Values.global.lutherEnv }}/fabric-artifacts/crypto-config/ordererOrganizations/{{ .Values.dlt.domain }}/orderers/orderer0.{{ .Values.dlt.domain }}/msp/tlscacerts/" /orderertls
+              aws s3 cp --recursive "s3://{{ .Values.global.aws.staticBucket }}/{{ .Values.global.lutherEnv }}/fabric-artifacts/crypto-config/ordererOrganizations/{{ include "fabric-peer.orderer-domain" . }}/orderers/orderer0.{{ include "fabric-peer.orderer-domain" . }}/msp/tlscacerts/" /orderertls
               aws s3 cp --recursive "s3://{{ .Values.global.aws.staticBucket }}/{{ .Values.global.lutherEnv }}/fabric-artifacts/crypto-config/peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ include "fabric-peer.self-fqdn" . }}/msp/" /msp
               aws s3 cp --recursive "s3://{{ .Values.global.aws.staticBucket }}/{{ .Values.global.lutherEnv }}/fabric-artifacts/crypto-config/peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ include "fabric-peer.self-fqdn" . }}/tls/" /tls
               aws s3 cp --recursive "s3://{{ .Values.global.aws.staticBucket }}/{{ .Values.global.lutherEnv }}/fabric-artifacts/crypto-config/peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/users/Admin@{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/msp/" /adminmsp

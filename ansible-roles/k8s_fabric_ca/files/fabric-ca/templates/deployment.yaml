@@ -48,10 +48,16 @@ spec:
             httpGet:
               path: /healthz
               port: http-op
+              {{- if .Values.operations.tls.enabled }}
+              scheme: HTTPS
+              {{- end }}
           readinessProbe:
             httpGet:
               path: /healthz
               port: http-op
+              {{- if .Values.operations.tls.enabled }}
+              scheme: HTTPS
+              {{- end }}
           env:
             - name: FABRIC_CA_HOME
               value: /etc/hyperledger/fabric-ca-server
@@ -72,7 +78,13 @@ spec:
             - name: FABRIC_CA_SERVER_METRICS_PROVIDER
               value: prometheus
             - name: FABRIC_CA_SERVER_OPERATIONS_TLS_ENABLED
-              value: "false"  # see luthersystems/mars#272
+              value: {{ .Values.operations.tls.enabled | toString | quote }}
+            {{- if .Values.operations.tls.enabled }}
+            - name: FABRIC_CA_SERVER_OPERATIONS_TLS_CERT_FILE
+              value: {{ .Values.operations.tls.certFile | default (printf "/etc/hyperledger/fabric-ca-server-config/ca.%s-cert.pem" .Values.dlt.domain) }}
+            - name: FABRIC_CA_SERVER_OPERATIONS_TLS_KEY_FILE
+              value: {{ .Values.operations.tls.keyFile | default (printf "/etc/hyperledger/fabric-ca-server-config/%s" .Values.dlt.keyfile) }}
+            {{- end }}
           volumeMounts:
             - name: crypto
               mountPath: /etc/hyperledger/fabric-ca-server-config

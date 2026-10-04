@@ -68,6 +68,7 @@
   vars:
     extra_env_vars:
       FABRIC_DOMAIN: "{{k8s_fabric_orderer_domain_root}}"
+      FABRIC_ORDERER_CLIENT_AUTH: "{{ k8s_fabric_orderer_client_auth | bool | lower }}"
       PAUSING_AT: orderer
       WHICH: "{{ item }}"
       CHANNEL: luther

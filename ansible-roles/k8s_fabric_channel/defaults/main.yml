@@ -14,3 +14,5 @@ k8s_fabric_channel_orgs:
   - name: org4
     msp: Org4MSP
 k8s_fabric_channel_domain_root: "luther.systems"
+# Orderer org domain; empty means it shares the domain root.
+k8s_fabric_channel_orderer_domain_root: "{{ k8s_fabric_network_orderer_domain_root | default('') }}"

@@ -21,7 +21,7 @@ pod_exec "$pod" mkdir -p $WORKDIR
 
 kubectl -n "$NAMESPACE" cp "$ORG_JSON_PATH" "$pod:$WORKDIR/$ORG_JSON_NAME"
 
-pod_exec "$pod" peer channel fetch config "$WORKDIR/config_block.pb" -o "$ORDERER" -c "$CHANNEL" --tls --cafile "$ORDERER_CA"
+pod_exec "$pod" peer channel fetch config "$WORKDIR/config_block.pb" -o "$ORDERER" -c "$CHANNEL" "${ORDERER_TLS_ARGS[@]}"
 
 pod_exec "$pod" sh -c "configtxlator proto_decode --input '$WORKDIR/config_block.pb' --type common.Block | jq .data.data[0].payload.data.config > '$WORKDIR/config.json'"
 

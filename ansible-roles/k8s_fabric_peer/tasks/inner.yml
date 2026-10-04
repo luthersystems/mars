@@ -46,6 +46,7 @@
         organization: "{{k8s_fabric_peer_org}}"
         mspID: "{{k8s_fabric_peer_msp}}"
         domain: "{{k8s_fabric_peer_domain_root}}"
+        ordererDomain: "{{k8s_fabric_peer_orderer_domain_root}}"
         peerIndex: "{{item}}"
         cryptoConfigSecret: "{{k8s_fabric_peer_crypto_config_secret_name}}"
       substrate:
@@ -100,6 +101,8 @@
   vars:
     extra_env_vars:
       FABRIC_DOMAIN: "{{k8s_fabric_peer_domain_root}}"
+      FABRIC_ORDERER_DOMAIN: "{{k8s_fabric_peer_orderer_domain_root}}"
+      FABRIC_ORDERER_CLIENT_AUTH: "{{ k8s_fabric_orderer_client_auth | bool | lower }}"
       PAUSING_AT: peer
       WHICH: "{{ item }}"
       CHANNEL: luther

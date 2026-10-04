@@ -7,6 +7,9 @@ metadata:
   annotations:
     prometheus.io/scrape: "true"
     prometheus.io/port: {{ .Values.internal.container.operationsPort | quote }}
+    {{- if .Values.operations.tls.enabled }}
+    prometheus.io/scheme: https
+    {{- end }}
     external-dns.alpha.kubernetes.io/hostname: {{ include "fabric-ca.service-fqdn" . }}
     {{- if eq .Values.service.type "LoadBalancer" }}
     {{- if .Values.service.useNLB }}
@@ -19,7 +22,7 @@ metadata:
     service.beta.kubernetes.io/aws-load-balancer-internal: "true"
     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
     service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: Project={{ .Values.global.lutherProjectID }},Environment={{ .Values.global.lutherEnv }},Organization={{ .Values.dlt.organization }},Component={{.Values.dlt.component}},Resource=elb
-    service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: http
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: {{ if .Values.operations.tls.enabled }}https{{ else }}http{{ end }}
     service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: {{ .Values.internal.container.operationsPort | quote }}
     service.beta.kubernetes.io/aws-load-balancer-healthcheck-path: /healthz
     {{- end }}
