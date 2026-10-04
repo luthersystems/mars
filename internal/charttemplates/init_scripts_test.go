@@ -29,9 +29,9 @@ func TestInitScriptsCopyConfigIntoExistingDestinations(t *testing.T) {
 			path: "ansible-roles/k8s_fabric_cli/files/fabric-cli/templates/deployment.yaml",
 			copies: []string{
 				"cp -a channel-artifacts/. /channel-artifacts/",
-				"cp -a crypto-config/ordererOrganizations/{{ .Values.dlt.domain }}/orderers/orderer0.{{ .Values.dlt.domain }}/msp/tlscacerts/. /orderertls/",
-				"cp -a ordererOrganizations/{{ .Values.dlt.domain }}/users/Admin@{{ .Values.dlt.domain }}/msp/. /msp/",
-				"cp -a ordererOrganizations/{{ .Values.dlt.domain }}/orderers/orderer{{ .Values.dlt.peerIndex }}.{{ .Values.dlt.domain }}/tls/. /tls/",
+				"cp -a crypto-config/ordererOrganizations/{{ include \"fabric-cli.orderer-domain\" . }}/orderers/orderer0.{{ include \"fabric-cli.orderer-domain\" . }}/msp/tlscacerts/. /orderertls/",
+				"cp -a ordererOrganizations/{{ include \"fabric-cli.orderer-domain\" . }}/users/Admin@{{ include \"fabric-cli.orderer-domain\" . }}/msp/. /msp/",
+				"cp -a ordererOrganizations/{{ include \"fabric-cli.orderer-domain\" . }}/orderers/orderer{{ .Values.dlt.peerIndex }}.{{ include \"fabric-cli.orderer-domain\" . }}/tls/. /tls/",
 				"cp -a peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/users/Admin@{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/msp/. /msp/",
 				"cp -a peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ list .Values.dlt.peerIndex . | include \"fabric-cli.peer-fqdn\" }}/tls/. /tls/",
 			},
@@ -49,7 +49,7 @@ func TestInitScriptsCopyConfigIntoExistingDestinations(t *testing.T) {
 			name: "fabric peer config",
 			path: "ansible-roles/k8s_fabric_peer/files/fabric-peer/templates/deployment.yaml",
 			copies: []string{
-				"cp -a ordererOrganizations/{{ .Values.dlt.domain }}/orderers/orderer0.{{ .Values.dlt.domain }}/msp/tlscacerts/. /orderertls/",
+				"cp -a ordererOrganizations/{{ include \"fabric-peer.orderer-domain\" . }}/orderers/orderer0.{{ include \"fabric-peer.orderer-domain\" . }}/msp/tlscacerts/. /orderertls/",
 				"cp -a peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ include \"fabric-peer.self-fqdn\" . }}/msp/. /msp/",
 				"cp -a peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ include \"fabric-peer.self-fqdn\" . }}/tls/. /tls/",
 				"cp -a peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/users/Admin@{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/msp/. /adminmsp/",
