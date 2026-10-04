@@ -60,7 +60,7 @@ if ! pod_exec "$pod" peer lifecycle chaincode commit \
   --name "$CC_NAME" --version "$CC_VERSION" \
   --collections-config "$COLLECTIONS_PATH" \
   --signature-policy "$ENDORSEMENT_POLICY" \
-  --sequence "$SEQ_NO"; then # TODO: --clientauth --certfile "$CORE_PEER_TLS_CERT_FILE" --keyfile "$CORE_PEER_TLS_KEY_FILE"
+  --sequence "$SEQ_NO"; then # mutual TLS: luthersystems/mars#266
   echo "Failed to commit chaincode lifecycle" >&2
   exit 1
 fi

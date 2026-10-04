@@ -29,7 +29,7 @@ fi
 
 changed=0
 if ! approvedByOrg "$pod"; then
-    # TODO: --clientauth --certfile "$CORE_PEER_TLS_CERT_FILE" --keyfile "$CORE_PEER_TLS_KEY_FILE"
+    # mutual TLS (--clientauth): luthersystems/mars#266
     if ! pod_exec "$pod" peer lifecycle chaincode approveformyorg \
              --channelID "$CHANNEL" --tls \
              --cafile "$ORDERER_CA" --orderer "$ORDERER" \

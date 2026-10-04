@@ -21,11 +21,11 @@ if pod_exec "$pod" \
      peer channel fetch oldest "$WORKDIR/$CHANNELBLOCK" \
      -o "$ORDERER" -c "$CHANNEL" \
      --tls --cafile "$ORDERER_CA"; then
-     # TODO: --clientauth --certfile "$CORE_PEER_TLS_CERT_FILE" --keyfile "$CORE_PEER_TLS_KEY_FILE"
+     # mutual TLS (--clientauth): luthersystems/mars#266
     echo "Channel previously created" >&2
 else
     echo "Creating channel" >&2
-    # TODO: --clientauth --certfile "$CORE_PEER_TLS_CERT_FILE" --keyfile "$CORE_PEER_TLS_KEY_FILE"
+    # mutual TLS (--clientauth): luthersystems/mars#266
     pod_exec "$pod" \
          peer channel create -f "$CHANNELTX" \
          -o "$ORDERER" -c "$CHANNEL" \

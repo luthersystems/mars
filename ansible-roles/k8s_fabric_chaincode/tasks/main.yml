@@ -114,7 +114,7 @@
       FABRIC_DOMAIN: "{{k8s_fabric_chaincode_domain_root}}"
   environment: "{{ kubectl_env | combine(extra_env_vars) }}"
   when: not committed | bool
-  # TODO: only approve on luther orgs!
+  # Approves on every org, including external ones: luthersystems/mars#269
   loop: "{{ k8s_fabric_chaincode_orgs }}"
   register: approve_result
   changed_when: '"has approved the chaincode" in approve_result.stderr'

@@ -41,7 +41,7 @@ pod_exec "$pod" \
     -f "$ANCHORTX" \
     -o "$ORDERER" -c "$CHANNEL" \
     --tls --cafile "$ORDERER_CA"
-# TODO: --clientauth --certfile "$CORE_PEER_TLS_CERT_FILE" --keyfile "$CORE_PEER_TLS_KEY_FILE"
+# mutual TLS (--clientauth): luthersystems/mars#266
 
 if [[ $? -ne 0 ]]; then
     echo "Unable to set anchor peers for $MSP" >&2

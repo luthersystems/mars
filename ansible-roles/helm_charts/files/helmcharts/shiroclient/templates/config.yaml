@@ -12,7 +12,7 @@ data:
   config.json.b64: {{ .Values.sdk.bootstrapBase64 }}
   {{- end }}
 
-  # TODO: parameterize these config settings!
+  # Hardcoded SDK settings; see luthersystems/mars#270
   shiroclient.yaml: |
     phylum:
       version: local

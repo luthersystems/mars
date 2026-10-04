@@ -125,12 +125,13 @@ spec:
             {{- toYaml .Values.resources | nindent 12 }}
       initContainers:
         {{- if .Values.dockerChaincode }}
-        # TODO:  Consider turning chaincode-archive-bootstrap into a sidecar
+        # Consider turning chaincode-archive-bootstrap into a sidecar
         # that periodically syncs chaincode archives into a volume that is
         # shared between it and the fabric-cli container.  Without continuous
         # sync the peer needs to restart in order to install/initialize a new
         # version of substrate (not the end of the world because substrate
         # upgrades still require downtime).
+        # See luthersystems/mars#268.
         - name: chaincode-archive-bootstrap
           image: "amazon/aws-cli:{{ .Values.awsCLIVersion }}"
           env:
@@ -173,7 +174,7 @@ spec:
               cp --parents $(find . -name ca.crt) /tls/all-cas
               cd ../
 
-              # TODO: replace domain var with proper orderer domain
+              # Orderer paths assume the orderer shares dlt.domain; see luthersystems/mars#267
               {{- if eq .Values.dlt.organization "orderer" }}
               cp -a ordererOrganizations/{{ .Values.dlt.domain }}/users/Admin@{{ .Values.dlt.domain }}/msp/. /msp/
               cp -a ordererOrganizations/{{ .Values.dlt.domain }}/orderers/orderer{{ .Values.dlt.peerIndex }}.{{ .Values.dlt.domain }}/tls/. /tls/

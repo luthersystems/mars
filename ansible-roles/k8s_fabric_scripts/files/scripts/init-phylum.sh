@@ -10,8 +10,8 @@ NAMESPACE=shiroclient-cli
 
 source "${BASH_SOURCE%/*}/channel-utils.sh"
 
-# TODO - refactor to use helper
-# pod="$(select_first_pod org1 0)"
+# The select_*_pods helpers match Fabric labels, which shiroclient-cli
+# pods do not carry, so pick the first pod in the namespace.
 pod="$(kubectl -n $NAMESPACE get pod -o name | head -n 1 | sed 's!^pod/!!')"
 
 # Check if the desired phylum is in service

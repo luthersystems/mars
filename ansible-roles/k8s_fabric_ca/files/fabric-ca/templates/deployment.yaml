@@ -72,7 +72,7 @@ spec:
             - name: FABRIC_CA_SERVER_METRICS_PROVIDER
               value: prometheus
             - name: FABRIC_CA_SERVER_OPERATIONS_TLS_ENABLED
-              value: "false"  # TODO
+              value: "false"  # see luthersystems/mars#272
           volumeMounts:
             - name: crypto
               mountPath: /etc/hyperledger/fabric-ca-server-config

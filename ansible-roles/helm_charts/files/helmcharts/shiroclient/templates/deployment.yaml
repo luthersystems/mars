@@ -219,7 +219,7 @@ spec:
               cp /opt/crypto-config/crypto-config.zip /tmp
               cd /tmp
               unzip crypto-config.zip
-              # TODO: copy only relevant files
+              # Copies all crypto material; see luthersystems/mars#271
               mkdir -p /fabric/crypto-config
               cp -a crypto-config/. /fabric/crypto-config/
           volumeMounts:

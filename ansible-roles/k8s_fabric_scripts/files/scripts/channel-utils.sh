@@ -1,4 +1,5 @@
-FABRIC_DOMAIN="${FABRIC_DOMAIN:-luther.systems}" # TODO: parameterize
+# Callers set FABRIC_DOMAIN from the role's *_domain_root var.
+FABRIC_DOMAIN="${FABRIC_DOMAIN:-luther.systems}"
 
 if [ -z "$NAMESPACE" ]; then
     echo "No NAMESPACE" >&2
