@@ -33,8 +33,6 @@ if [ -z "$COLLECTIONS_CONFIG" ]; then
 fi
 
 
-# The generated approve command does not use mutual TLS (--clientauth):
-# luthersystems/mars#266
 cat << EOSCRIPT
 #!/bin/bash
 
@@ -46,6 +44,8 @@ cat > collections.json <<EOF
 $COLLECTIONS_CONFIG
 EOF
 
+# If the orderer requires client TLS, add:
+#   --clientauth --certfile <tls cert> --keyfile <tls key>
 peer lifecycle chaincode approveformyorg \\
   --tls --cafile orderer-tlsca.pem --orderer "$ORDERER" \\
   --channelID "$CHANNEL" \\

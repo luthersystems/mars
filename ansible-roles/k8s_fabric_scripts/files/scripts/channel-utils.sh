@@ -1,4 +1,5 @@
-# Callers set FABRIC_DOMAIN from the role's *_domain_root var.
+# The Fabric roles set FABRIC_DOMAIN from their *_domain_root var. The default
+# only suits luther.systems networks and scripts that never reach the orderer.
 FABRIC_DOMAIN="${FABRIC_DOMAIN:-luther.systems}"
 
 if [ -z "$NAMESPACE" ]; then
