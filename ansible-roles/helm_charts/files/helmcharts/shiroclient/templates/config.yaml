@@ -12,36 +12,42 @@ data:
   config.json.b64: {{ .Values.sdk.bootstrapBase64 }}
   {{- end }}
 
-  # TODO: parameterize these config settings!
+  {{- $n := .Values.sdk.network }}
+  {{- $orgDomain := printf "%s.%s" $n.org $n.domain }}
+  {{- $ordererDomain := $n.ordererDomain | default $n.domain }}
+  {{- $peer := printf "%s.%s" $n.peer $orgDomain }}
+  {{- $orderer := printf "%s.%s" $n.orderer $ordererDomain }}
+  {{- $ca := printf "ca.%s" $orgDomain }}
+  {{- $crypto := "/tmp/fabric/crypto-config" }}
   shiroclient.yaml: |
     phylum:
       version: local
     chaincode:
-      id: com_luthersystems_chaincode_substrate01
+      id: {{ .Values.sdk.chaincodeID }}
     channel:
-      id: luther
-      min-endorsers: 1
+      id: {{ .Values.sdk.channel }}
+      min-endorsers: {{ .Values.sdk.minEndorsers }}
     enroll:
-      org: org1
+      org: {{ $n.org }}
     fabric:
       client-config: fabric-client.yaml
     peer:
-      username: Admin
+      username: {{ .Values.sdk.peerUsername }}
 
   fabric-client.yaml: |
     client:
-      #organization: org1
+      #organization: {{ $n.org }}
       logging:
-        level: info
+        level: {{ .Values.sdk.logLevel }}
       cryptoconfig:
-        path: "/tmp/fabric/crypto-config"
+        path: "{{ $crypto }}"
       peer:
         timeout:
           connection: 2s
           # this timeout must be set to be longer than the longest execution time
           # of any query/transaction (including OTA upgrades and migrations). after
           # this time, the peer is assumed to be down rather than working.
-          response: 5s
+          response: {{ .Values.sdk.peerResponseTimeout }}
           discovery:
             greylistExpiry: 10s
       BCCSP:
@@ -57,9 +63,9 @@ data:
         cryptoStore:
           path: /tmp/msp
     channels:
-      luther:
+      {{ .Values.sdk.channel }}:
         peers:
-          peer0.org1.luther.systems:
+          {{ $peer }}:
             endorsingPeer: true
             chaincodeQuery: true
             ledgerQuery: true
@@ -74,16 +80,16 @@ data:
               maxBackoff: 5s
               backoffFactor: 2.0
     organizations:
-      org1:
-        mspid: Org1MSP
-        cryptoPath: peerOrganizations/org1.luther.systems/users/{username}@org1.luther.systems/msp
+      {{ $n.org }}:
+        mspid: {{ $n.mspID }}
+        cryptoPath: peerOrganizations/{{ $orgDomain }}/users/{username}@{{ $orgDomain }}/msp
         peers:
-          - peer0.org1.luther.systems
+          - {{ $peer }}
         certificateAuthorities:
-          - ca.org1.luther.systems
+          - {{ $ca }}
       ordererorg:
         mspID: "OrdererOrg"
-        cryptoPath: ordererOrganizations/luther.systems/users/{username}@luther.systems/msp
+        cryptoPath: ordererOrganizations/{{ $ordererDomain }}/users/{username}@{{ $ordererDomain }}/msp
     orderers:
       _default:
         grpcOptions:
@@ -92,12 +98,12 @@ data:
           keep-alive-permit: false
           fail-fast: false
           allow-insecure: false
-      orderer0.luther.systems:
-        url: orderer0.luther.systems:7050
+      {{ $orderer }}:
+        url: {{ $orderer }}:{{ $n.ordererPort }}
         grpcOptions:
-          ssl-target-name-override: orderer0.luther.systems
+          ssl-target-name-override: {{ $orderer }}
         tlsCACerts:
-          path: "/tmp/fabric/crypto-config/ordererOrganizations/luther.systems/tlsca/tlsca.luther.systems-cert.pem"
+          path: "{{ $crypto }}/ordererOrganizations/{{ $ordererDomain }}/tlsca/tlsca.{{ $ordererDomain }}-cert.pem"
     peers:
       _default:
         grpcOptions:
@@ -106,25 +112,25 @@ data:
           keep-alive-permit: false
           fail-fast: false
           allow-insecure: false
-      peer0.org1.luther.systems:
-        url: peer0.org1.luther.systems:7051
-        eventUrl: peer0.org1.luther.systems:7053
+      {{ $peer }}:
+        url: {{ $peer }}:{{ $n.peerPort }}
+        eventUrl: {{ $peer }}:{{ $n.peerEventPort }}
         grpcOptions:
-          ssl-target-name-override: peer0.org1.luther.systems
+          ssl-target-name-override: {{ $peer }}
         tlsCACerts:
-          path: "/tmp/fabric/crypto-config/peerOrganizations/org1.luther.systems/tlsca/tlsca.org1.luther.systems-cert.pem"
+          path: "{{ $crypto }}/peerOrganizations/{{ $orgDomain }}/tlsca/tlsca.{{ $orgDomain }}-cert.pem"
     certificateAuthorities:
-     ca.org1.luther.systems:
-       url: https://ca.org1.luther.systems:7054
+     {{ $ca }}:
+       url: https://{{ $ca }}:{{ $n.caPort }}
        tlsCACerts:
-        path: "/tmp/fabric/crypto-config/peerOrganizations/org1.luther.systems/ca/ca.org1.luther.systems-cert.pem"
+        path: "{{ $crypto }}/peerOrganizations/{{ $orgDomain }}/ca/{{ $ca }}-cert.pem"
         client:
           key:
-            path: "/tmp/fabric/crypto-config/peerOrganizations/org1.luther.systems/users/Admin@org1.luther.systems/tls/client.key"
+            path: "{{ $crypto }}/peerOrganizations/{{ $orgDomain }}/users/{{ .Values.sdk.peerUsername }}@{{ $orgDomain }}/tls/client.key"
           cert:
-            path: "/tmp/fabric/crypto-config/peerOrganizations/org1.luther.systems/users/Admin@org1.luther.systems/tls/client.crt"
+            path: "{{ $crypto }}/peerOrganizations/{{ $orgDomain }}/users/{{ .Values.sdk.peerUsername }}@{{ $orgDomain }}/tls/client.crt"
        registrar:
-         enrollId: admin
-         enrollSecret: adminpw
-       caName: ca.org1.luther.systems
+         enrollId: {{ $n.caRegistrar.enrollID }}
+         enrollSecret: {{ $n.caRegistrar.enrollSecret }}
+       caName: {{ $ca }}
 {{- end }}

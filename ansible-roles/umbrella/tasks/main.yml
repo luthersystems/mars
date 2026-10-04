@@ -41,7 +41,7 @@
       type: Opaque
       stringData:
         AUTH_JWT_SIGN_KEY: "{{auth_jwt_secret}}"
-        AUTH_OAUTH_CLIENT_SECRET: "TODO"
+        AUTH_OAUTH_CLIENT_SECRET: "{{umbrella_auth_oauth_client_secret}}"
   environment: "{{ kubectl_env }}"
   no_log: True
   when: umbrella_lutherauth_secrets

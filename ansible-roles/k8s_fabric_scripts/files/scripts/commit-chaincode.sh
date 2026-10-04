@@ -55,12 +55,12 @@ fi
 
 if ! pod_exec "$pod" peer lifecycle chaincode commit \
   $ARGS \
-  --channelID "$CHANNEL" --tls \
-  --cafile "$ORDERER_CA" --orderer "$ORDERER" \
+  --channelID "$CHANNEL" "${ORDERER_TLS_ARGS[@]}" \
+  --orderer "$ORDERER" \
   --name "$CC_NAME" --version "$CC_VERSION" \
   --collections-config "$COLLECTIONS_PATH" \
   --signature-policy "$ENDORSEMENT_POLICY" \
-  --sequence "$SEQ_NO"; then # TODO: --clientauth --certfile "$CORE_PEER_TLS_CERT_FILE" --keyfile "$CORE_PEER_TLS_KEY_FILE"
+  --sequence "$SEQ_NO"; then
   echo "Failed to commit chaincode lifecycle" >&2
   exit 1
 fi

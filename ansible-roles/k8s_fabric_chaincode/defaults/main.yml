@@ -16,3 +16,5 @@ k8s_fabric_chaincode_azs: []
 # ccid override is a hack to work with old substrate/buildpack versions
 k8s_fabric_chaincode_ccid_override: ""
 k8s_fabric_chaincode_domain_root: "luther.systems"
+# Orderer org domain; empty means it shares the domain root.
+k8s_fabric_chaincode_orderer_domain_root: "{{ k8s_fabric_network_orderer_domain_root | default('') }}"

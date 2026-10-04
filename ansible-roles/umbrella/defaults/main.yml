@@ -15,3 +15,6 @@ umbrella_connectorhub_storage_size: 2Gi
 umbrella_connectorhub_storage_class: gp3-encrypted
 umbrella_connectorhub_volume_type_override: ""
 umbrella_lutherauth_secrets: false
+# Written to AUTH_OAUTH_CLIENT_SECRET in the auth secret when
+# umbrella_lutherauth_secrets is true.
+umbrella_auth_oauth_client_secret: "TODO"

@@ -101,6 +101,9 @@
         idleTimeout: "{{k8s_fabric_ca_lb_idle_timeout}}"
         useNLB: "{{k8s_fabric_ca_use_nlb}}"
       awsCLIVersion: "{{k8s_fabric_ca_aws_cli_version}}"
+      operations:
+        tls:
+          enabled: "{{k8s_fabric_ca_operations_tls}}"
       local: "{{mars_local | default(false)}}"
   environment: "{{ kubectl_env }}"
   vars:

@@ -24,4 +24,4 @@ pod_exec "$pod" mkdir -p $WORKDIR
 
 kubectl -n "$NAMESPACE" cp "$UPDATE_PB_PATH" "$pod:$WORKDIR/$UPDATE_PB_NAME"
 
-pod_exec "$pod" peer channel update -f "$WORKDIR/$UPDATE_PB_NAME" -c "$CHANNEL" -o "$ORDERER" --tls --cafile $ORDERER_CA
+pod_exec "$pod" peer channel update -f "$WORKDIR/$UPDATE_PB_NAME" -c "$CHANNEL" -o "$ORDERER" "${ORDERER_TLS_ARGS[@]}"

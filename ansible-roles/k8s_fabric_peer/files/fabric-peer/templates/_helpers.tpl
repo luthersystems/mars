@@ -117,3 +117,10 @@ Create the name of the fabric peer service account to use
 {{- define "fabric-peer.chaincodeBuilderConfig" -}}
 {{- printf "{\"index\": \"%d\"}" (int .Values.dlt.peerIndex) | quote }}
 {{- end -}}
+
+{{/*
+The orderer org's domain: dlt.ordererDomain, or dlt.domain when unset.
+*/}}
+{{- define "fabric-peer.orderer-domain" -}}
+{{- .Values.dlt.ordererDomain | default .Values.dlt.domain -}}
+{{- end -}}

@@ -42,6 +42,16 @@ internal:
     servicePort: 7054
     operationsPort: 9080
 
+# TLS on the operations endpoint (/healthz and /metrics). When enabled, the
+# probes, the NLB health check and Prometheus scraping switch to HTTPS.
+# Empty certFile/keyFile reuse the CA's own cert and key. Prometheus must
+# trust that cert to scrape over HTTPS.
+operations:
+  tls:
+    enabled: false
+    certFile: ""
+    keyFile: ""
+
 persistentVolume:
   create: true
   storageClassName: gp2

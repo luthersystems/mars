@@ -28,3 +28,6 @@ k8s_fabric_ca_aws_cli_version: latest
 
 k8s_fabric_ca_service_account_iam_role_arns: {}
 k8s_fabric_ca_service_account: default
+
+# TLS on the CA operations endpoint (/healthz, /metrics), using the CA's cert.
+k8s_fabric_ca_operations_tls: false

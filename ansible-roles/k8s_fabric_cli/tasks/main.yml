@@ -94,6 +94,7 @@
         organization: "{{k8s_fabric_cli_org}}"
         mspID: "{{k8s_fabric_cli_msp}}"
         domain: "{{k8s_fabric_cli_domain_root}}"
+        ordererDomain: "{{k8s_fabric_cli_orderer_domain_root}}"
         peerIndex: "{{item}}"
         cryptoConfigSecret: "{{k8s_fabric_cli_crypto_config_secret_name}}"
         channelArtifactsConfigMap: "{{k8s_fabric_cli_channel_artifacts_configmap_name}}"

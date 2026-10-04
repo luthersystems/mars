@@ -44,9 +44,16 @@ cat > collections.json <<EOF
 $COLLECTIONS_CONFIG
 EOF
 
-# TODO: --clientauth --certfile "$CORE_PEER_TLS_CERT_FILE" --keyfile "$CORE_PEER_TLS_KEY_FILE"
+# If the orderer requires client TLS, set ORDERER_CLIENT_CERT and
+# ORDERER_CLIENT_KEY to this peer's TLS cert and key before running.
+CLIENT_AUTH_ARGS=()
+if [ -n "\${ORDERER_CLIENT_CERT:-}" ]; then
+  CLIENT_AUTH_ARGS=(--clientauth --certfile "\$ORDERER_CLIENT_CERT" --keyfile "\$ORDERER_CLIENT_KEY")
+fi
+
 peer lifecycle chaincode approveformyorg \\
   --tls --cafile orderer-tlsca.pem --orderer "$ORDERER" \\
+  \${CLIENT_AUTH_ARGS[@]+"\${CLIENT_AUTH_ARGS[@]}"} \\
   --channelID "$CHANNEL" \\
   --name "$CC_NAME" --version "$CC_VERSION" \\
   --collections-config collections.json \

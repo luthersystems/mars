@@ -125,12 +125,9 @@ spec:
             {{- toYaml .Values.resources | nindent 12 }}
       initContainers:
         {{- if .Values.dockerChaincode }}
-        # TODO:  Consider turning chaincode-archive-bootstrap into a sidecar
-        # that periodically syncs chaincode archives into a volume that is
-        # shared between it and the fabric-cli container.  Without continuous
-        # sync the peer needs to restart in order to install/initialize a new
-        # version of substrate (not the end of the world because substrate
-        # upgrades still require downtime).
+        # chaincode-archive-bootstrap fetches the substrate archive once, at pod
+        # start, so a new substrate version needs a pod restart. Substrate
+        # upgrades already need downtime, so a syncing sidecar would gain nothing.
         - name: chaincode-archive-bootstrap
           image: "amazon/aws-cli:{{ .Values.awsCLIVersion }}"
           env:
@@ -167,16 +164,15 @@ spec:
               cp /opt/crypto-config/crypto-config.zip /tmp
               unzip crypto-config.zip
 
-              cp -a crypto-config/ordererOrganizations/{{ .Values.dlt.domain }}/orderers/orderer0.{{ .Values.dlt.domain }}/msp/tlscacerts/. /orderertls/
+              cp -a crypto-config/ordererOrganizations/{{ include "fabric-cli.orderer-domain" . }}/orderers/orderer0.{{ include "fabric-cli.orderer-domain" . }}/msp/tlscacerts/. /orderertls/
               mkdir -p /tls/all-cas
               cd crypto-config/peerOrganizations
               cp --parents $(find . -name ca.crt) /tls/all-cas
               cd ../
 
-              # TODO: replace domain var with proper orderer domain
               {{- if eq .Values.dlt.organization "orderer" }}
-              cp -a ordererOrganizations/{{ .Values.dlt.domain }}/users/Admin@{{ .Values.dlt.domain }}/msp/. /msp/
-              cp -a ordererOrganizations/{{ .Values.dlt.domain }}/orderers/orderer{{ .Values.dlt.peerIndex }}.{{ .Values.dlt.domain }}/tls/. /tls/
+              cp -a ordererOrganizations/{{ include "fabric-cli.orderer-domain" . }}/users/Admin@{{ include "fabric-cli.orderer-domain" . }}/msp/. /msp/
+              cp -a ordererOrganizations/{{ include "fabric-cli.orderer-domain" . }}/orderers/orderer{{ .Values.dlt.peerIndex }}.{{ include "fabric-cli.orderer-domain" . }}/tls/. /tls/
               {{- else }}
               cp -a peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/users/Admin@{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/msp/. /msp/
               cp -a peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ list .Values.dlt.peerIndex . | include "fabric-cli.peer-fqdn" }}/tls/. /tls/
@@ -217,10 +213,10 @@ spec:
               aws s3 cp --recursive "${ARTIFACT_ROOT}/channel-artifacts/" /channel-artifacts
               aws s3 cp "${ARTIFACT_ROOT}/collections.json" /collections-config/
 
-              aws s3 cp --recursive "${ARTIFACT_ROOT}/crypto-config/ordererOrganizations/{{ .Values.dlt.domain }}/orderers/orderer0.{{ .Values.dlt.domain }}/msp/tlscacerts/" /orderertls
+              aws s3 cp --recursive "${ARTIFACT_ROOT}/crypto-config/ordererOrganizations/{{ include "fabric-cli.orderer-domain" . }}/orderers/orderer0.{{ include "fabric-cli.orderer-domain" . }}/msp/tlscacerts/" /orderertls
               {{- if eq .Values.dlt.organization "orderer" }}
-              aws s3 cp --recursive "${ARTIFACT_ROOT}/crypto-config/ordererOrganizations/{{ .Values.dlt.domain }}/users/Admin@{{ .Values.dlt.domain }}/msp/" /msp
-              aws s3 cp --recursive "${ARTIFACT_ROOT}/crypto-config/ordererOrganizations/{{ .Values.dlt.domain }}/orderers/orderer{{ .Values.dlt.peerIndex }}.{{ .Values.dlt.domain }}/tls/" /tls
+              aws s3 cp --recursive "${ARTIFACT_ROOT}/crypto-config/ordererOrganizations/{{ include "fabric-cli.orderer-domain" . }}/users/Admin@{{ include "fabric-cli.orderer-domain" . }}/msp/" /msp
+              aws s3 cp --recursive "${ARTIFACT_ROOT}/crypto-config/ordererOrganizations/{{ include "fabric-cli.orderer-domain" . }}/orderers/orderer{{ .Values.dlt.peerIndex }}.{{ include "fabric-cli.orderer-domain" . }}/tls/" /tls
               {{- else }}
               aws s3 cp --recursive "${ARTIFACT_ROOT}/crypto-config/peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/users/Admin@{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/msp/" /msp
               aws s3 cp --recursive "${ARTIFACT_ROOT}/crypto-config/peerOrganizations/{{ .Values.dlt.organization }}.{{ .Values.dlt.domain }}/peers/{{ list .Values.dlt.peerIndex . | include "fabric-cli.peer-fqdn" }}/tls/" /tls

@@ -140,9 +140,12 @@ spec:
               cp /opt/crypto-config/crypto-config.zip /tmp
               cd /tmp
               unzip crypto-config.zip
-              # TODO: copy only relevant files
               mkdir -p /fabric/crypto-config
               cp -a crypto-config/. /fabric/crypto-config/
+              {{- with .Values.dlt.keepKeysOnlyForOrg }}
+              # Delete every private key except this org's user keys.
+              find /fabric/crypto-config -type f \( -name '*_sk' -o -name '*.key' -o -path '*/keystore/*' \) ! -path '/fabric/crypto-config/peerOrganizations/{{ . }}/users/*' -print -delete
+              {{- end }}
           volumeMounts:
             - name: fabric-artifacts
               mountPath: /fabric

@@ -40,8 +40,7 @@ pod_exec "$pod" \
     peer channel update \
     -f "$ANCHORTX" \
     -o "$ORDERER" -c "$CHANNEL" \
-    --tls --cafile "$ORDERER_CA"
-# TODO: --clientauth --certfile "$CORE_PEER_TLS_CERT_FILE" --keyfile "$CORE_PEER_TLS_KEY_FILE"
+    "${ORDERER_TLS_ARGS[@]}"
 
 if [[ $? -ne 0 ]]; then
     echo "Unable to set anchor peers for $MSP" >&2

@@ -13,6 +13,9 @@ dlt:
   organization: org1
   domain: luther.systems
   cryptoConfigSecret: ""
+  # Set to an org domain (e.g. org1.luther.systems) to delete every private
+  # key in crypto-config except that org's user keys. Empty keeps all keys.
+  keepKeysOnlyForOrg: ""
 
 sdk:
   txTimeout: 60s
@@ -23,6 +26,28 @@ sdk:
   bootstrapBase64: ""
   phylumZipBase64: ""
   peerResponseTimeout: 5s
+  # Settings written to shiroclient.yaml and fabric-client.yaml in the
+  # configMapName config map.
+  chaincodeID: com_luthersystems_chaincode_substrate01
+  channel: luther
+  minEndorsers: 1
+  peerUsername: Admin
+  logLevel: info
+  network:
+    org: org1
+    mspID: Org1MSP
+    domain: luther.systems
+    # Empty means the orderer org shares domain.
+    ordererDomain: ""
+    peer: peer0
+    orderer: orderer0
+    peerPort: 7051
+    peerEventPort: 7053
+    ordererPort: 7050
+    caPort: 7054
+    caRegistrar:
+      enrollID: admin
+      enrollSecret: adminpw
 
 image:
   repository: luthersystems/shiroclient

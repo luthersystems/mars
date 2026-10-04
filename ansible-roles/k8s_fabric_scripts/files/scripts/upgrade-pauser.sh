@@ -12,11 +12,13 @@ set -o pipefail
 # ORDERERC
 # PEER_ORG
 # FABRIC_DOMAIN
+# FABRIC_ORDERER_DOMAIN (optional)
+# FABRIC_ORDERER_CLIENT_AUTH (optional)
 
 source "${BASH_SOURCE%/*}/channel-utils.sh"
 
 function get_height_for_orderer() {
-  PARSEABLE="$(kubectl -n "$THRUNAME" exec "$THRUPEER" -- peer channel fetch newest /dev/null -c "$CHANNEL" -o orderer"$1".${FABRIC_DOMAIN}:7050 --tls --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/orderertls/tlsca.${FABRIC_DOMAIN}-cert.pem 2>&1)"
+  PARSEABLE="$(kubectl -n "$THRUNAME" exec "$THRUPEER" -- peer channel fetch newest /dev/null -c "$CHANNEL" -o orderer"$1".${ORDERER_DOMAIN}:7050 --tls --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/orderertls/tlsca.${ORDERER_DOMAIN}-cert.pem ${ORDERER_CLIENT_AUTH_ARGS[@]+"${ORDERER_CLIENT_AUTH_ARGS[@]}"} 2>&1)"
   PARSEABLE="$(echo "$PARSEABLE" | egrep -o 'Received block: [0-9]+$')"
   HEIGHT_FOR_ORDERER="$(echo "$PARSEABLE" | cut -d " " -f 3)"
 }

@@ -3,3 +3,11 @@
 
 k8s_fabric_scripts_workdir: /opt/hyperledger/fabric
 k8s_fabric_scripts_dir: "{{k8s_fabric_scripts_workdir}}/scripts"
+
+# Set true when the orderer requires client TLS
+# (General.TLS.ClientAuthRequired). The scripts then pass --clientauth with
+# the peer's TLS cert and key on every orderer call.
+k8s_fabric_orderer_client_auth: false
+# The orderer org's domain, when it differs from the peer orgs' domain root.
+# Empty means the orderer shares the domain root.
+k8s_fabric_network_orderer_domain_root: ""

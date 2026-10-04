@@ -23,6 +23,8 @@ dlt:
   mspID: Org1MSP
   peerIndex: 0
   domain: luther.systems
+  # Orderer org domain. Empty means the orderer shares dlt.domain.
+  ordererDomain: ""
   # IMPORTANT: all 3 of these must be specified together!
   cryptoConfigSecret: ""
   channelArtifactsConfigMap: ""
