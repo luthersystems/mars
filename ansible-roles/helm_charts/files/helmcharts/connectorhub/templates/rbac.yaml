@@ -35,6 +35,11 @@ rules:
 - apiGroups: ["networking.k8s.io"]
   resources: ["networkpolicies"]
   verbs: ["get", "list", "create", "update", "delete"]
+  # ServiceAccounts: read-only, so the launcher can warn when the connector
+  # pods' ServiceAccount carries an IRSA/Workload Identity annotation.
+- apiGroups: [""]
+  resources: ["serviceaccounts"]
+  verbs: ["get"]
 
 ---
 # Bind that Role to your ServiceAccount
