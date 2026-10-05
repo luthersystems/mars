@@ -28,6 +28,18 @@ rules:
 - apiGroups: ["apps"]
   resources: ["deployments"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # NetworkPolicies: one per MCP connector, created and repaired by the
+  # launcher to block cloud metadata egress (luthersystems/connectorhub#190).
+  # Without this, connectorhub >= the #192 release refuses to start new
+  # connectors (fail closed) unless CH_K8S_BLOCK_METADATA=false.
+- apiGroups: ["networking.k8s.io"]
+  resources: ["networkpolicies"]
+  verbs: ["get", "list", "create", "update", "delete"]
+  # ServiceAccounts: read-only, so the launcher can warn when the connector
+  # pods' ServiceAccount carries an IRSA/Workload Identity annotation.
+- apiGroups: [""]
+  resources: ["serviceaccounts"]
+  verbs: ["get"]
 
 ---
 # Bind that Role to your ServiceAccount
