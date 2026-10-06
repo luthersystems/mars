@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Workflow
 
 - Always create a feature branch and submit a PR to `main` - never push directly to `main`
-- A human will review the PR before merging
+- A human will review the PR before merging. Exception: Dependabot minor and patch Go module updates are approved and auto-merged by `.github/workflows/dependabot-automerge.yml` once every required check passes; GitHub Actions updates and majors still need a person
 - GitHub Actions automatically build and push Docker images to DockerHub for tagged releases
 
 ## Overview

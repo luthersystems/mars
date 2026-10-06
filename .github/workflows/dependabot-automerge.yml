@@ -1,0 +1,80 @@
+name: Dependabot auto-merge
+
+# Approves Dependabot minor and patch Go module updates and turns on GitHub
+# auto-merge for them. GitHub then merges the PR only after every REQUIRED
+# check passes; this workflow merges nothing itself. A major update, or a
+# group with any major update in it, waits for a person.
+#
+# GitHub Actions updates (package-ecosystem github_actions) always wait for a
+# person: mars's release workflows run actions with OIDC credentials that can
+# cut releases and push images, so a hijacked action tag must not merge
+# unreviewed.
+#
+# REQUIRED CHECKS. Auto-merge waits only for checks that branch protection on
+# main marks required. Keep `go test`, `govulncheck` and both docker builds
+# required, or a bump that fails an unrequired check merges anyway.
+#
+# WHY it approves. Branch protection on main requires one approval. Without
+# this step, auto-merge waits for a person to approve. The approval needs
+# "Allow GitHub Actions to create and approve pull requests" on in the
+# organization's and the repository's Actions settings; without it the
+# approve step fails and the PR waits for a person. When Dependabot rebases,
+# branch protection asks for a new approval (last-push approval or dismissed
+# stale approvals, whichever main has on); the rebase starts this workflow
+# again (synchronize), which approves the new head.
+#
+# WHY pull_request_target. A Dependabot `pull_request` run gets a read-only
+# GITHUB_TOKEN, which cannot enable auto-merge. `pull_request_target` runs
+# this file as it is on the base branch, with a write token, so a PR cannot
+# change the rule that merges it. That is safe only because this job never
+# checks out or runs code from the PR: it reads PR metadata and calls the
+# GitHub API. Do NOT add a checkout of the PR head here.
+#
+# fetch-metadata also checks that every commit on the PR is a Dependabot
+# commit. If a person pushes to the branch, the meta step fails (or returns
+# no update type), nothing is approved, and the PR needs a manual merge.
+#
+# Not a required check: it is a pull_request_target workflow and must not
+# gate merges.
+#
+# KNOWN LIMIT. The merge is done by GITHUB_TOKEN, and GitHub starts no
+# workflow runs for events that GITHUB_TOKEN causes. mars has no push
+# workflow on main today, so nothing is skipped; a release is still cut by
+# a tag (mars-release.yml), never by a merge.
+#
+# Copied from luthersystems/elps (.github/workflows/dependabot-automerge.yml).
+
+on: pull_request_target
+
+permissions:
+  contents: write      # merge the PR
+  pull-requests: write # approve the PR and enable auto-merge on it
+
+jobs:
+  automerge:
+    name: Enable auto-merge
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-22.04
+    # A metadata lookup and one API call; a few seconds when healthy.
+    timeout-minutes: 5
+    steps:
+      - id: meta
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98  # v3.1.0
+      - name: Approve (Go modules, minor and patch only)
+        if: >-
+          steps.meta.outputs.package-ecosystem != 'github_actions' &&
+          (steps.meta.outputs.update-type == 'version-update:semver-minor' ||
+          steps.meta.outputs.update-type == 'version-update:semver-patch')
+        run: gh pr review --approve "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ github.token }}
+      - name: Enable auto-merge (Go modules, minor and patch only)
+        if: >-
+          steps.meta.outputs.package-ecosystem != 'github_actions' &&
+          (steps.meta.outputs.update-type == 'version-update:semver-minor' ||
+          steps.meta.outputs.update-type == 'version-update:semver-patch')
+        run: gh pr merge --auto --merge "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ github.token }}
