@@ -9,6 +9,14 @@ global:
 
 runMode: gateway
 
+# Extra environment variables for the shiroclient container, as a list of
+# Kubernetes EnvVar objects (name/value or name/valueFrom). Empty adds none.
+# Example: point license metrics at a staging endpoint (substrate >= v2.245.0):
+#   extraEnv:
+#     - name: SHIROCLIENT_METRICS_URL
+#       value: https://metrics-staging.luthersystemsapp.com/metrics
+extraEnv: []
+
 dlt:
   organization: org1
   domain: luther.systems

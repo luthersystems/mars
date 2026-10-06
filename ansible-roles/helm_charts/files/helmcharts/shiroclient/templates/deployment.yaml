@@ -101,6 +101,9 @@ spec:
             - name: GRPC_GO_LOG_SEVERITY_LEVEL
               value: info
             {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           workingDir: /tmp/fabric
           volumeMounts:
             - name: fabric-artifacts
