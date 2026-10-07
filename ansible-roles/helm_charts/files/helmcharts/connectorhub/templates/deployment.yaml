@@ -93,13 +93,18 @@ spec:
             {{- with .Values.leaderElection }}
             {{- if .enabled }}
             {{- $env := $.Values.env | default dict }}
+            {{- /* Without election the hub would run with no checkpoint, and
+                   every replica would handle every event. */}}
+            {{- if and (hasKey $env "CH_HUB_LEADER_ELECTION") (ne (toString (get $env "CH_HUB_LEADER_ELECTION")) "true") }}
+            {{- fail "leaderElection.enabled needs env.CH_HUB_LEADER_ELECTION unset or \"true\"" }}
+            {{- end }}
             {{- if not (hasKey $env "CH_HUB_LEADER_ELECTION") }}
             - name: CH_HUB_LEADER_ELECTION
               value: "true"
             {{- end }}
             {{- if not (hasKey $env "CH_HUB_LEADER_ELECTION_LEASE_NAME") }}
             - name: CH_HUB_LEADER_ELECTION_LEASE_NAME
-              value: {{ .leaseName | quote }}
+              value: {{ .leaseName | default (include "connectorhub.fullname" $) | quote }}
             {{- end }}
             {{- if .podLabel }}
             {{- if not (hasKey $env "CH_HUB_LEADER_ELECTION_POD_LABEL") }}

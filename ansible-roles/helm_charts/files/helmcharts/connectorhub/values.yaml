@@ -20,17 +20,27 @@ replicaCount: 1
 #     voluntary disruption, and a rolling update starts a new pod before it
 #     stops an old one.
 #
-# Migration from the file checkpoint: the Lease starts with no checkpoint,
-# and the hub then starts at CH_START_BLOCK_NUM (default 1). For the first
-# start, set env.CH_START_BLOCK_NUM to the block in the old checkpoint file
-# (/tmp/checkpoint/checkpoint.txt on the PVC), then remove it.
+# Migration from the file checkpoint:
+#   1. Read the block in the old checkpoint file
+#      (/tmp/checkpoint/checkpoint.txt on the PVC).
+#   2. Scale the hub to 0. A rolling update would run the old hub (no
+#      election) and the new leader together, and both would handle events.
+#   3. Deploy with leaderElection.enabled=true and env.CH_START_BLOCK_NUM set
+#      to that block. The Lease starts with no checkpoint, so the hub starts
+#      at CH_START_BLOCK_NUM (default 1).
+#   4. Remove env.CH_START_BLOCK_NUM.
+#
+# Do not set env.CH_HUB_LEADER_ELECTION to anything but "true" while
+# enabled: the render fails, since the hub would run with no checkpoint.
 leaderElection:
   enabled: false
-  # Lease name (connectorhub's default).
-  leaseName: connectorhub-hub
-  # Label each pod connectorhub.luthersystems.com/role=leader|standby, so a
-  # Service can send inbound webhooks to the leader only. Adds POD_NAME and
-  # the RBAC to patch pods.
+  # Lease name. Empty uses the release's fullname, so two releases in one
+  # namespace do not share a Lease. To keep connectorhub's own default, set
+  # connectorhub-hub.
+  leaseName: ""
+  # Label each pod connectorhub.luthersystems.com/role=leader|standby. Adds
+  # POD_NAME and the RBAC to patch pods. The chart renders no leader-only
+  # Service: add one for the inbound port that selects role=leader.
   podLabel: false
   podDisruptionBudget:
     enabled: true

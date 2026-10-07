@@ -103,11 +103,23 @@ want_render "default keeps the checkpoint file" yes "- --checkpoint-file=/tmp/ch
 want_render "default has no Lease RBAC" no "- apiGroups: [\"coordination.k8s.io\"]"
 want_render "default has no PDB" no "kind: PodDisruptionBudget"
 want_env "leader election sets CH_HUB_LEADER_ELECTION" CH_HUB_LEADER_ELECTION true ${LE}
-want_env "an env override of CH_HUB_LEADER_ELECTION wins" CH_HUB_LEADER_ELECTION false \
-  ${LE} --set env.CH_HUB_LEADER_ELECTION=false
+want_env "an env override of CH_HUB_LEADER_ELECTION=true renders once" CH_HUB_LEADER_ELECTION true \
+  ${LE} --set-string env.CH_HUB_LEADER_ELECTION=true
+if helm template ch "${CHARTS}/connectorhub" ${LE} \
+  --set-string env.CH_HUB_LEADER_ELECTION=false >/dev/null 2>&1; then
+  echo "FAIL: leader election with env.CH_HUB_LEADER_ELECTION=false must not render"
+  fail=1
+else
+  echo "OK:   leader election with env.CH_HUB_LEADER_ELECTION=false fails the render"
+fi
+want_env "the Lease name defaults to the fullname" CH_HUB_LEADER_ELECTION_LEASE_NAME ch-connectorhub ${LE}
+want_env "leaderElection.leaseName sets the Lease name" CH_HUB_LEADER_ELECTION_LEASE_NAME connectorhub-hub \
+  ${LE} --set leaderElection.leaseName=connectorhub-hub
 want_env "leader election keeps the other env defaults" CH_ENABLE_ADMIN_API false ${LE}
 want_render "leader election drops the checkpoint file" no "- --checkpoint-file=/tmp/checkpoint/checkpoint.txt" ${LE}
 want_render "leader election drops the checkpoint mount" no "mountPath: /tmp/checkpoint" ${LE}
+want_render "leader election drops the checkpoint volume" no "- name: connectorhub-checkpoint" ${LE}
+want_render "leader election with 2 replicas starts the new pod first" yes "maxUnavailable: 0" ${LE}
 want_render "leader election grants Lease RBAC" yes "- apiGroups: [\"coordination.k8s.io\"]" ${LE}
 want_render "leader election with 2 replicas adds a PDB" yes "kind: PodDisruptionBudget" ${LE}
 want_render "leader election with 1 replica adds no PDB" no "kind: PodDisruptionBudget" \
