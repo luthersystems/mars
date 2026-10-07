@@ -40,6 +40,19 @@ rules:
 - apiGroups: [""]
   resources: ["serviceaccounts"]
   verbs: ["get"]
+{{- if .Values.leaderElection.enabled }}
+  # Leases: hub leader election and its checkpoint annotation
+  # (luthersystems/connectorhub#203).
+- apiGroups: ["coordination.k8s.io"]
+  resources: ["leases"]
+  verbs: ["get", "create", "update"]
+{{- if .Values.leaderElection.podLabel }}
+  # Pods: the hub labels its own pod with its role.
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["patch"]
+{{- end }}
+{{- end }}
 
 ---
 # Bind that Role to your ServiceAccount
