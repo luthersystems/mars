@@ -274,7 +274,17 @@ want_sc_render "shiroclient default has no license state env" no "- name: SHIROC
 want_sc_render "shiroclient license state adds the env" yes "- name: SHIROCLIENT_LICENSE_STATE_DIR" ${LS}
 want_sc_render "shiroclient license state env names the mount path" yes "value: \"/var/lib/shiroclient/license\"" ${LS}
 want_sc_render "shiroclient license state mounts the volume" yes "mountPath: /var/lib/shiroclient/license" ${LS}
-want_sc_render "shiroclient license state adds the volume" yes "- name: license-state" ${LS}
+# The mount has the same "- name: license-state" line, so check the pod
+# volumes list itself (the lines between "volumes:" and "containers:").
+sc_volumes=$(helm template sc "${CHARTS}/shiroclient" --show-only templates/deployment.yaml ${LS} 2>&1 |
+  awk "/^      volumes:/{p=1;next} /^      containers:/{p=0} p")
+if printf "%s\n" "${sc_volumes}" | grep -x "        - name: license-state" >/dev/null; then
+  echo "OK:   shiroclient license state adds the volume"
+else
+  echo "FAIL: shiroclient license state adds the volume: no license-state in volumes:"
+  printf "%s\n" "${sc_volumes}"
+  fail=1
+fi
 want_sc_render "shiroclient license state mountPath moves the mount" yes "mountPath: /state" \
   ${LS} --set licenseState.mountPath=/state
 want_sc_render "shiroclient license state mountPath moves the env" yes "value: \"/state\"" \
