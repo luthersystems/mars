@@ -53,6 +53,7 @@ mars <env> apply                          # Apply changes
 mars <env> apply --approve                # Apply without confirmation
 mars <env> plan --target=<resource>       # Repeat --target for multiple resources
 mars <env> apply --target=<a> --target=<b> # Repeatable for apply too
+mars <env> destroy --target=<a> --target=<b> # And for destroy
 mars <env> terraform output <name>        # Get terraform output
 
 # Ansible operations

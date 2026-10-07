@@ -97,6 +97,36 @@ func TestApplyMultipleTargets(t *testing.T) {
 	}
 }
 
+func TestDestroyMultipleTargets(t *testing.T) {
+	withProject(t, func(dir string) {
+		writeFile(t, ".terraform-version", "1.7.3\n")
+		writeFile(t, "vars/common/common.tfvars", "")
+		writeFile(t, "vars/dev/dev.tfvars", "")
+		fake := &runner.Fake{CaptureOut: [][]byte{[]byte("default\n")}}
+		var stdout, stderr bytes.Buffer
+
+		code := Main(context.Background(), []string{
+			"dev", "--skip-prompt", "destroy",
+			"--target", "module.a",
+			"--target=aws_iam_access_key.tester",
+			"--approve",
+		}, strings.NewReader(""), &stdout, &stderr, fake)
+
+		if code != 0 {
+			t.Fatalf("exit code = %d, stderr:\n%s", code, stderr.String())
+		}
+		want := [][]string{
+			{"flock", "/opt/tfenv/versions/.install.lock", "tfenv", "install"},
+			{"terraform", "workspace", "show"},
+			{"terraform", "workspace", "select", "dev"},
+			{"terraform", "destroy", "-var-file=vars/common/common.tfvars", "-var-file=vars/dev/dev.tfvars", "-target", "module.a", "-target", "aws_iam_access_key.tester", "-auto-approve"},
+		}
+		if got := fake.Commands(); !reflect.DeepEqual(got, want) {
+			t.Fatalf("commands = %#v, want %#v\nrecords:\n%s", got, want, fake.Output())
+		}
+	})
+}
+
 func TestTerraformRawCommandPassesFlagsAfterDoubleDash(t *testing.T) {
 	withProject(t, func(dir string) {
 		writeFile(t, ".terraform-version", "1.7.3\n")

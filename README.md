@@ -27,11 +27,12 @@ without arguments or point it to the appropriate key file in special cases.
 
 ## Terraform
 
-Both `plan` and `apply` accept repeated `--target` flags to target multiple resources:
+`plan`, `apply` and `destroy` accept repeated `--target` flags to target multiple resources:
 
 ```bash
 mars dev plan --target module.a --target module.b
 mars dev apply --target module.a --target module.b --approve
+mars dev destroy --target module.a --target module.b
 ```
 
 If you need to run a raw terraform command using the `terraform` binary
