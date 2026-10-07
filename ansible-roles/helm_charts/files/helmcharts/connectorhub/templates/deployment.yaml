@@ -6,6 +6,14 @@ metadata:
 {{ include "connectorhub.labels" . | indent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  {{- if and .Values.leaderElection.enabled (gt (int .Values.replicaCount) 1) }}
+  # Start the new pod before the old one stops, so a standby is always up.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  {{- end }}
   selector:
     matchLabels:
       {{- include "connectorhub.labels" . | nindent 6 }}
@@ -25,9 +33,12 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       volumes:
+        {{- /* With leader election the checkpoint is on the Lease. */}}
+        {{- if not .Values.leaderElection.enabled }}
         - name: connectorhub-checkpoint
           persistentVolumeClaim:
             claimName: {{ list "storage" . | include "connectorhub.pvc" }}
+        {{- end }}
         - name: fabric-artifacts
           emptyDir: {}
         - name: msp
@@ -65,7 +76,9 @@ spec:
           args:
             - start
             - --config-file=/tmp/fabric/connectorhub.yaml
+            {{- if not .Values.leaderElection.enabled }}
             - --checkpoint-file=/tmp/checkpoint/checkpoint.txt
+            {{- end }}
             {{- if .Values.verbose }}
             - --verbose
             {{- end }}
@@ -76,6 +89,31 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+            {{- end }}
+            {{- with .Values.leaderElection }}
+            {{- if .enabled }}
+            {{- $env := $.Values.env | default dict }}
+            {{- if not (hasKey $env "CH_HUB_LEADER_ELECTION") }}
+            - name: CH_HUB_LEADER_ELECTION
+              value: "true"
+            {{- end }}
+            {{- if not (hasKey $env "CH_HUB_LEADER_ELECTION_LEASE_NAME") }}
+            - name: CH_HUB_LEADER_ELECTION_LEASE_NAME
+              value: {{ .leaseName | quote }}
+            {{- end }}
+            {{- if .podLabel }}
+            {{- if not (hasKey $env "CH_HUB_LEADER_ELECTION_POD_LABEL") }}
+            - name: CH_HUB_LEADER_ELECTION_POD_LABEL
+              value: "true"
+            {{- end }}
+            {{- if not (hasKey $env "POD_NAME") }}
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            {{- end }}
+            {{- end }}
+            {{- end }}
             {{- end }}
             {{- if .Values.env }}
             {{- range $key, $value := .Values.env }}
@@ -93,8 +131,10 @@ spec:
           volumeMounts:
             - name: fabric-artifacts
               mountPath: /tmp/fabric
+            {{- if not .Values.leaderElection.enabled }}
             - name: connectorhub-checkpoint
               mountPath: /tmp/checkpoint
+            {{- end }}
             - name: msp
               mountPath: /tmp/msp
             - name: state-store

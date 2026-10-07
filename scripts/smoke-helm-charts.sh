@@ -18,6 +18,8 @@
 #   - helm template errors
 #   - a missing CH_ENABLE_* default, or a wrong value
 #   - an env override that drops the other defaults (Helm must merge maps)
+#   - connectorhub leader election: a wrong checkpoint flag, volume, env,
+#     RBAC or PDB, on or off
 #   - fabric-peer: http-op or the scrape annotations on the load balancer
 #     service, or no ClusterIP operations service
 #   - fabric-peer: two services with the same name, or a changed
@@ -72,6 +74,50 @@ want_env "env override wins" CH_ENABLE_TEST_API true \
   --set env.CH_ENABLE_TEST_API=true
 want_env "env override keeps the other defaults" CH_ENABLE_ADMIN_API false \
   --set env.CH_ENABLE_TEST_API=true
+
+# (description, yes|no, line, helm args...): does the connectorhub render
+# have the line (leading spaces ignored)?
+want_render() {
+  desc="$1"; want="$2"; str="$3"; shift 3
+  if ! out=$(helm template ch "${CHARTS}/connectorhub" "$@" 2>&1); then
+    echo "FAIL: ${desc}: helm template failed:"
+    echo "${out}"
+    fail=1
+    return
+  fi
+  if printf "%s\n" "${out}" | sed "s/^ *//" | grep -qxF -e "${str}"; then got=yes; else got=no; fi
+  if [ "${got}" = "${want}" ]; then
+    echo "OK:   ${desc}"
+  else
+    echo "FAIL: ${desc}: has line \"${str}\": ${got}, want ${want}"
+    fail=1
+  fi
+}
+
+# Leader election (luthersystems/connectorhub#203). Off by default: the
+# file checkpoint stays. On: the checkpoint is on the Lease, so no file
+# flag (connectorhub refuses it) and no RWO volume, which two replicas on
+# different nodes cannot share.
+LE="--set leaderElection.enabled=true --set replicaCount=2"
+want_render "default keeps the checkpoint file" yes "- --checkpoint-file=/tmp/checkpoint/checkpoint.txt"
+want_render "default has no Lease RBAC" no "- apiGroups: [\"coordination.k8s.io\"]"
+want_render "default has no PDB" no "kind: PodDisruptionBudget"
+want_env "leader election sets CH_HUB_LEADER_ELECTION" CH_HUB_LEADER_ELECTION true ${LE}
+want_env "an env override of CH_HUB_LEADER_ELECTION wins" CH_HUB_LEADER_ELECTION false \
+  ${LE} --set env.CH_HUB_LEADER_ELECTION=false
+want_env "leader election keeps the other env defaults" CH_ENABLE_ADMIN_API false ${LE}
+want_render "leader election drops the checkpoint file" no "- --checkpoint-file=/tmp/checkpoint/checkpoint.txt" ${LE}
+want_render "leader election drops the checkpoint mount" no "mountPath: /tmp/checkpoint" ${LE}
+want_render "leader election grants Lease RBAC" yes "- apiGroups: [\"coordination.k8s.io\"]" ${LE}
+want_render "leader election with 2 replicas adds a PDB" yes "kind: PodDisruptionBudget" ${LE}
+want_render "leader election with 1 replica adds no PDB" no "kind: PodDisruptionBudget" \
+  --set leaderElection.enabled=true
+want_render "pod label off: no POD_NAME" no "- name: POD_NAME" ${LE}
+want_render "pod label on: POD_NAME is set" yes "- name: POD_NAME" \
+  ${LE} --set leaderElection.podLabel=true
+want_render "pod label off: no RBAC to patch pods" no "verbs: [\"patch\"]" ${LE}
+want_render "pod label on: RBAC to patch pods" yes "verbs: [\"patch\"]" \
+  ${LE} --set leaderElection.podLabel=true
 
 # fabric-peer services of release $1. Each document of
 # templates/service.yaml is printed as one line per service:

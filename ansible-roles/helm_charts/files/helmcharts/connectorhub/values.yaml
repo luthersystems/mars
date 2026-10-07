@@ -4,6 +4,37 @@
 
 replicaCount: 1
 
+# Active/standby hubs (luthersystems/connectorhub#203). Needs a connectorhub
+# release with leader election. Off by default: the chart then renders as
+# before.
+#
+# When enabled:
+#   - The hub runs with CH_HUB_LEADER_ELECTION=true. Only the holder of the
+#     Lease <leaseName> handles events; the other replicas wait as standbys.
+#   - The checkpoint is an annotation on that Lease, not a file. The chart
+#     drops --checkpoint-file and does not mount the checkpoint volume. It
+#     does not delete the PVC: set persistentVolume.create=false for that,
+#     after the migration below.
+#   - The Role also grants get/create/update on Leases.
+#   - With replicaCount > 1, a PodDisruptionBudget keeps one pod up during a
+#     voluntary disruption, and a rolling update starts a new pod before it
+#     stops an old one.
+#
+# Migration from the file checkpoint: the Lease starts with no checkpoint,
+# and the hub then starts at CH_START_BLOCK_NUM (default 1). For the first
+# start, set env.CH_START_BLOCK_NUM to the block in the old checkpoint file
+# (/tmp/checkpoint/checkpoint.txt on the PVC), then remove it.
+leaderElection:
+  enabled: false
+  # Lease name (connectorhub's default).
+  leaseName: connectorhub-hub
+  # Label each pod connectorhub.luthersystems.com/role=leader|standby, so a
+  # Service can send inbound webhooks to the leader only. Adds POD_NAME and
+  # the RBAC to patch pods.
+  podLabel: false
+  podDisruptionBudget:
+    enabled: true
+
 global:
   projectEnv: dev
 

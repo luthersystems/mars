@@ -1,0 +1,15 @@
+{{- if and .Values.leaderElection.enabled .Values.leaderElection.podDisruptionBudget.enabled (gt (int .Values.replicaCount) 1) }}
+# Keep one hub up during a voluntary disruption (a node drain), so a standby
+# can take over the Lease (luthersystems/connectorhub#203).
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "connectorhub.fullname" . }}
+  labels:
+    {{- include "connectorhub.labels" . | nindent 4 }}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      {{- include "connectorhub.labels.match" . | nindent 6 }}
+{{- end }}
