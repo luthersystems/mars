@@ -36,6 +36,10 @@ PEER_CHART="${ROOT}/ansible-roles/k8s_fabric_peer/files/fabric-peer"
 CHECKS='
 set -uo pipefail
 
+# Never grep -q at the end of a pipeline here: grep -q exits at the first
+# match, the writer before it can then die of SIGPIPE, and pipefail turns a
+# match into a failure. Send the grep output to /dev/null instead.
+
 fail=0
 
 render() {
@@ -85,7 +89,7 @@ want_render() {
     fail=1
     return
   fi
-  if printf "%s\n" "${out}" | sed "s/^ *//" | grep -qxF -e "${str}"; then got=yes; else got=no; fi
+  if printf "%s\n" "${out}" | sed "s/^ *//" | grep -xF -e "${str}" >/dev/null; then got=yes; else got=no; fi
   if [ "${got}" = "${want}" ]; then
     echo "OK:   ${desc}"
   else
@@ -163,7 +167,7 @@ want_service_as() {
     fail=1
     return
   fi
-  if printf "%s\n" "${out}" | grep -qxF "${want}"; then
+  if printf "%s\n" "${out}" | grep -xF "${want}" >/dev/null; then
     echo "OK:   ${desc}"
   else
     echo "FAIL: ${desc}: want \"${want}\", got:"
@@ -191,9 +195,9 @@ peer_svc() {
     --set dlt.domain=example.com "$@" 2>&1
 }
 out=$(peer_svc)
-if printf "%s\n" "${out}" | grep -qx "    service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: http" &&
-  printf "%s\n" "${out}" | grep -Eqx "    service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: +\"9443\"" &&
-  printf "%s\n" "${out}" | grep -qx "    service.beta.kubernetes.io/aws-load-balancer-healthcheck-path: /healthz"; then
+if printf "%s\n" "${out}" | grep -x "    service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: http" >/dev/null &&
+  printf "%s\n" "${out}" | grep -Ex "    service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: +\"9443\"" >/dev/null &&
+  printf "%s\n" "${out}" | grep -x "    service.beta.kubernetes.io/aws-load-balancer-healthcheck-path: /healthz" >/dev/null; then
   echo "OK:   NLB health check is HTTP /healthz on the operations port"
 else
   echo "FAIL: NLB health check is not HTTP /healthz on port 9443"
@@ -204,7 +208,7 @@ fi
 # 9443 is not a Service port, so it has none. Render no health check
 # annotations; the ELB then checks the NodePort of the first Service port.
 out=$(peer_svc --set service.useNLB=false)
-if printf "%s\n" "${out}" | grep -q "aws-load-balancer-healthcheck-"; then
+if printf "%s\n" "${out}" | grep "aws-load-balancer-healthcheck-" >/dev/null; then
   echo "FAIL: classic ELB renders health check annotations for a non-Service port"
   fail=1
 else
@@ -264,7 +268,7 @@ want_distinct_services() {
   names=$(printf "%s\n" "${out}" | cut -d" " -f1)
   if [ "$(printf "%s\n" "${names}" | grep -c .)" = 2 ] &&
     [ "$(printf "%s\n" "${names}" | sort -u | grep -c .)" = 2 ] &&
-    ! printf "%s\n" "${names}" | grep -Evxq "[a-z]([-a-z0-9]{0,61}[a-z0-9])?"; then
+    ! printf "%s\n" "${names}" | grep -Evx "[a-z]([-a-z0-9]{0,61}[a-z0-9])?" >/dev/null; then
     echo "OK:   ${desc}"
   else
     echo "FAIL: ${desc}: want two distinct valid service names, got:"
