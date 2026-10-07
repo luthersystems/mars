@@ -35,7 +35,7 @@ type RawCmd struct {
 type PlanCmd struct {
 	Destroy     bool     `name:"destroy"`
 	Out         string   `name:"out"`
-	Target      []string `name:"target"`
+	Target      []string `name:"target" help:"Resource address to target; repeat for several." sep:"none"`
 	ApplyPlan   bool     `name:"apply"`
 	RefreshOnly bool     `name:"refresh-only" xor:"refresh"`
 	SkipRefresh bool     `name:"skip-refresh" xor:"refresh"`
@@ -43,7 +43,7 @@ type PlanCmd struct {
 
 type ApplyCmd struct {
 	Plan        string   `name:"plan"`
-	Target      []string `name:"target"`
+	Target      []string `name:"target" help:"Resource address to target; repeat for several." sep:"none"`
 	Approve     bool     `name:"approve"`
 	RefreshOnly bool     `name:"refresh-only"`
 	// ForbidResourceChanges makes apply fail if the plan would create,
@@ -57,7 +57,7 @@ type ApplyCmd struct {
 }
 
 type DestroyCmd struct {
-	Target  []string `name:"target" help:"Resource address to destroy; repeat for several."`
+	Target  []string `name:"target" help:"Resource address to destroy; repeat for several." sep:"none"`
 	Approve bool     `name:"approve"`
 }
 
