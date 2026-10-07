@@ -44,6 +44,14 @@ spec:
         - name: license
           secret:
             secretName: license-shiroclient
+        {{- if .Values.licenseState.enabled }}
+        - name: license-state
+          emptyDir:
+            {{- with .Values.licenseState.sizeLimit }}
+            sizeLimit: {{ . }}
+            {{- else }} {}
+            {{- end }}
+        {{- end }}
         {{- if .Values.dlt.cryptoConfigSecret }}
         - name: fabric-crypto-config
           secret:
@@ -95,6 +103,10 @@ spec:
               value: {{ .Values.dlt.domain }}
             - name: SHIROCLIENT_CLIENT_LICENSE_FILE
               value: /opt/license/license.yaml
+            {{- if .Values.licenseState.enabled }}
+            - name: SHIROCLIENT_LICENSE_STATE_DIR
+              value: {{ .Values.licenseState.mountPath | quote }}
+            {{- end }}
             {{- if .Values.verbose }}
             - name: GRPC_GO_LOG_VERBOSITY_LEVEL
               value: "99"
@@ -117,6 +129,10 @@ spec:
             - name: license
               mountPath: /opt/license
               readOnly: true
+            {{- if .Values.licenseState.enabled }}
+            - name: license-state
+              mountPath: {{ .Values.licenseState.mountPath }}
+            {{- end }}
             {{ if .Values.sdk.configMapName }}
             - name: config
               subPath: shiroclient.yaml

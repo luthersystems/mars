@@ -24,6 +24,8 @@
 #     service, or no ClusterIP operations service
 #   - fabric-peer: two services with the same name, or a changed
 #     <release>-ops name for a fabric-peer<N>-<org> release
+#   - shiroclient: the license state volume, mount or env when off (the
+#     default), or a missing or misplaced one when on
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -35,6 +37,10 @@ PEER_CHART="${ROOT}/ansible-roles/k8s_fabric_peer/files/fabric-peer"
 # shellcheck disable=SC2016 # expanded by the inner shell
 CHECKS='
 set -uo pipefail
+
+# Never grep -q at the end of a pipeline here: grep -q exits at the first
+# match, the writer before it can then die of SIGPIPE, and pipefail turns a
+# match into a failure. Send the grep output to /dev/null instead.
 
 fail=0
 
@@ -85,7 +91,7 @@ want_render() {
     fail=1
     return
   fi
-  if printf "%s\n" "${out}" | sed "s/^ *//" | grep -qxF -e "${str}"; then got=yes; else got=no; fi
+  if printf "%s\n" "${out}" | sed "s/^ *//" | grep -xF -e "${str}" >/dev/null; then got=yes; else got=no; fi
   if [ "${got}" = "${want}" ]; then
     echo "OK:   ${desc}"
   else
@@ -163,7 +169,7 @@ want_service_as() {
     fail=1
     return
   fi
-  if printf "%s\n" "${out}" | grep -qxF "${want}"; then
+  if printf "%s\n" "${out}" | grep -xF "${want}" >/dev/null; then
     echo "OK:   ${desc}"
   else
     echo "FAIL: ${desc}: want \"${want}\", got:"
@@ -191,9 +197,9 @@ peer_svc() {
     --set dlt.domain=example.com "$@" 2>&1
 }
 out=$(peer_svc)
-if printf "%s\n" "${out}" | grep -qx "    service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: http" &&
-  printf "%s\n" "${out}" | grep -Eqx "    service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: +\"9443\"" &&
-  printf "%s\n" "${out}" | grep -qx "    service.beta.kubernetes.io/aws-load-balancer-healthcheck-path: /healthz"; then
+if printf "%s\n" "${out}" | grep -x "    service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: http" >/dev/null &&
+  printf "%s\n" "${out}" | grep -Ex "    service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: +\"9443\"" >/dev/null &&
+  printf "%s\n" "${out}" | grep -x "    service.beta.kubernetes.io/aws-load-balancer-healthcheck-path: /healthz" >/dev/null; then
   echo "OK:   NLB health check is HTTP /healthz on the operations port"
 else
   echo "FAIL: NLB health check is not HTTP /healthz on port 9443"
@@ -204,7 +210,7 @@ fi
 # 9443 is not a Service port, so it has none. Render no health check
 # annotations; the ELB then checks the NodePort of the first Service port.
 out=$(peer_svc --set service.useNLB=false)
-if printf "%s\n" "${out}" | grep -q "aws-load-balancer-healthcheck-"; then
+if printf "%s\n" "${out}" | grep "aws-load-balancer-healthcheck-" >/dev/null; then
   echo "FAIL: classic ELB renders health check annotations for a non-Service port"
   fail=1
 else
@@ -237,6 +243,55 @@ want_probe "shiroclient startupProbe null turns it off" "0 0" \
 want_probe "shiroclient startupProbe custom handler replaces httpGet" "0 1" \
   --set-json "startupProbe={\"exec\":{\"command\":[\"true\"]},\"periodSeconds\":5}"
 
+# (description, yes|no, line, helm args...): does the shiroclient deployment
+# render have the line (leading spaces ignored)?
+want_sc_render() {
+  desc="$1"; want="$2"; str="$3"; shift 3
+  if ! out=$(helm template sc "${CHARTS}/shiroclient" \
+    --show-only templates/deployment.yaml "$@" 2>&1); then
+    echo "FAIL: ${desc}: helm template failed:"
+    echo "${out}"
+    fail=1
+    return
+  fi
+  # grep -q would exit early and, under pipefail, fail the pipeline on
+  # printf SIGPIPE; read all of the input instead.
+  if printf "%s\n" "${out}" | sed "s/^ *//" | grep -xF -e "${str}" >/dev/null; then got=yes; else got=no; fi
+  if [ "${got}" = "${want}" ]; then
+    echo "OK:   ${desc}"
+  else
+    echo "FAIL: ${desc}: has line \"${str}\": ${got}, want ${want}"
+    fail=1
+  fi
+}
+
+# shiroclient license state directory (luthersystems/mars#282). Off by
+# default: no volume, mount or env. On: an emptyDir mounted at mountPath,
+# and SHIROCLIENT_LICENSE_STATE_DIR names it.
+LS="--set licenseState.enabled=true"
+want_sc_render "shiroclient default has no license state volume" no "- name: license-state"
+want_sc_render "shiroclient default has no license state env" no "- name: SHIROCLIENT_LICENSE_STATE_DIR"
+want_sc_render "shiroclient license state adds the env" yes "- name: SHIROCLIENT_LICENSE_STATE_DIR" ${LS}
+want_sc_render "shiroclient license state env names the mount path" yes "value: \"/var/lib/shiroclient/license\"" ${LS}
+want_sc_render "shiroclient license state mounts the volume" yes "mountPath: /var/lib/shiroclient/license" ${LS}
+# The mount has the same "- name: license-state" line, so check the pod
+# volumes list itself (the lines between "volumes:" and "containers:").
+sc_volumes=$(helm template sc "${CHARTS}/shiroclient" --show-only templates/deployment.yaml ${LS} 2>&1 |
+  awk "/^      volumes:/{p=1;next} /^      containers:/{p=0} p")
+if printf "%s\n" "${sc_volumes}" | grep -x "        - name: license-state" >/dev/null; then
+  echo "OK:   shiroclient license state adds the volume"
+else
+  echo "FAIL: shiroclient license state adds the volume: no license-state in volumes:"
+  printf "%s\n" "${sc_volumes}"
+  fail=1
+fi
+want_sc_render "shiroclient license state mountPath moves the mount" yes "mountPath: /state" \
+  ${LS} --set licenseState.mountPath=/state
+want_sc_render "shiroclient license state mountPath moves the env" yes "value: \"/state\"" \
+  ${LS} --set licenseState.mountPath=/state
+want_sc_render "shiroclient license state sizeLimit renders" yes "sizeLimit: 1Mi" \
+  ${LS} --set licenseState.sizeLimit=1Mi
+
 # The role names each peer release fabric-peer<N>-<org>. The -ops name of
 # such a release must not change, or an upgrade renames the Service.
 for rel in fabric-peer0-org1 fabric-peer12-example-organization; do
@@ -264,7 +319,7 @@ want_distinct_services() {
   names=$(printf "%s\n" "${out}" | cut -d" " -f1)
   if [ "$(printf "%s\n" "${names}" | grep -c .)" = 2 ] &&
     [ "$(printf "%s\n" "${names}" | sort -u | grep -c .)" = 2 ] &&
-    ! printf "%s\n" "${names}" | grep -Evxq "[a-z]([-a-z0-9]{0,61}[a-z0-9])?"; then
+    ! printf "%s\n" "${names}" | grep -Evx "[a-z]([-a-z0-9]{0,61}[a-z0-9])?" >/dev/null; then
     echo "OK:   ${desc}"
   else
     echo "FAIL: ${desc}: want two distinct valid service names, got:"

@@ -35,7 +35,7 @@ type RawCmd struct {
 type PlanCmd struct {
 	Destroy     bool     `name:"destroy"`
 	Out         string   `name:"out"`
-	Target      []string `name:"target"`
+	Target      []string `name:"target" help:"Resource address to target; repeat for several." sep:"none"`
 	ApplyPlan   bool     `name:"apply"`
 	RefreshOnly bool     `name:"refresh-only" xor:"refresh"`
 	SkipRefresh bool     `name:"skip-refresh" xor:"refresh"`
@@ -43,7 +43,7 @@ type PlanCmd struct {
 
 type ApplyCmd struct {
 	Plan        string   `name:"plan"`
-	Target      []string `name:"target"`
+	Target      []string `name:"target" help:"Resource address to target; repeat for several." sep:"none"`
 	Approve     bool     `name:"approve"`
 	RefreshOnly bool     `name:"refresh-only"`
 	// ForbidResourceChanges makes apply fail if the plan would create,
@@ -57,7 +57,8 @@ type ApplyCmd struct {
 }
 
 type DestroyCmd struct {
-	Approve bool `name:"approve"`
+	Target  []string `name:"target" help:"Resource address to destroy; repeat for several." sep:"none"`
+	Approve bool     `name:"approve"`
 }
 
 type ShowCmd struct {
@@ -177,9 +178,7 @@ func (c *PlanCmd) Run(ctx context.Context, rt *app.Runtime) error {
 	if planPath != "" {
 		args = append(args, "-out="+planPath)
 	}
-	for _, target := range c.Target {
-		args = append(args, "-target", target)
-	}
+	args = appendTargetArgs(args, c.Target)
 	if c.RefreshOnly {
 		args = append(args, "-refresh-only")
 	}
@@ -216,9 +215,7 @@ func (c *ApplyCmd) Run(ctx context.Context, rt *app.Runtime) error {
 	} else {
 		args = s.varFileArgs()
 	}
-	for _, target := range c.Target {
-		args = append(args, "-target", target)
-	}
+	args = appendTargetArgs(args, c.Target)
 	if c.RefreshOnly {
 		args = append(args, "-refresh-only")
 	}
@@ -242,9 +239,7 @@ func (c *ApplyCmd) runGuardedApply(ctx context.Context, s *service) error {
 		}
 		planPath = tmp
 		planArgs := append([]string{"terraform", "plan", "-out=" + planPath}, s.varFileArgs()...)
-		for _, target := range c.Target {
-			planArgs = append(planArgs, "-target", target)
-		}
+		planArgs = appendTargetArgs(planArgs, c.Target)
 		if c.RefreshOnly {
 			planArgs = append(planArgs, "-refresh-only")
 		}
@@ -337,11 +332,21 @@ func (c *DestroyCmd) Run(ctx context.Context, rt *app.Runtime) error {
 	if err := s.beforeWorkspaceCommand(ctx); err != nil {
 		return err
 	}
-	args := s.varFileArgs()
+	args := appendTargetArgs(s.varFileArgs(), c.Target)
 	if c.Approve {
 		args = append(args, "-auto-approve")
 	}
 	return s.sequence(ctx, s.workspaceSelect(), runner.Cmd("terraform", append([]string{"destroy"}, args...)...))
+}
+
+// appendTargetArgs appends one "-target <addr>" pair per --target value, in
+// order. plan, apply and destroy share it so their --target flags behave the
+// same.
+func appendTargetArgs(args []string, targets []string) []string {
+	for _, target := range targets {
+		args = append(args, "-target", target)
+	}
+	return args
 }
 
 func (c *ShowCmd) Run(ctx context.Context, rt *app.Runtime) error {
