@@ -24,6 +24,8 @@
 #     service, or no ClusterIP operations service
 #   - fabric-peer: two services with the same name, or a changed
 #     <release>-ops name for a fabric-peer<N>-<org> release
+#   - shiroclient: the license state volume, mount or env when off (the
+#     default), or a missing or misplaced one when on
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -240,6 +242,45 @@ want_probe "shiroclient startupProbe null turns it off" "0 0" \
   --set startupProbe=null
 want_probe "shiroclient startupProbe custom handler replaces httpGet" "0 1" \
   --set-json "startupProbe={\"exec\":{\"command\":[\"true\"]},\"periodSeconds\":5}"
+
+# (description, yes|no, line, helm args...): does the shiroclient deployment
+# render have the line (leading spaces ignored)?
+want_sc_render() {
+  desc="$1"; want="$2"; str="$3"; shift 3
+  if ! out=$(helm template sc "${CHARTS}/shiroclient" \
+    --show-only templates/deployment.yaml "$@" 2>&1); then
+    echo "FAIL: ${desc}: helm template failed:"
+    echo "${out}"
+    fail=1
+    return
+  fi
+  # grep -q would exit early and, under pipefail, fail the pipeline on
+  # printf SIGPIPE; read all of the input instead.
+  if printf "%s\n" "${out}" | sed "s/^ *//" | grep -xF -e "${str}" >/dev/null; then got=yes; else got=no; fi
+  if [ "${got}" = "${want}" ]; then
+    echo "OK:   ${desc}"
+  else
+    echo "FAIL: ${desc}: has line \"${str}\": ${got}, want ${want}"
+    fail=1
+  fi
+}
+
+# shiroclient license state directory (luthersystems/mars#282). Off by
+# default: no volume, mount or env. On: an emptyDir mounted at mountPath,
+# and SHIROCLIENT_LICENSE_STATE_DIR names it.
+LS="--set licenseState.enabled=true"
+want_sc_render "shiroclient default has no license state volume" no "- name: license-state"
+want_sc_render "shiroclient default has no license state env" no "- name: SHIROCLIENT_LICENSE_STATE_DIR"
+want_sc_render "shiroclient license state adds the env" yes "- name: SHIROCLIENT_LICENSE_STATE_DIR" ${LS}
+want_sc_render "shiroclient license state env names the mount path" yes "value: \"/var/lib/shiroclient/license\"" ${LS}
+want_sc_render "shiroclient license state mounts the volume" yes "mountPath: /var/lib/shiroclient/license" ${LS}
+want_sc_render "shiroclient license state adds the volume" yes "- name: license-state" ${LS}
+want_sc_render "shiroclient license state mountPath moves the mount" yes "mountPath: /state" \
+  ${LS} --set licenseState.mountPath=/state
+want_sc_render "shiroclient license state mountPath moves the env" yes "value: \"/state\"" \
+  ${LS} --set licenseState.mountPath=/state
+want_sc_render "shiroclient license state sizeLimit renders" yes "sizeLimit: 1Mi" \
+  ${LS} --set licenseState.sizeLimit=1Mi
 
 # The role names each peer release fabric-peer<N>-<org>. The -ops name of
 # such a release must not change, or an upgrade renames the Service.

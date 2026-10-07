@@ -17,6 +17,22 @@ runMode: gateway
 #       value: https://metrics-staging.luthersystemsapp.com/metrics
 extraEnv: []
 
+# Writable license state directory (luthersystems/mars#282). When enabled,
+# the gateway gets an emptyDir volume at mountPath and
+# SHIROCLIENT_LICENSE_STATE_DIR set to it, so it stores each renewed license
+# there (renewed-license.yaml). A container restart during a metrics server
+# outage then starts with the stored renewal instead of an expired license
+# file. An emptyDir survives container restarts, not a new pod. Needs a
+# shiroclient with luthersystems/substrate#729; older ones ignore the env var.
+# Off by default: the gateway then uses its 1-hour start-up grace window.
+#   enabled:   true adds the volume, the mount and the env var.
+#   mountPath: where the volume is mounted; SHIROCLIENT_LICENSE_STATE_DIR.
+#   sizeLimit: optional emptyDir size limit (for example 1Mi). Empty: none.
+licenseState:
+  enabled: false
+  mountPath: /var/lib/shiroclient/license
+  sizeLimit: ""
+
 dlt:
   organization: org1
   domain: luther.systems
