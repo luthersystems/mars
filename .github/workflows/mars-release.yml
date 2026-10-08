@@ -45,3 +45,20 @@ jobs:
       - name: Create and push manifest for multiarch
         run: make push-manifests GIT_TAG=$GITHUB_REF_NAME
         timeout-minutes: 60
+  # Bump .mars-version in ui-infrastructure so platform-test runs this release
+  # (scripts/deploy.sh). Only a plain vX.Y.Z tag deploys.
+  deploy-platform:
+    if: ${{ startsWith(github.ref_name, 'v') && !contains(github.ref_name, '-') }}
+    permissions:
+      contents: read
+    runs-on: ubuntu-22.04
+    needs:
+      - push-manifests
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555  # v0.10.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_DEPLOY_PRIVATE_KEY }}
+      - name: Update infra
+        run: ./scripts/deploy.sh "$GITHUB_REF_NAME"
