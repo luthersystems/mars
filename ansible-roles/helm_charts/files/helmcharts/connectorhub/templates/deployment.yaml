@@ -75,7 +75,11 @@ spec:
           whenUnsatisfiable: ScheduleAnyway
           labelSelector:
             matchLabels:
-              app.kubernetes.io/name: {{ include "connectorhub.name" . }}
+              {{- include "connectorhub.labels.match" . | nindent 14 }}
+          # Count only this ReplicaSet's pods, so a rollout's old pods do not
+          # skew where the new standby goes.
+          matchLabelKeys:
+            - pod-template-hash
       {{- end }}
       serviceAccountName: {{ include "connectorhub.serviceAccountName" . }}
       containers:
