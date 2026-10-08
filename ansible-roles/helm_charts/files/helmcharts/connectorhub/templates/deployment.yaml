@@ -99,6 +99,13 @@ spec:
                 fieldRef:
                   fieldPath: metadata.namespace
             {{- end }}
+            {{- /* The hub sets this Deployment as the owner of the MCP connectors
+            it launches, so an uninstall removes them (connectorhub#212).
+            Older hubs ignore it. */}}
+            {{- if not (hasKey (.Values.env | default dict) "CH_MCP_OWNER_DEPLOYMENT") }}
+            - name: CH_MCP_OWNER_DEPLOYMENT
+              value: {{ include "connectorhub.fullname" . | quote }}
+            {{- end }}
             {{- with .Values.leaderElection }}
             {{- if .enabled }}
             {{- $env := $.Values.env | default dict }}
