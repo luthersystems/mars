@@ -67,6 +67,15 @@ spec:
           labelSelector:
             matchLabels:
               app.kubernetes.io/name: {{ include "connectorhub.name" . }}
+        # Put a standby hub on another node when there is one, so a node loss
+        # (a spot reclaim) does not stop both hubs. ScheduleAnyway: a
+        # one-node cluster still runs every replica.
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ include "connectorhub.name" . }}
       {{- end }}
       serviceAccountName: {{ include "connectorhub.serviceAccountName" . }}
       containers:
