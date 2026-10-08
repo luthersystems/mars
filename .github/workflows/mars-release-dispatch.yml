@@ -114,6 +114,7 @@ jobs:
             --allowedTools Bash,Read,Grep,Glob
             --max-turns 30
             --model us.anthropic.claude-opus-5-5
+            --fallback-model us.anthropic.claude-sonnet-5-5
       # Capture the agent's full stream-json conversation for troubleshooting.
       # claude-code-action hides the transcript from the job log and writes it to
       # $RUNNER_TEMP/claude-execution-output.json (otherwise wiped on runner
