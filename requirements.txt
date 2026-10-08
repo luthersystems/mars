@@ -20,13 +20,13 @@ azure-ai-agents==1.1.0
     # via azure-ai-projects
 azure-ai-projects==1.0.0
     # via azure-cli
-azure-appconfiguration==1.8.1
+azure-appconfiguration==1.10.0b1
     # via azure-cli
 azure-batch==15.0.0b1
     # via azure-cli
-azure-cli==2.89.0
+azure-cli==2.91.0
     # via -r requirements.in
-azure-cli-core==2.89.0
+azure-cli-core==2.91.0
     # via azure-cli
 azure-cli-telemetry==1.1.0
     # via azure-cli-core
@@ -64,7 +64,6 @@ azure-common==1.1.28
     #   azure-mgmt-policyinsights
     #   azure-mgmt-privatedns
     #   azure-mgmt-rdbms
-    #   azure-mgmt-recoveryservicesbackup
     #   azure-mgmt-redis
     #   azure-mgmt-resource
     #   azure-mgmt-resource-deployments
@@ -115,7 +114,7 @@ azure-data-tables==12.4.0
     # via azure-cli
 azure-datalake-store==1.0.1
     # via azure-cli
-azure-identity==1.25.3
+azure-identity==1.26.0
     # via -r requirements.in
 azure-keyvault-administration==4.8.0b2
     # via azure-cli
@@ -155,11 +154,11 @@ azure-mgmt-compute==34.1.0
     # via azure-cli
 azure-mgmt-containerinstance==10.2.0b1
     # via azure-cli
-azure-mgmt-containerregistry==15.1.0b2
+azure-mgmt-containerregistry==15.1.0b3
     # via azure-cli
 azure-mgmt-containerregistrytasks==1.0.0b1
     # via azure-cli
-azure-mgmt-containerservice==41.5.0
+azure-mgmt-containerservice==41.6.0
     # via azure-cli
 azure-mgmt-core==1.6.0
     # via
@@ -209,6 +208,7 @@ azure-mgmt-core==1.6.0
     #   azure-mgmt-rdbms
     #   azure-mgmt-recoveryservices
     #   azure-mgmt-recoveryservicesbackup
+    #   azure-mgmt-recoveryservicesbackup-passivestamp
     #   azure-mgmt-redhatopenshift
     #   azure-mgmt-redis
     #   azure-mgmt-resource
@@ -230,7 +230,7 @@ azure-mgmt-core==1.6.0
     #   azure-mgmt-trafficmanager
     #   azure-mgmt-web
     #   azure-synapse-artifacts
-azure-mgmt-cosmosdb==9.9.0
+azure-mgmt-cosmosdb==10.0.0
     # via azure-cli
 azure-mgmt-datalake-store==1.1.0b1
     # via azure-cli
@@ -254,7 +254,7 @@ azure-mgmt-iothub==5.0.0b1
     # via azure-cli
 azure-mgmt-iothubprovisioningservices==1.1.0
     # via azure-cli
-azure-mgmt-keyvault==13.0.0
+azure-mgmt-keyvault==14.0.1
     # via azure-cli
 azure-mgmt-loganalytics==13.0.0b4
     # via azure-cli
@@ -282,9 +282,11 @@ azure-mgmt-privatedns==1.0.0
     # via azure-cli
 azure-mgmt-rdbms==10.2.0b17
     # via azure-cli
-azure-mgmt-recoveryservices==4.1.0
+azure-mgmt-recoveryservices==4.2.0
     # via azure-cli
-azure-mgmt-recoveryservicesbackup==9.2.0
+azure-mgmt-recoveryservicesbackup==11.1.0
+    # via azure-cli
+azure-mgmt-recoveryservicesbackup-passivestamp==1.0.0b1
     # via azure-cli
 azure-mgmt-redhatopenshift==3.0.0
     # via azure-cli
@@ -373,7 +375,7 @@ charset-normalizer==3.4.7
     # via requests
 colorama==0.4.6
     # via azure-cli
-cryptography==48.0.1
+cryptography==50.0.2
     # via
     #   ansible-core
     #   azure-cli-core
@@ -428,6 +430,7 @@ isodate==0.7.2
     #   azure-mgmt-containerregistry
     #   azure-mgmt-containerregistrytasks
     #   azure-mgmt-containerservice
+    #   azure-mgmt-cosmosdb
     #   azure-mgmt-domainregistration
     #   azure-mgmt-eventhub
     #   azure-mgmt-imagebuilder
@@ -485,7 +488,7 @@ markupsafe==3.0.3
     # via jinja2
 microsoft-security-utilities-secret-masker==1.0.0b4
     # via azure-cli-core
-msal==1.36.0
+msal==1.39.0
     # via
     #   azure-cli-core
     #   azure-identity
@@ -504,7 +507,6 @@ msrest==0.7.1
     #   azure-mgmt-billing
     #   azure-mgmt-botservice
     #   azure-mgmt-cdn
-    #   azure-mgmt-cosmosdb
     #   azure-mgmt-datalake-store
     #   azure-mgmt-datamigration
     #   azure-mgmt-eventgrid
@@ -519,6 +521,7 @@ msrest==0.7.1
     #   azure-mgmt-media
     #   azure-mgmt-policyinsights
     #   azure-mgmt-privatedns
+    #   azure-mgmt-recoveryservicesbackup-passivestamp
     #   azure-mgmt-sqlvirtualmachine
     #   azure-mgmt-synapse
     #   azure-mgmt-trafficmanager
@@ -555,7 +558,7 @@ pygithub==1.59.1
     # via azure-cli
 pygments==2.20.0
     # via knack
-pyjwt[crypto]==2.15.0
+pyjwt[crypto]==2.15.1
     # via
     #   azure-cli-core
     #   msal
@@ -565,7 +568,7 @@ pynacl==1.6.2
     #   azure-cli
     #   paramiko
     #   pygithub
-pyopenssl==26.2.0
+pyopenssl==26.4.0
     # via azure-cli-core
 pysocks==1.7.1
     # via requests
@@ -653,6 +656,7 @@ typing-extensions==4.15.0
     #   azure-mgmt-postgresqlflexibleservers
     #   azure-mgmt-recoveryservices
     #   azure-mgmt-recoveryservicesbackup
+    #   azure-mgmt-recoveryservicesbackup-passivestamp
     #   azure-mgmt-redhatopenshift
     #   azure-mgmt-redis
     #   azure-mgmt-resource
@@ -688,6 +692,3 @@ wrapt==2.1.2
     # via deprecated
 xmltodict==0.15.1
     # via azure-cli
-
-# The following packages are considered to be unsafe in a requirements file:
-# setuptools
