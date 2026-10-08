@@ -67,6 +67,19 @@ spec:
           labelSelector:
             matchLabels:
               app.kubernetes.io/name: {{ include "connectorhub.name" . }}
+        # Put a standby hub on another node when there is one, so a node loss
+        # (a spot reclaim) does not stop both hubs. ScheduleAnyway: a
+        # one-node cluster still runs every replica.
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "connectorhub.labels.match" . | nindent 14 }}
+          # Count only this ReplicaSet's pods, so a rollout's old pods do not
+          # skew where the new standby goes.
+          matchLabelKeys:
+            - pod-template-hash
       {{- end }}
       serviceAccountName: {{ include "connectorhub.serviceAccountName" . }}
       containers:
@@ -89,6 +102,13 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+            {{- end }}
+            {{- /* The hub sets this Deployment as the owner of the MCP connectors
+            it launches, so an uninstall removes them (connectorhub#212).
+            Older hubs ignore it. */}}
+            {{- if not (hasKey (.Values.env | default dict) "CH_MCP_OWNER_DEPLOYMENT") }}
+            - name: CH_MCP_OWNER_DEPLOYMENT
+              value: {{ include "connectorhub.fullname" . | quote }}
             {{- end }}
             {{- with .Values.leaderElection }}
             {{- if .enabled }}
