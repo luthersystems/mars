@@ -4,10 +4,10 @@ on:
     tags:
       - "*"
 jobs:
-  # A release tag moves :latest and, when it starts with v, the
-  # ui-infrastructure pin. Refuse one that is not on main. A pre-release tag
-  # (one with a '-', such as v0.95.1-SNAPSHOT.1 cut from a branch) is not
-  # checked; deploy-platform skips those too.
+  # A plain vX.Y.Z tag moves :latest and the ui-infrastructure pin. Refuse a
+  # tag that is not on main. A pre-release tag (one with a '-', such as
+  # v0.95.1-SNAPSHOT.1 cut from a branch) is not checked; it moves neither
+  # :latest (push-manifests) nor the pin (deploy-platform).
   require-main:
     permissions:
       contents: read
@@ -72,7 +72,16 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069  # v4
       - name: Create and push manifest for multiarch
-        run: make push-manifests GIT_TAG="$GITHUB_REF_NAME"
+        # Only a plain vX.Y.Z tag moves :latest. A pre-release tag skips
+        # require-main, so it must not reach the image mars_macos.sh runs by
+        # default.
+        run: |
+          set -euo pipefail
+          push_latest=false
+          if [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            push_latest=true
+          fi
+          make push-manifests GIT_TAG="$GITHUB_REF_NAME" PUSH_LATEST="$push_latest"
         timeout-minutes: 60
   # Bump .mars-version in ui-infrastructure so platform-test runs this release
   # (scripts/deploy.sh). Only a plain vX.Y.Z tag deploys.
