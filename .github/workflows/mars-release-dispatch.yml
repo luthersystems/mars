@@ -1,22 +1,28 @@
 name: Release (dispatch)
 
-# On-demand mars release, cut by the official Claude App identity so Claude can
-# ship a release without a human hand-picking a tag. Reusing the App token is
-# deliberate: the default GITHUB_TOKEN cannot push a tag that triggers
+# On-demand mars release. Dispatch it from main. Plain shell steps choose and
+# validate the version, check main and CI, and write the release notes; Claude
+# then runs one exact `gh release create` command and nothing else.
+#
+# Claude runs as the official Claude App identity. Reusing the App token is
+# deliberate: the default GITHUB_TOKEN cannot create a tag that triggers
 # mars-release.yml (GitHub suppresses workflow->workflow events), whereas the
 # App token (minted by claude-code-action via OIDC) does -- so this needs no
-# PAT. The agent:
-#   * computes the next version with scripts/next-release-version.sh (the ONLY
-#     sanctioned auto-bump; MAJOR is never automated and stays human-cut) -- or
-#     uses the optional version_override input for an exact hand-picked version,
-#   * writes release notes from the changes since the previous release tag -- or
-#     uses the optional notes_override input verbatim,
-#   * cuts the tag + release with `gh release create`.
-# mars-release.yml (on: push tags) then builds + pushes the multi-arch images.
+# PAT. mars-release.yml (on: push tags) then builds + pushes the multi-arch
+# images and bumps .mars-version in ui-infrastructure. It also refuses a stable
+# tag that is not on main, in case main moves before the tag is created.
+#
+# Version: scripts/next-release-version.sh is the ONLY sanctioned auto-bump
+# (MAJOR is never automated and stays human-cut). version_override picks an
+# exact version instead. Either way the version must be a clean vX.Y.Z, newer
+# than every stable tag, and not already tagged.
 #
 # bump: patch | minor. mars's historical cadence is minor (v0.126.0 ->
 # v0.127.0 -> ...), so that is the default; patch is available for a hotfix
 # rebuild. MAJOR implies a contract break and stays human-cut (GitHub release UI).
+#
+# Notes: notes_override verbatim, or a Markdown list of the PRs and commits on
+# main since the previous stable tag.
 #
 # Model auth: Amazon Bedrock via GitHub OIDC, assuming the AWS role
 # github-actions-claude-bedrock (managed in luthersystems/common-infrastructure
@@ -32,7 +38,7 @@ on:
           - patch
         default: minor
       version_override:
-        description: "Exact version to cut, e.g. v0.128.0 (optional; overrides the bump). Must be clean vMAJOR.MINOR.PATCH and not already tagged."
+        description: "Exact version to cut, e.g. v0.128.0 (optional; overrides the bump). Must be clean vMAJOR.MINOR.PATCH, newer than every stable tag, and not already tagged."
         type: string
         default: ""
       notes_override:
@@ -40,13 +46,14 @@ on:
         type: string
         default: ""
       dry_run:
-        description: "Print the computed version + notes but do NOT cut the release"
+        description: "Validate and print the computed version, release command and notes, but do NOT cut the release"
         type: boolean
         default: false
 
 permissions:
-  contents: write # `gh release create` (creates the tag + release)
-  id-token: write # used for the AWS role (Bedrock) and the Claude App token (so the tag push triggers mars-release.yml)
+  actions: read # find the mars-ci.yml run for the release commit
+  contents: read # checkout only; the Claude App token creates the release
+  id-token: write # used for the AWS role (Bedrock) and the Claude App token (so the tag triggers mars-release.yml)
 
 concurrency:
   group: mars-release-dispatch
@@ -55,73 +62,255 @@ concurrency:
 jobs:
   release:
     name: Cut next release
+    # The Bedrock role also refuses other refs.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-22.04
-    timeout-minutes: 20
+    timeout-minutes: 30 # up to 20 minutes waiting for CI, then the release
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # all tags + history, so next-release-version.sh and the notes see prior releases
+          persist-credentials: false
+      - name: Validate version and commit
+        id: validate
+        env:
+          BUMP: ${{ inputs.bump }}
+          VERSION_OVERRIDE: ${{ inputs.version_override }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$*"; exit 1; }
+
+          [[ "$GITHUB_REF" == refs/heads/main ]] || fail "release must be dispatched from main"
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]] || fail "release target must be a full lowercase commit SHA"
+          head=$(git rev-parse HEAD)
+          [[ "$head" == "$GITHUB_SHA" ]] || fail "checkout does not match the dispatched commit"
+
+          if [[ -n "$VERSION_OVERRIDE" ]]; then
+            version=$VERSION_OVERRIDE
+          else
+            [[ "$BUMP" == patch || "$BUMP" == minor ]] || fail "bump must be patch or minor (major stays human-cut)"
+            version=$(scripts/next-release-version.sh "$BUMP") || fail "scripts/next-release-version.sh refused to bump; escalate to a human or set version_override"
+          fi
+          [[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "release version must be vX.Y.Z"
+
+          # Compare normalized decimal components, including arbitrarily large
+          # values. Leading-zero spellings must not bypass version ordering.
+          latest=$(git tag --list 'v*' | python3 -c '
+          import re, sys
+          pattern = re.compile(r"v[0-9]+\.[0-9]+\.[0-9]+")
+          def key(tag):
+              parts = (part.lstrip("0") or "0" for part in tag[1:].split("."))
+              return tuple((len(part), part) for part in parts)
+          tags = [line.rstrip("\n") for line in sys.stdin]
+          stable = [tag for tag in tags if pattern.fullmatch(tag)]
+          print(max(stable, key=key) if stable else "")
+          ')
+          if [[ -n "$latest" ]]; then
+            python3 - "$latest" "$version" <<'PY' || fail "$version is not newer than $latest"
+          import sys
+
+          def key(tag):
+              parts = (part.lstrip("0") or "0" for part in tag[1:].split("."))
+              return tuple((len(part), part) for part in parts)
+
+          sys.exit(0 if key(sys.argv[2]) > key(sys.argv[1]) else 1)
+          PY
+            # A rerun after the release was cut would otherwise bump again and
+            # release the same commit twice. A deliberate rebuild of the same
+            # commit names its version.
+            if [[ -z "$VERSION_OVERRIDE" && "$(git rev-parse "$latest^{commit}")" == "$GITHUB_SHA" ]]; then
+              fail "$latest already releases $GITHUB_SHA; set version_override to release this commit again"
+            fi
+          fi
+          # The checkout's tags can be stale. gh release create reuses an
+          # existing tag and ignores --target, so refuse one on GitHub too.
+          existing=$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/$version" \
+            --jq "[.[] | select(.ref == \"refs/tags/$version\")] | length") || fail "could not query existing tags"
+          [[ "$existing" == 0 ]] || fail "tag $version already exists"
+
+          # Compare with GitHub's LIVE main, not the checkout's origin/main: a
+          # queued dispatch or a rerun checks out the old SHA and rewrites the
+          # local origin/main to match it.
+          live_main=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha) || fail "could not read the live main ref"
+          [[ "$live_main" =~ ^[0-9a-f]{40}$ ]] || fail "live main ref is not a commit SHA"
+          [[ "$live_main" == "$GITHUB_SHA" ]] || fail "main moved to $live_main since this run's commit $GITHUB_SHA; dispatch again"
+          # Trust the workflow identity, not a check-run name that can be forged.
+          deadline=$(( $(date +%s) + 1200 ))
+          while :; do
+            ci_run=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/mars-ci.yml/runs?head_sha=$GITHUB_SHA&event=push&branch=main" --paginate | \
+              jq -sc --arg sha "$GITHUB_SHA" '[.[].workflow_runs[] | select(
+                .path == ".github/workflows/mars-ci.yml" and .head_sha == $sha and
+                .event == "push" and .head_branch == "main"
+              )] | sort_by([.created_at, .run_attempt, .id]) | last') || fail "could not query CI workflow runs"
+            [[ "$ci_run" != null ]] || fail "release target has no mars-ci.yml push run on main"
+            status=$(jq -r '.status' <<< "$ci_run")
+            conclusion=$(jq -r '.conclusion' <<< "$ci_run")
+            if [[ "$status" == completed ]]; then
+              [[ "$conclusion" == success ]] || fail "latest mars-ci.yml run did not succeed ($conclusion)"
+              break
+            fi
+            [[ "$status" == queued || "$status" == in_progress || "$status" == waiting || "$status" == pending || "$status" == requested ]] || fail "latest mars-ci.yml run has unacceptable status ($status)"
+            (( $(date +%s) < deadline )) || fail "timed out waiting 20 minutes for the latest mars-ci.yml run"
+            sleep 20
+          done
+
+          notes_path="$RUNNER_TEMP/release-notes-$version.md"
+          # Keep all inlined command values literal: no spaces, shell operators,
+          # quotes, wildcards or Claude permission-pattern delimiters in the path.
+          [[ "$notes_path" =~ ^/[A-Za-z0-9_./-]+$ ]] || fail "unsafe release notes path"
+          release_command="gh release create $version --target $GITHUB_SHA --title $version --notes-file $notes_path"
+          printf '%s' "$release_command" > "$RUNNER_TEMP/release-command.txt"
+          chmod 400 "$RUNNER_TEMP/release-command.txt"
+          {
+            echo "version=$version"
+            echo "latest_stable_tag=$latest"
+            echo "notes_path=$notes_path"
+            echo "release_command=$release_command"
+            echo "claude_args=--tools Bash --allowedTools 'Bash($release_command)' --disallowedTools Read,Grep,Glob,LS,Edit,Write,WebFetch,WebSearch,Task --max-turns 30 --model us.anthropic.claude-opus-5-5 --fallback-model us.anthropic.claude-sonnet-5-5"
+          } >> "$GITHUB_OUTPUT"
+          echo "Release $version at $GITHUB_SHA (previous stable: ${latest:-none})"
+      - name: Write release notes
+        env:
+          LAST_STABLE_TAG: ${{ steps.validate.outputs.latest_stable_tag }}
+          NOTES_PATH: ${{ steps.validate.outputs.notes_path }}
+          NOTES_OVERRIDE: ${{ inputs.notes_override }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$NOTES_OVERRIDE" ]]; then
+            printf '%s\n' "$NOTES_OVERRIDE" > "$NOTES_PATH"
+            exit 0
+          fi
+          range="$GITHUB_SHA"
+          if [[ -n "$LAST_STABLE_TAG" ]]; then
+            range="$LAST_STABLE_TAG..$GITHUB_SHA"
+          fi
+          # One bullet per change on main: a merged PR's title, or a direct
+          # commit's subject.
+          {
+            if [[ -n "$LAST_STABLE_TAG" ]]; then
+              echo "Changes since $LAST_STABLE_TAG:"
+              echo
+            fi
+            git rev-list --first-parent --max-count=200 "$range" | while read -r sha; do
+              subject=$(git log -1 --format=%s "$sha")
+              if [[ "$subject" =~ ^Merge\ pull\ request\ \#([0-9]+)\ from\  ]]; then
+                pr=${BASH_REMATCH[1]}
+                # sed quits at the first line, which can end git log with SIGPIPE.
+                title=$(git log -1 --format=%b "$sha" | sed -n '/[^[:space:]]/{p;q;}' || true)
+                echo "- ${title:-$subject} (#$pr)"
+              else
+                echo "- $subject (${sha:0:7})"
+              fi
+            done
+          } > "$NOTES_PATH"
+      - name: Print dry-run plan and notes
+        if: inputs.dry_run
+        env:
+          RELEASE_COMMAND: ${{ steps.validate.outputs.release_command }}
+          NOTES_PATH: ${{ steps.validate.outputs.notes_path }}
+        run: |
+          set -euo pipefail
+          printf 'Dry run: %s\n\nRelease notes:\n' "$RELEASE_COMMAND"
+          cat "$NOTES_PATH"
       - name: Configure AWS credentials for Bedrock (OIDC)
+        if: ${{ !inputs.dry_run }}
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: arn:aws:iam::637423319757:role/github-actions-claude-bedrock
           aws-region: us-west-2
+      - name: Install exact-command guard and clear checkout credentials
+        id: guard
+        if: ${{ !inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          # Checkout does not persist credentials. Remove any remaining local
+          # header/helper before the action, which writes its own App token.
+          for key in http.https://github.com/.extraheader credential.helper; do
+            if git config --local --unset-all "$key"; then
+              :
+            else
+              code=$?
+              [[ "$code" == 5 ]] || exit "$code" # 5 means the key is absent
+            fi
+          done
+          hook_path="$RUNNER_TEMP/release-tool-guard.py"
+          cat > "$hook_path" <<'PY'
+          import json
+          from pathlib import Path
+          import sys
+
+          try:
+              expected = Path(__file__).with_name("release-command.txt").read_text()
+              payload = json.load(sys.stdin)
+              permitted = (
+                  bool(expected) and isinstance(payload, dict) and
+                  payload.get("tool_name") == "Bash" and
+                  isinstance(payload.get("tool_input"), dict) and
+                  payload["tool_input"].get("command") == expected
+              )
+          except (OSError, ValueError, TypeError, RecursionError):
+              permitted = False
+          if not permitted:
+              print("Deny: only Bash with the exact validated release command is permitted.", file=sys.stderr)
+              sys.exit(2)
+          PY
+          chmod 500 "$hook_path"
+          settings=$(jq -cn --arg command "python3 $hook_path" '{
+            includeGitInstructions: false,
+            hooks: {PreToolUse: [{matcher: "*", hooks: [{type: "command", command: $command}]}]}
+          }')
+          echo "claude_settings=$settings" >> "$GITHUB_OUTPUT"
       - name: Cut the release via Claude
+        if: ${{ !inputs.dry_run }}
         uses: anthropics/claude-code-action@ed670b4cf9de2a5a570d130d2f6197b9e543cd64 # v1.0.240
-        env:
-          BUMP: ${{ inputs.bump }}
-          VERSION_OVERRIDE: ${{ inputs.version_override }}
-          NOTES_OVERRIDE: ${{ inputs.notes_override }}
-          DRY_RUN: ${{ inputs.dry_run }}
         with:
           # Official-app auth (claude-code-action mints the app token via OIDC,
           # using `id-token: write` above). Do NOT add a `github_token:` here -- a
           # default GITHUB_TOKEN does not trigger mars-release.yml, which this
           # release depends on.
           use_bedrock: "true" # model auth via the AWS role assumed above
+          settings: ${{ steps.guard.outputs.claude_settings }}
           prompt: |
-            Cut a mars release. Do exactly this and nothing else -- no source
-            changes, no PRs, no branch pushes.
-
-            1. Version: if the env var VERSION_OVERRIDE is non-empty, use it
-               verbatim as the version -- but first VALIDATE it: it MUST match
-               `^v[0-9]+\.[0-9]+\.[0-9]+$` and MUST NOT already exist
-               (`git tag --list "<override>"` empty, and it is strictly newer
-               than the latest tag). If it fails any check, STOP and report why --
-               do NOT release. Otherwise (VERSION_OVERRIDE empty), run
-               `scripts/next-release-version.sh "$BUMP"` (BUMP is one of
-               patch|minor) -- the ONLY sanctioned auto-bump. If it exits non-zero
-               (the latest tag is not a clean vMAJOR.MINOR.PATCH), STOP and report.
-               Either way, never invent or edit a MAJOR bump.
-            2. Notes: if the env var NOTES_OVERRIDE is non-empty, use it verbatim
-               as the release notes. Otherwise summarize what changed since the
-               previous release: read the last tag
-               (`git tag --list 'v[0-9]*' --sort=-v:refname | head -n1`), then
-               `git log <lasttag>..HEAD --oneline` and the merged PRs
-               (`gh pr list --state merged --base main --limit 50`), and write
-               concise plain-Markdown bullets focused on the mars image / CLI /
-               dependency changes; omit noise.
-            3. Ship: if the env var DRY_RUN is "true", PRINT the computed version
-               and the notes, then STOP -- create nothing. Otherwise run
-               `gh release create "<version>" --title "<version>" --notes "<notes>"`.
-               The tag push triggers mars-release.yml, which builds + pushes the
-               multi-arch images.
-
-            MAJOR stays human -- never bump it. Never push to a branch, never
-            open a PR, never edit source. If anything is ambiguous or the version
-            script refuses, STOP and explain rather than guessing.
-          claude_args: |
-            --allowedTools Bash,Read,Grep,Glob
-            --max-turns 30
-            --model us.anthropic.claude-opus-5-5
-            --fallback-model us.anthropic.claude-sonnet-5-5
+            Cut a luthersystems/mars release. The version, main commit and CI
+            workflow run were validated; a trusted shell step already wrote the
+            release notes. Run exactly this command once, with no changes:
+            ${{ steps.validate.outputs.release_command }}
+            Run no other commands and do not change any files or branches.
+          claude_args: ${{ steps.validate.outputs.claude_args }}
+      - name: Verify release and tag target
+        if: ${{ !inputs.dry_run }}
+        env:
+          RELEASE_VERSION: ${{ steps.validate.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$*"; exit 1; }
+          release=$(gh release view "$RELEASE_VERSION" --json tagName,isDraft,isPrerelease) || fail "release does not exist"
+          jq -e --arg version "$RELEASE_VERSION" '
+            .tagName == $version and .isDraft == false and .isPrerelease == false
+          ' <<< "$release" >/dev/null || fail "release must match the validated version and must not be a draft or prerelease"
+          object=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_VERSION" | jq -ce '.object') || fail "release tag does not exist"
+          # Peel annotated tags, including nested tag objects, to a commit.
+          for (( depth=0; depth<100; depth++ )); do
+            type=$(jq -r '.type' <<< "$object")
+            sha=$(jq -r '.sha' <<< "$object")
+            if [[ "$type" == commit ]]; then
+              [[ "$sha" == "$GITHUB_SHA" ]] || fail "release tag resolves to a different commit"
+              echo "Verified release $RELEASE_VERSION at $GITHUB_SHA"
+              exit 0
+            fi
+            [[ "$type" == tag ]] || fail "release tag does not resolve to a commit"
+            object=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$sha" | jq -ce '.object') || fail "could not dereference annotated release tag"
+          done
+          fail "release tag exceeded the annotated-tag dereference limit"
       # Capture the agent's full stream-json conversation for troubleshooting.
       # claude-code-action hides the transcript from the job log and writes it to
       # $RUNNER_TEMP/claude-execution-output.json (otherwise wiped on runner
       # reclaim). always() so a failed/timed-out run is captured too. mars is a
       # private repo, so this artifact is already access-controlled.
       - name: Capture agent trace (conversation log)
-        if: always()
+        if: ${{ always() && !inputs.dry_run }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-dispatch-trace-${{ github.run_id }}

@@ -4,7 +4,36 @@ on:
     tags:
       - "*"
 jobs:
+  # A release tag moves :latest and, when it starts with v, the
+  # ui-infrastructure pin. Refuse one that is not on main. A pre-release tag
+  # (one with a '-', such as v0.95.1-SNAPSHOT.1 cut from a branch) is not
+  # checked; deploy-platform skips those too.
+  require-main:
+    permissions:
+      contents: read
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Require release tag to be on main
+        run: |
+          set -eu
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            echo "$GITHUB_REF_NAME is a pre-release tag; not checking main"
+            exit 0
+          fi
+          # git refuses a repo owned by another user ("dubious ownership"),
+          # for example in a build container that runs as root.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git fetch origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD || {
+            echo "::error::Release tag must point to a commit on main"
+            exit 1
+          }
   build-push:
+    needs:
+      - require-main
     permissions:
       contents: read
       id-token: write # Docker Hub OIDC login
@@ -43,7 +72,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069  # v4
       - name: Create and push manifest for multiarch
-        run: make push-manifests GIT_TAG=$GITHUB_REF_NAME
+        run: make push-manifests GIT_TAG="$GITHUB_REF_NAME"
         timeout-minutes: 60
   # Bump .mars-version in ui-infrastructure so platform-test runs this release
   # (scripts/deploy.sh). Only a plain vX.Y.Z tag deploys.
