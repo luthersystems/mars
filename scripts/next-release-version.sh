@@ -35,7 +35,8 @@ if [[ -z "${latest}" ]]; then
 fi
 
 # Strict vMAJOR.MINOR.PATCH only.
-if [[ ! "${latest}" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+# No leading zeros: bash arithmetic would read them as octal.
+if [[ ! "${latest}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
   echo "error: latest tag '${latest}' is not a clean vMAJOR.MINOR.PATCH; refusing to auto-bump (escalate to a human)" >&2
   exit 2
 fi

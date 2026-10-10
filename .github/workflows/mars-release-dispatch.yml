@@ -92,7 +92,9 @@ jobs:
             [[ "$BUMP" == patch || "$BUMP" == minor ]] || fail "bump must be patch or minor (major stays human-cut)"
             version=$(scripts/next-release-version.sh "$BUMP") || fail "scripts/next-release-version.sh refused to bump; escalate to a human or set version_override"
           fi
-          [[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "release version must be vX.Y.Z"
+          # No leading zeros: scripts/next-release-version.sh bumps the latest
+          # release in bash arithmetic, which reads 08 as bad octal.
+          [[ "$version" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || fail "release version must be vX.Y.Z with no leading zeros"
 
           # Compare normalized decimal components, including arbitrarily large
           # values. Leading-zero spellings must not bypass version ordering.
@@ -212,7 +214,12 @@ jobs:
         run: |
           set -euo pipefail
           printf 'Dry run: %s\n\nRelease notes:\n' "$RELEASE_COMMAND"
+          # The notes hold PR titles and notes_override. Stop the runner from
+          # reading a line of them as a workflow command (::add-mask:: and so on).
+          token=$(python3 -c 'import secrets; print(secrets.token_hex(16))')
+          echo "::stop-commands::$token"
           cat "$NOTES_PATH"
+          echo "::$token::"
       - name: Configure AWS credentials for Bedrock (OIDC)
         if: ${{ !inputs.dry_run }}
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
