@@ -82,6 +82,9 @@ spec:
             - pod-template-hash
       {{- end }}
       serviceAccountName: {{ include "connectorhub.serviceAccountName" . }}
+      {{- with include "connectorhub.terminationGracePeriodSeconds" . }}
+      terminationGracePeriodSeconds: {{ . }}
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -191,6 +194,19 @@ spec:
             httpGet:
               path: /v1/ch/health_check
               port: http
+          {{- with .Values.shutdown.preStop }}
+          {{- if .enabled }}
+          lifecycle:
+            preStop:
+              {{- if eq (include "connectorhub.preStopMode" $) "native" }}
+              sleep:
+                seconds: {{ int .sleepSeconds }}
+              {{- else }}
+              exec:
+                command: ["sleep", {{ int .sleepSeconds | toString | quote }}]
+              {{- end }}
+          {{- end }}
+          {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       initContainers:

@@ -45,6 +45,45 @@ leaderElection:
   podDisruptionBudget:
     enabled: true
 
+# Graceful shutdown. When a pod stops, Kubernetes removes it from the
+# Service endpoints and sends SIGTERM at the same time. kube-proxy and the
+# load balancers take a few seconds to see the removal, and the hub stops
+# accepting connections as soon as it gets SIGTERM, so requests sent in that
+# gap are refused. The preStop hook delays SIGTERM by sleepSeconds, so the
+# hub keeps serving until traffic has moved away.
+#
+# Without leader election, every running hub handles every event, so during
+# a rolling update the old and new hubs both handle events until the old one
+# stops; the hook makes that overlap sleepSeconds longer.
+shutdown:
+  preStop:
+    # false renders no lifecycle hook and no terminationGracePeriodSeconds
+    # (unless set below), as before.
+    enabled: true
+    # 15s covers an ALB with target-type ip (the ingress chart's setting),
+    # which deregisters a pod more slowly than kube-proxy drops it.
+    sleepSeconds: 15
+    # How the hook sleeps:
+    #   exec   lifecycle.preStop.exec running `sleep` in the hub container
+    #          (the image is Alpine, so busybox sleep is there). Works on
+    #          every kubelet.
+    #   native lifecycle.preStop.sleep. Needs every node's kubelet at
+    #          Kubernetes >= 1.30; an older kubelet ignores the hook.
+    #   auto   native when the API server is >= 1.30, else exec. Nodes can
+    #          lag the API server during an upgrade, so only use it when
+    #          every node group is upgraded with the control plane.
+    mode: exec
+  # Time the hub needs after SIGTERM: the HTTP servers drain for up to 5s,
+  # and with leader election event handling gets up to the lease duration
+  # (15s by default, env.CH_HUB_LEADER_ELECTION_LEASE_DURATION). Raise this
+  # with the lease duration. Must be at least 1 while the hook is on.
+  drainSeconds: 30
+  # Empty: preStop.sleepSeconds + drainSeconds while the hook is on, else
+  # the Kubernetes default (30s). Any other value, 0 included, is rendered
+  # as set. The grace period counts the hook's time, so with the hook on a
+  # set value must exceed sleepSeconds (the render fails otherwise).
+  terminationGracePeriodSeconds: ""
+
 global:
   projectEnv: dev
 
