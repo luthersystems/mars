@@ -4,6 +4,10 @@ on:
   pull_request:
     branches:
       - main
+  # A push run on main is the CI gate mars-release-dispatch.yml waits for.
+  push:
+    branches:
+      - main
 jobs:
   # Runs the Go unit tests, which include the fast same-repo/cross-repo drift
   # guards in internal/providercache (Dockerfile bake vs "Sources of truth"

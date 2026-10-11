@@ -155,7 +155,10 @@ RUN set -eux; \
 # Ensure runtime users can read the cache even when Docker copies as root.
 RUN chmod -R a+rX ${TF_PLUGIN_CACHE_DIR}
 
-FROM golang:1.26-bookworm AS mars-cli
+# The Go that builds the shipped binaries. The golang image sets
+# GOTOOLCHAIN=local, so go.mod's toolchain line does not apply here: keep this
+# tag at go.mod's toolchain version.
+FROM golang:1.26.9-bookworm AS mars-cli
 ARG TARGETARCH
 ARG MARS_VERSION=dev
 WORKDIR /src

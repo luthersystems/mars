@@ -2,8 +2,10 @@ name: govulncheck
 
 # Known-vulnerability gate: govulncheck is call-graph-aware, so it only fails
 # on vulnerabilities whose vulnerable code this module actually reaches —
-# low-noise by design. Uses the latest stable Go toolchain so the stdlib is
-# scanned at a current patch level.
+# low-noise by design. Scans with go.mod's toolchain, the Go the binaries ship
+# with, so a stdlib advisory fixed in a later patch release fails until the
+# toolchain line moves. ("1.26.x" here resolved to go1.26.8 after go1.26.9
+# shipped, so the gate scanned a Go nothing pinned.)
 
 on:
   pull_request:
@@ -21,7 +23,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
         with:
-          go-version: "1.26.x"
+          go-version-file: go.mod
           cache: true
       - name: Run govulncheck
         run: |

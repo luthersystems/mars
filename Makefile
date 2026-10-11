@@ -74,11 +74,18 @@ ${FQ_STATIC_IMAGE_DUMMY}: ${STATIC_IMAGE_DUMMY}
 push-manifests: ${FQ_MANIFEST_DUMMY}
 	@
 
+# PUSH_LATEST=false leaves :latest alone. mars-release.yml sets it for every
+# tag but a plain vX.Y.Z, so a pre-release tag cut from a branch never moves
+# :latest (mars_macos.sh runs :latest when a project has no .mars-version).
+PUSH_LATEST ?= true
+
 ${FQ_MANIFEST_DUMMY}:
+ifeq (${PUSH_LATEST},true)
 	${DOCKER} buildx imagetools create \
 		--tag ${FQ_STATIC_IMAGE}:latest \
 		${FQ_STATIC_IMAGE}:${VERSION}-arm64 \
 		${FQ_STATIC_IMAGE}:${VERSION}-amd64
+endif
 	${DOCKER} buildx imagetools create \
 		--tag ${FQ_STATIC_IMAGE}:${VERSION} \
 		${FQ_STATIC_IMAGE}:${VERSION}-arm64 \
