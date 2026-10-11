@@ -142,25 +142,47 @@ want_render "pod label on: RBAC to patch pods" yes "verbs: [\"patch\"]" \
 # preStop hook: SIGTERM waits until the pod is out of the Service
 # endpoints, and the grace period covers the sleep and the hub drain.
 want_render "preStop on by default" yes "preStop:"
-want_render "preStop uses the native sleep on Kubernetes >= 1.30" yes "seconds: 10" \
-  --kube-version 1.30.0
-want_render "preStop uses exec sleep before Kubernetes 1.30" yes "command: [\"sleep\", \"10\"]" \
-  --kube-version 1.29.0
-want_render "preStop mode=exec uses exec sleep" yes "command: [\"sleep\", \"10\"]" \
-  --kube-version 1.34.0 --set shutdown.preStop.mode=exec
-want_render "grace period is the sleep plus the drain" yes "terminationGracePeriodSeconds: 40"
+want_render "preStop uses exec sleep by default" yes "command: [\"sleep\", \"15\"]" \
+  --kube-version 1.34.0
+want_render "preStop mode=auto uses the native sleep on Kubernetes >= 1.30" yes "seconds: 15" \
+  --kube-version 1.30.0 --set shutdown.preStop.mode=auto
+want_render "preStop mode=auto: native renders no exec" no "command: [\"sleep\", \"15\"]" \
+  --kube-version 1.30.0 --set shutdown.preStop.mode=auto
+want_render "preStop mode=auto uses exec sleep before Kubernetes 1.30" yes "command: [\"sleep\", \"15\"]" \
+  --kube-version 1.29.0 --set shutdown.preStop.mode=auto
+want_render "preStop mode=native uses the native sleep" yes "seconds: 15" \
+  --set shutdown.preStop.mode=native
+want_render "grace period is the sleep plus the drain" yes "terminationGracePeriodSeconds: 45"
 want_render "terminationGracePeriodSeconds overrides the grace period" yes "terminationGracePeriodSeconds: 60" \
   --set shutdown.terminationGracePeriodSeconds=60
 want_render "preStop off: no hook" no "preStop:" --set shutdown.preStop.enabled=false
-want_render "preStop off: Kubernetes default grace period" no "terminationGracePeriodSeconds: 30" \
-  --set shutdown.preStop.enabled=false
-if helm template ch "${CHARTS}/connectorhub" \
-  --set shutdown.terminationGracePeriodSeconds=10 >/dev/null 2>&1; then
-  echo "FAIL: a grace period not above the preStop sleep must not render"
+want_render "preStop off: explicit grace period of 0 is kept" yes "terminationGracePeriodSeconds: 0" \
+  --set shutdown.preStop.enabled=false --set shutdown.terminationGracePeriodSeconds=0
+if helm template ch "${CHARTS}/connectorhub" --set shutdown.preStop.enabled=false \
+  | grep -q "terminationGracePeriodSeconds"; then
+  echo "FAIL: preStop off must render no grace period (Kubernetes default)"
   fail=1
 else
-  echo "OK:   a grace period not above the preStop sleep fails the render"
+  echo "OK:   preStop off: Kubernetes default grace period"
 fi
+# Each of these must fail the render.
+while read -r what args; do
+  # shellcheck disable=SC2086
+  if helm template ch "${CHARTS}/connectorhub" ${args} >/dev/null 2>&1; then
+    echo "FAIL: ${what} must not render"
+    fail=1
+  else
+    echo "OK:   ${what} fails the render"
+  fi
+done <<'CASES'
+grace-period-not-above-sleep --set shutdown.terminationGracePeriodSeconds=15
+grace-period-0-with-preStop --set shutdown.terminationGracePeriodSeconds=0
+unknown-mode --set shutdown.preStop.mode=foo
+sleep-0 --set shutdown.preStop.sleepSeconds=0
+sleep-not-a-number --set shutdown.preStop.sleepSeconds=abc
+drain-0 --set shutdown.drainSeconds=0
+drain-not-a-number --set shutdown.drainSeconds=abc
+CASES
 
 # fabric-peer services of release $1. Each document of
 # templates/service.yaml is printed as one line per service:

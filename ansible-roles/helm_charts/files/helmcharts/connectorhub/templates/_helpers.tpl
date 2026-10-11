@@ -71,41 +71,66 @@ Pass the template a list of two elements as in the following example:
 {{- end -}}
 
 {{/*
+Fails the render on an invalid shutdown setting. Both shutdown helpers call
+it, so the rules hold whichever renders first.
+*/}}
+{{- define "connectorhub.validateShutdown" -}}
+{{- $s := .Values.shutdown -}}
+{{- $isInt := "^[0-9]+$" -}}
+{{- if $s.preStop.enabled -}}
+{{- if not (regexMatch $isInt (toString $s.preStop.sleepSeconds)) -}}
+{{- fail (printf "shutdown.preStop.sleepSeconds must be a whole number of seconds, not %v" $s.preStop.sleepSeconds) -}}
+{{- end -}}
+{{- if lt (int $s.preStop.sleepSeconds) 1 -}}
+{{- fail "shutdown.preStop.sleepSeconds must be at least 1 while shutdown.preStop.enabled" -}}
+{{- end -}}
+{{- $mode := toString ($s.preStop.mode | default "exec") -}}
+{{- if not (has $mode (list "auto" "native" "exec")) -}}
+{{- fail (printf "shutdown.preStop.mode must be auto, native or exec, not %q" $mode) -}}
+{{- end -}}
+{{- if not (regexMatch $isInt (toString $s.drainSeconds)) -}}
+{{- fail (printf "shutdown.drainSeconds must be a whole number of seconds, not %v" $s.drainSeconds) -}}
+{{- end -}}
+{{- if lt (int $s.drainSeconds) 1 -}}
+{{- fail "shutdown.drainSeconds must be at least 1 while shutdown.preStop.enabled" -}}
+{{- end -}}
+{{- end -}}
+{{- $raw := toString $s.terminationGracePeriodSeconds -}}
+{{- if and (not (kindIs "invalid" $s.terminationGracePeriodSeconds)) (ne $raw "") -}}
+{{- if not (regexMatch $isInt $raw) -}}
+{{- fail (printf "shutdown.terminationGracePeriodSeconds must be a whole number of seconds, not %s" $raw) -}}
+{{- end -}}
+{{- if and $s.preStop.enabled (le (int $raw) (int $s.preStop.sleepSeconds)) -}}
+{{- fail (printf "shutdown.terminationGracePeriodSeconds (%s) must exceed shutdown.preStop.sleepSeconds (%d)" $raw (int $s.preStop.sleepSeconds)) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 The preStop hook's form: "native" (lifecycle.preStop.sleep) or "exec".
 */}}
 {{- define "connectorhub.preStopMode" -}}
-{{- $p := .Values.shutdown.preStop -}}
-{{- $mode := $p.mode | default "auto" -}}
-{{- if lt (int $p.sleepSeconds) 1 -}}
-{{- fail "shutdown.preStop.sleepSeconds must be at least 1 while shutdown.preStop.enabled" -}}
-{{- end -}}
+{{- include "connectorhub.validateShutdown" . -}}
+{{- $mode := .Values.shutdown.preStop.mode | default "exec" -}}
 {{- if eq $mode "auto" -}}
 {{- if semverCompare ">=1.30-0" .Capabilities.KubeVersion.Version -}}native{{- else -}}exec{{- end -}}
-{{- else if or (eq $mode "native") (eq $mode "exec") -}}
-{{- $mode -}}
 {{- else -}}
-{{- fail (printf "shutdown.preStop.mode must be auto, native or exec, not %q" $mode) -}}
+{{- $mode -}}
 {{- end -}}
 {{- end -}}
 
 {{/*
 The pod's terminationGracePeriodSeconds, or empty for the Kubernetes default.
-It covers the preStop sleep and the hub's drain after SIGTERM.
+It covers the preStop sleep and the hub's drain after SIGTERM. An explicit
+value, 0 included, is rendered as set.
 */}}
 {{- define "connectorhub.terminationGracePeriodSeconds" -}}
+{{- include "connectorhub.validateShutdown" . -}}
 {{- $s := .Values.shutdown -}}
-{{- $sleep := 0 -}}
-{{- if $s.preStop.enabled -}}
-{{- $sleep = int $s.preStop.sleepSeconds -}}
-{{- end -}}
-{{- $set := toString ($s.terminationGracePeriodSeconds | default "") -}}
-{{- if ne $set "" -}}
-{{- $grace := int $set -}}
-{{- if le $grace $sleep -}}
-{{- fail (printf "shutdown.terminationGracePeriodSeconds (%d) must exceed shutdown.preStop.sleepSeconds (%d)" $grace $sleep) -}}
-{{- end -}}
-{{- $grace -}}
+{{- $raw := toString $s.terminationGracePeriodSeconds -}}
+{{- if and (not (kindIs "invalid" $s.terminationGracePeriodSeconds)) (ne $raw "") -}}
+{{- int $raw -}}
 {{- else if $s.preStop.enabled -}}
-{{- add $sleep (int $s.drainSeconds) -}}
+{{- add (int $s.preStop.sleepSeconds) (int $s.drainSeconds) -}}
 {{- end -}}
 {{- end -}}
