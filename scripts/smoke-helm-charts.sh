@@ -20,6 +20,8 @@
 #   - an env override that drops the other defaults (Helm must merge maps)
 #   - connectorhub leader election: a wrong checkpoint flag, volume, env,
 #     RBAC or PDB, on or off
+#   - connectorhub preStop: a missing or wrong hook or grace period, on or
+#     off
 #   - fabric-peer: http-op or the scrape annotations on the load balancer
 #     service, or no ClusterIP operations service
 #   - fabric-peer: two services with the same name, or a changed
@@ -136,6 +138,29 @@ want_render "pod label on: POD_NAME is set" yes "- name: POD_NAME" \
 want_render "pod label off: no RBAC to patch pods" no "verbs: [\"patch\"]" ${LE}
 want_render "pod label on: RBAC to patch pods" yes "verbs: [\"patch\"]" \
   ${LE} --set leaderElection.podLabel=true
+
+# preStop hook: SIGTERM waits until the pod is out of the Service
+# endpoints, and the grace period covers the sleep and the hub drain.
+want_render "preStop on by default" yes "preStop:"
+want_render "preStop uses the native sleep on Kubernetes >= 1.30" yes "seconds: 10" \
+  --kube-version 1.30.0
+want_render "preStop uses exec sleep before Kubernetes 1.30" yes "command: [\"sleep\", \"10\"]" \
+  --kube-version 1.29.0
+want_render "preStop mode=exec uses exec sleep" yes "command: [\"sleep\", \"10\"]" \
+  --kube-version 1.34.0 --set shutdown.preStop.mode=exec
+want_render "grace period is the sleep plus the drain" yes "terminationGracePeriodSeconds: 40"
+want_render "terminationGracePeriodSeconds overrides the grace period" yes "terminationGracePeriodSeconds: 60" \
+  --set shutdown.terminationGracePeriodSeconds=60
+want_render "preStop off: no hook" no "preStop:" --set shutdown.preStop.enabled=false
+want_render "preStop off: Kubernetes default grace period" no "terminationGracePeriodSeconds: 30" \
+  --set shutdown.preStop.enabled=false
+if helm template ch "${CHARTS}/connectorhub" \
+  --set shutdown.terminationGracePeriodSeconds=10 >/dev/null 2>&1; then
+  echo "FAIL: a grace period not above the preStop sleep must not render"
+  fail=1
+else
+  echo "OK:   a grace period not above the preStop sleep fails the render"
+fi
 
 # fabric-peer services of release $1. Each document of
 # templates/service.yaml is printed as one line per service:
