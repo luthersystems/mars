@@ -89,6 +89,12 @@
         peerIndex: "{{item.1}}"
       availabilityZone: "{{availability_zones[item.1]}}"
       env:
+        # The chaincode definition name, the --name that approve and commit
+        # use below. Substrate refuses privileged requests that another
+        # chaincode forwards only when it knows this name
+        # (luthersystems/substrate#808); without it, substrate logs a warning
+        # and skips that check. An older substrate ignores the variable.
+        CHAINCODE_NAME: "{{ k8s_fabric_chaincode_name }}"
         CHAINCODE_LOG_LEVEL: "{{k8s_fabric_chaincode_loglevel}}"
         CHAINCODE_NO_ELPS_FILTER: "{{k8s_fabric_chaincode_no_elps_filter}}"
       local: "{{mars_local | default(false)}}"

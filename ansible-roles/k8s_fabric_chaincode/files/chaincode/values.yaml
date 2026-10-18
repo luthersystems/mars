@@ -40,6 +40,11 @@ resources: {}
   #   cpu: 100m
   #   memory: 128Mi
 
+# Container env. Helm merges a release's env map with these defaults. The
+# k8s_fabric_chaincode role also sets CHAINCODE_NAME to the chaincode
+# definition name (k8s_fabric_chaincode_name), which substrate needs to
+# refuse privileged requests that another chaincode forwards
+# (luthersystems/substrate#808).
 env:
   CHAINCODE_LISTEN_ADDRESS: ":8080"
   CHAINCODE_PROM_LISTEN_ADDR: ":9600"
