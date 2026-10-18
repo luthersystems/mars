@@ -28,14 +28,18 @@
 #     <release>-ops name for a fabric-peer<N>-<org> release
 #   - shiroclient: the license state volume, mount or env when off (the
 #     default), or a missing or misplaced one when on
+#   - chaincode: the env the k8s_fabric_chaincode role passes
+#     (CHAINCODE_NAME, luthersystems/substrate#808) missing, or dropping
+#     the chart's env defaults
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CHARTS="${ROOT}/ansible-roles/helm_charts/files/helmcharts"
 PEER_CHART="${ROOT}/ansible-roles/k8s_fabric_peer/files/fabric-peer"
+CC_CHART="${ROOT}/ansible-roles/k8s_fabric_chaincode/files/chaincode"
 
-# Runs in the image (or locally) with CHARTS and PEER_CHART set and helm on
-# PATH.
+# Runs in the image (or locally) with CHARTS, PEER_CHART and CC_CHART set
+# and helm on PATH.
 # shellcheck disable=SC2016 # expanded by the inner shell
 CHECKS='
 set -uo pipefail
@@ -388,16 +392,47 @@ want_distinct_services "62-character fullname ending in -ops gives two distinct 
 want_distinct_services "62-character fullname from nameOverride gives two distinct service names" \
   --set nameOverride="${a58:11}-ops"
 
+# chaincode (external and CCaaS substrate): the k8s_fabric_chaincode role
+# passes an env map with CHAINCODE_NAME, the chaincode definition name, so
+# substrate can refuse privileged requests another chaincode forwards
+# (luthersystems/substrate#808). Helm must merge that map with the chart
+# defaults, or the listen addresses go.
+# (description, env name, wanted value)
+want_cc_env() {
+  desc="$1"; name="$2"; want="$3"
+  if ! out=$(helm template substrate-2-300-0-peer0 "${CC_CHART}" \
+    --show-only templates/deployment.yaml --set ccid=cc:abc \
+    --set env.CHAINCODE_NAME=com_luthersystems_chaincode_substrate01 \
+    --set env.CHAINCODE_LOG_LEVEL=info 2>&1); then
+    echo "FAIL: ${desc}: helm template failed:"
+    echo "${out}"
+    fail=1
+    return
+  fi
+  got=$(printf "%s\n" "${out}" | grep -A1 -e "- name: ${name}\$" |
+    sed -n "s/^ *value: //p")
+  if [ "${got}" = "\"${want}\"" ]; then
+    echo "OK:   ${desc}"
+  else
+    echo "FAIL: ${desc}: ${name}=${got:-<missing>}, want \"${want}\""
+    fail=1
+  fi
+}
+want_cc_env "chaincode renders CHAINCODE_NAME" CHAINCODE_NAME com_luthersystems_chaincode_substrate01
+want_cc_env "chaincode env keeps the listen address default" CHAINCODE_LISTEN_ADDRESS :8080
+want_cc_env "chaincode env keeps the metrics address default" CHAINCODE_PROM_LISTEN_ADDR :9600
+
 exit ${fail}
 '
 
 case "${1:?usage: smoke-helm-charts.sh <image> | --local}" in
 --local)
-  CHARTS="${CHARTS}" PEER_CHART="${PEER_CHART}" bash -c "${CHECKS}"
+  CHARTS="${CHARTS}" PEER_CHART="${PEER_CHART}" CC_CHART="${CC_CHART}" bash -c "${CHECKS}"
   ;;
 *)
   docker run --rm -e CHARTS=/charts -v "${CHARTS}:/charts:ro" \
     -e PEER_CHART=/peer-chart -v "${PEER_CHART}:/peer-chart:ro" \
+    -e CC_CHART=/cc-chart -v "${CC_CHART}:/cc-chart:ro" \
     --entrypoint /bin/bash "$1" -c "${CHECKS}"
   ;;
 esac
