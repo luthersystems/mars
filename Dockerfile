@@ -302,8 +302,9 @@ ENV HELM_DIFF_VERSION=$HELM_DIFF_VERSION
 RUN helm plugin install https://github.com/databus23/helm-diff --version ${HELM_DIFF_VERSION} --verify=false
 
 # Remove the eMudhra (emSign) root CAs from every trust store in the image
-# (CVE-2026-111943): the Ubuntu system bundle and the cacert.pem bundles that
-# the Python venv (certifi, botocore), the AWS CLI and google-cloud-cli carry.
+# (CVE-2026-111943): the Ubuntu system bundle and the CA bundles that
+# the Python venv (certifi, botocore), the AWS CLI and google-cloud-cli
+# (grpc roots.pem, gsutil cacerts.txt) carry.
 # Every customer Terraform deploy runs in this image, so its TLS clients must
 # not trust a root whose intermediates' keys leaked. The script is buildenv's
 # (scripts/distrust-emudhra.sh says which commit), so every Luther image
