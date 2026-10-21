@@ -158,7 +158,7 @@ RUN chmod -R a+rX ${TF_PLUGIN_CACHE_DIR}
 # The Go that builds the shipped binaries. The golang image sets
 # GOTOOLCHAIN=local, so go.mod's toolchain line does not apply here: keep this
 # tag at go.mod's toolchain version.
-FROM golang:1.26.9-bookworm AS mars-cli
+FROM golang:1.26.10-bookworm AS mars-cli
 ARG TARGETARCH
 ARG MARS_VERSION=dev
 WORKDIR /src
