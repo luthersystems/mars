@@ -29,6 +29,10 @@ jobs:
         run: go vet ./...
       - name: go test
         run: go test ./...
+      # The vendored eMudhra (emSign) removal script must stay buildenv's copy,
+      # so mars removes the same roots as every other Luther image.
+      - name: distrust-emudhra.sh matches buildenv
+        run: ./scripts/check-distrust-vendored.sh
   build:
     name: ${{ matrix.image }} - ${{ matrix.arch }} docker build
     runs-on: ${{ fromJSON('{"arm64":"2vcpu-ubuntu-2204-arm","amd64":"ubuntu-22.04"}')[matrix.arch] }}

@@ -11,7 +11,8 @@
 # How: the image only lists and archives the files. Each file is read on the
 # host, with the host's openssl, so a broken tool in the image cannot make
 # the check pass. Two independent tests run on every file in the image that
-# holds a PEM certificate, not only on the bundles the script knows about:
+# holds a PEM certificate (plain, X509 or OpenSSL TRUSTED), not only on the
+# bundles the script knows about:
 #   - each certificate's subject must not contain "emsign" (any case);
 #   - the file must not contain a line of an emSign root's PEM text (the same
 #     lines distrust-emudhra.sh matches), which also catches a block openssl
@@ -26,13 +27,15 @@ set -euo pipefail
 
 IMAGE="${1:?usage: smoke-distrust-emudhra.sh <image>}"
 
-# Line 4 of each emSign root's PEM text, as in distrust-emudhra.sh.
-EMSIGN_LINES=(
-	IDAeBgNVBAMTF2VtU2lnbiBFQ0MgUm9vdCBDQSAtIEMzMB4XDTE4MDIxODE4MzAw
-	bm9sb2dpZXMgTGltaXRlZDEgMB4GA1UEAxMXZW1TaWduIEVDQyBSb290IENBIC0g
-	SW5jMRwwGgYDVQQDExNlbVNpZ24gUm9vdCBDQSAtIEMxMB4XDTE4MDIxODE4MzAw
-	ZWNobm9sb2dpZXMgTGltaXRlZDEcMBoGA1UEAxMTZW1TaWduIFJvb3QgQ0EgLSBH
+# Line 4 of each emSign root's PEM text. Read from the vendored
+# distrust-emudhra.sh, so the two cannot drift apart when buildenv adds a root.
+mapfile -t EMSIGN_LINES < <(
+	sed -n '/^EMSIGN_LINES="$/,/^"$/p' "$(dirname "$0")/distrust-emudhra.sh" | grep -v '"'
 )
+if [ "${#EMSIGN_LINES[@]}" -lt 4 ]; then
+	echo "FAIL: could not read EMSIGN_LINES from distrust-emudhra.sh" >&2
+	exit 1
+fi
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
@@ -46,7 +49,7 @@ docker run --rm --user 0 --entrypoint /bin/bash "$IMAGE" -c '
 set -euo pipefail
 {
 	find / -xdev -type f -print0 2>/dev/null |
-		xargs -0 grep -lIF -e "-----BEGIN CERTIFICATE-----" 2>/dev/null || true
+		xargs -0 grep -lIE -e "-----BEGIN (TRUSTED |X509 )?CERTIFICATE-----" 2>/dev/null || true
 	find / -xdev -type f -name cacerts 2>/dev/null || true
 	find /etc/ssl/certs -maxdepth 1 \( -name "*.pem" -o -name "*.[0-9]" \) 2>/dev/null || true
 } | sort -u >/tmp/certfiles
@@ -65,9 +68,9 @@ check_bundle() {
 	local name=$1 file=$2 min=$3 dir n=0 bad=0 subject pem
 	dir=$(mktemp -d -p "$work")
 	awk -v dir="$dir" '
-		/^-----BEGIN CERTIFICATE-----/ { n++; out = sprintf("%s/%05d.pem", dir, n); inblk = 1 }
+		/^-----BEGIN (TRUSTED |X509 )?CERTIFICATE-----/ { n++; out = sprintf("%s/%05d.pem", dir, n); inblk = 1 }
 		inblk { print > out }
-		/^-----END CERTIFICATE-----/ { inblk = 0; close(out) }
+		/^-----END (TRUSTED |X509 )?CERTIFICATE-----/ { inblk = 0; close(out) }
 	' "$file"
 	for pem in "$dir"/*.pem; do
 		[ -e "$pem" ] || continue
