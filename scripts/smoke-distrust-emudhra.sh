@@ -70,14 +70,26 @@ set -euo pipefail
 # A file that vanishes or cannot be read makes find exit non-zero; list
 # what it can.
 find / -xdev -type f -print0 2>/dev/null >/tmp/allfiles || true
+# scan GREP_ARGS: run grep on every file. grep exits 1 for a file with no
+# match and 2 for one it cannot read, and xargs reports either as 123. Any
+# other status (grep missing, killed or out of memory) fails the check: it
+# must not list no file and pass.
+scan() {
+	local rc=0
+	xargs -0 grep "$@" </tmp/allfiles 2>/dev/null || rc=$?
+	if [ "$rc" -ne 0 ] && [ "$rc" -ne 123 ]; then
+		echo "FAIL: grep $1 over the image exited $rc" >&2
+		exit 1
+	fi
+}
 {
-	xargs -0 grep -lIE -e "-----BEGIN (TRUSTED |X509 )?CERTIFICATE-----" </tmp/allfiles 2>/dev/null || true
+	scan -lIE -e "-----BEGIN (TRUSTED |X509 )?CERTIFICATE-----"
 	find / -xdev -type f -name cacerts 2>/dev/null || true
 	find /etc/ssl/certs -maxdepth 1 \( -name "*.pem" -o -name "*.[0-9]" \) 2>/dev/null || true
 } | sort -u >/tmp/certfiles
 # grep -a reads binaries as text; keep only the files with a NUL byte (the
 # text files are checked above, and a stripped bundle keeps its comments).
-{ xargs -0 grep -laF "$@" </tmp/allfiles 2>/dev/null || true; } | while IFS= read -r f; do
+scan -laF "$@" | while IFS= read -r f; do
 	if [ "$(tr -d "\\000" <"$f" | wc -c)" -ne "$(wc -c <"$f")" ]; then
 		printf "%s\n" "$f"
 	fi
