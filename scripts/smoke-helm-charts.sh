@@ -28,6 +28,9 @@
 #     <release>-ops name for a fabric-peer<N>-<org> release
 #   - shiroclient: the license state volume, mount or env when off (the
 #     default), or a missing or misplaced one when on
+#   - fabric-peer, fabric-orderer: a liveness probe that restarts the node
+#     on one failed check, a probe without a 5s timeout, or probe timings
+#     that values.yaml cannot override (#297)
 #   - chaincode: the env the k8s_fabric_chaincode role passes
 #     (CHAINCODE_NAME, luthersystems/substrate#808) missing, or dropping
 #     the chart's env defaults
@@ -36,9 +39,11 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CHARTS="${ROOT}/ansible-roles/helm_charts/files/helmcharts"
 PEER_CHART="${ROOT}/ansible-roles/k8s_fabric_peer/files/fabric-peer"
+ORDERER_CHART="${ROOT}/ansible-roles/k8s_fabric_orderer/files/fabric-orderer"
 CC_CHART="${ROOT}/ansible-roles/k8s_fabric_chaincode/files/chaincode"
 
-# Runs in the image (or locally) with CHARTS, PEER_CHART and CC_CHART set
+# Runs in the image (or locally) with CHARTS, PEER_CHART, ORDERER_CHART and
+# CC_CHART set
 # and helm on PATH.
 # shellcheck disable=SC2016 # expanded by the inner shell
 CHECKS='
@@ -268,6 +273,92 @@ else
   echo "OK:   classic ELB renders no health check annotations"
 fi
 
+# fabric-peer and fabric-orderer probes (#297): one slow or failed /healthz
+# check must not restart the node. The liveness probe allows 3 failures with
+# a 5s timeout, the timings come from values.yaml, and an override of one
+# field keeps the others (Helm merges maps).
+# (chart path, probe kind, helm args...): the top-level fields of the probe,
+# one per line as "<field>: <value>". A handler shows as its name alone
+# ("httpGet:"); its own fields are dropped.
+fabric_probe() {
+  chart="$1"; kind="$2"; shift 2
+  helm template node "${chart}" --show-only templates/deployment.yaml \
+    --set serviceAccount.name=sa --set dlt.organization=org1 \
+    --set dlt.domain=example.com "$@" |
+    awk -v k="${kind}Probe:" "
+      \$1 == k { on=1; next }
+      on && /^          [a-zA-Z]/ { on=0 }
+      on && /^            [a-zA-Z]/ { sub(/^ +/, \"\"); print }"
+}
+
+# (description, chart path, probe kind, wanted fields, helm args...).
+# Named apart from the shiroclient want_probe below: CHECKS is one shell, so
+# a function of the same name would replace this one.
+# Wanted fields are "<field>: <value>" lines joined with ";", in the order
+# helm renders them: the default httpGet first, then the values sorted by
+# name.
+want_fabric_probe() {
+  desc="$1"; chart="$2"; kind="$3"; want="$4"; shift 4
+  if ! out=$(fabric_probe "${chart}" "${kind}" "$@" 2>&1); then
+    echo "FAIL: ${desc}: helm template failed:"
+    echo "${out}"
+    fail=1
+    return
+  fi
+  got=$(printf "%s\n" "${out}" | paste -sd ";" -)
+  if [ "${got}" = "${want}" ]; then
+    echo "OK:   ${desc}"
+  else
+    echo "FAIL: ${desc}: got \"${got}\", want \"${want}\""
+    fail=1
+  fi
+}
+
+# (description, chart path, wanted count, helm args...): how many probes of
+# any kind the full chart render has. Counting on the whole render, not
+# through fabric_probe, so a probe the extractor misses still counts.
+want_fabric_probe_count() {
+  desc="$1"; chart="$2"; want="$3"; shift 3
+  if ! out=$(helm template node "${chart}" --show-only templates/deployment.yaml \
+    --set serviceAccount.name=sa --set dlt.organization=org1 \
+    --set dlt.domain=example.com "$@" 2>&1); then
+    echo "FAIL: ${desc}: helm template failed:"
+    echo "${out}"
+    fail=1
+    return
+  fi
+  got=$(printf "%s\n" "${out}" | grep -cE "^ *(liveness|readiness|startup)Probe:")
+  if [ "${got}" = "${want}" ]; then
+    echo "OK:   ${desc}"
+  else
+    echo "FAIL: ${desc}: ${got} probes, want ${want}"
+    fail=1
+  fi
+}
+
+for node in peer orderer; do
+  if [ "${node}" = peer ]; then chart="${PEER_CHART}"; else chart="${ORDERER_CHART}"; fi
+  want_fabric_probe "${node} liveness tolerates two failed checks" "${chart}" liveness \
+    "httpGet:;failureThreshold: 3;periodSeconds: 10;timeoutSeconds: 5"
+  want_fabric_probe "${node} readiness has a 5s timeout" "${chart}" readiness \
+    "httpGet:;initialDelaySeconds: 5;periodSeconds: 5;timeoutSeconds: 5"
+  want_fabric_probe "${node} startup allows 300s, with a 5s timeout" "${chart}" startup \
+    "httpGet:;failureThreshold: 30;periodSeconds: 10;timeoutSeconds: 5"
+  want_fabric_probe "${node} liveness override wins and keeps the other fields" "${chart}" liveness \
+    "httpGet:;failureThreshold: 6;periodSeconds: 10;timeoutSeconds: 5" \
+    --set probes.liveness.failureThreshold=6
+  want_fabric_probe "${node} liveness handler override replaces httpGet" "${chart}" liveness \
+    "failureThreshold: 3;periodSeconds: 10;tcpSocket:;timeoutSeconds: 5" \
+    --set probes.liveness.tcpSocket.port=http-op
+  want_fabric_probe_count "${node} renders three probes by default" "${chart}" 3
+  want_fabric_probe_count "${node} probes.liveness=null turns liveness off" "${chart}" 2 \
+    --set probes.liveness=null
+  want_fabric_probe_count "${node} renders no probes with startService=false" "${chart}" 0 \
+    --set startService=false
+done
+want_fabric_probe_count "peer renders no probes with startProbes=false" "${PEER_CHART}" 0 \
+  --set startProbes=false
+
 # shiroclient gateway: the startupProbe renders by default, startupProbe:
 # null turns it off, and a custom handler replaces the default httpGet.
 startup_probe() {
@@ -427,11 +518,13 @@ exit ${fail}
 
 case "${1:?usage: smoke-helm-charts.sh <image> | --local}" in
 --local)
-  CHARTS="${CHARTS}" PEER_CHART="${PEER_CHART}" CC_CHART="${CC_CHART}" bash -c "${CHECKS}"
+  CHARTS="${CHARTS}" PEER_CHART="${PEER_CHART}" ORDERER_CHART="${ORDERER_CHART}" \
+    CC_CHART="${CC_CHART}" bash -c "${CHECKS}"
   ;;
 *)
   docker run --rm -e CHARTS=/charts -v "${CHARTS}:/charts:ro" \
     -e PEER_CHART=/peer-chart -v "${PEER_CHART}:/peer-chart:ro" \
+    -e ORDERER_CHART=/orderer-chart -v "${ORDERER_CHART}:/orderer-chart:ro" \
     -e CC_CHART=/cc-chart -v "${CC_CHART}:/cc-chart:ro" \
     --entrypoint /bin/bash "$1" -c "${CHECKS}"
   ;;

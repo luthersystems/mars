@@ -55,6 +55,7 @@
         repository: "{{k8s_fabric_peer_image_repository}}"
       startService: "{{not recovery_mode}}"
       startProbes: "{{k8s_fabric_peer_start_probes}}"
+      probes: "{{k8s_fabric_peer_probes}}"
       internal:
         container:
           invokeTimeout: "{{k8s_fabric_peer_chaincode_invoke_timeout}}"
