@@ -57,6 +57,15 @@ jobs:
           arch: ${{ matrix.arch }}
           image: .
           git_tag: $GITHUB_REF_NAME
+      # Check the image this tag ships, not only the one CI built: apt
+      # (google-cloud-cli is unpinned) can resolve to newer packages here,
+      # and one could bring a CA bundle distrust-emudhra.sh does not know.
+      # The per-arch tag is already pushed by now, but a failure here stops
+      # push-manifests, so the release tag, :latest and the ui-infrastructure
+      # pin never point at the image.
+      - name: Verify no emSign root CA
+        shell: bash
+        run: ./scripts/smoke-distrust-emudhra.sh "luthersystems/mars:${GITHUB_REF_NAME}"
   push-manifests:
     permissions:
       contents: read
