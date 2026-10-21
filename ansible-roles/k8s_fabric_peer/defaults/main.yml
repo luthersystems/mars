@@ -60,7 +60,7 @@ k8s_fabric_peer_aws_cli_version: "{{ luther_buildenv_images_version }}"
 k8s_fabric_peer_dind_version: v0.1.42
 
 k8s_fabric_peer_use_snapshot_archiver: false
-k8s_fabric_peer_snapshot_archiver_version: "v0.0.5"
+k8s_fabric_peer_snapshot_archiver_version: "v0.0.6"
 
 k8s_fabric_peer_service_account_iam_role_arns: {}
 k8s_fabric_peer_service_account: default
