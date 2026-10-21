@@ -61,3 +61,10 @@ jobs:
         if: matrix.image == 'mars'
         shell: bash
         run: ./scripts/smoke-helm-charts.sh "luthersystems/mars:${GITHUB_SHA}"
+      # No eMudhra (emSign) root may be trusted (CVE-2026-111943): the
+      # Dockerfile's last step removes them, and this proves it on each arch
+      # by reading every bundle in the image with the runner's openssl.
+      - name: Verify no emSign root CA
+        if: matrix.image == 'mars'
+        shell: bash
+        run: ./scripts/smoke-distrust-emudhra.sh "luthersystems/mars:${GITHUB_SHA}"
