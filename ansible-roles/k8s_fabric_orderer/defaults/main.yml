@@ -7,6 +7,12 @@ k8s_fabric_orderer_cluster_size: 3
 k8s_fabric_orderer_helm_chart_path: "{{kubectl_asset_root_path}}/fabric-orderer"
 k8s_fabric_orderer_image_repository: hyperledger/fabric-orderer
 k8s_fabric_orderer_start_service: true
+# Probe timing overrides, merged into the chart's probes values (see
+# files/fabric-orderer/values.yaml for the defaults and why they are set). Empty
+# keeps the chart defaults. Set only the fields to change, for example
+# {liveness: {failureThreshold: 5}}; Helm keeps the other fields.
+# {liveness: null} turns the liveness probe off.
+k8s_fabric_orderer_probes: {}
 k8s_fabric_orderer_storage_size: 10Gi
 k8s_fabric_orderer_storage_class: gp2
 k8s_fabric_orderer_volume_type_override: ""

@@ -173,24 +173,35 @@ spec:
               containerPort: {{ .Values.internal.container.operationsPort }}
               protocol: TCP
           {{- if and .Values.startProbes .Values.startService }}
+          # Each probe comes from values.yaml (probes.*), which explains the
+          # timings. null turns a probe off; a handler there replaces httpGet.
+          {{- with .Values.probes.liveness }}
           livenessProbe:
+            {{- if not (or .httpGet .exec .tcpSocket .grpc) }}
             httpGet:
               path: /healthz
               port: http-op
-            failureThreshold: 1
-            periodSeconds: 10
+            {{- end }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.probes.readiness }}
           readinessProbe:
+            {{- if not (or .httpGet .exec .tcpSocket .grpc) }}
             httpGet:
               path: /healthz
               port: http-op
-            initialDelaySeconds: 5
-            periodSeconds: 5
+            {{- end }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.probes.startup }}
           startupProbe:
+            {{- if not (or .httpGet .exec .tcpSocket .grpc) }}
             httpGet:
               path: /healthz
               port: http-op
-            failureThreshold: 30
-            periodSeconds: 10
+            {{- end }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- end }}
           volumeMounts:
             {{- if .Values.externalChaincode }}

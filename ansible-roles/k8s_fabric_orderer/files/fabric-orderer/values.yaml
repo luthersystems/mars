@@ -67,6 +67,48 @@ affinity: {}
 
 startService: true
 
+# Probe timings for the orderer container. All three probes call /healthz on
+# the operations port. An orderer restart is expensive: the orderer replays
+# its Raft log, and a network with one orderer orders nothing until it is
+# back. So the liveness probe must not restart the container on one slow or
+# failed check, which a short CPU throttle, a GC pause or a busy node can
+# cause (luthersystems/mars#297, from Jira PLT-209).
+#
+# Each map is rendered as the probe, the same way as the shiroclient chart's
+# startupProbe. Without a handler (httpGet, exec, tcpSocket, grpc) the probe
+# gets an httpGet on /healthz at port http-op; a handler here replaces it.
+# null turns that probe off. Helm merges maps, so an inventory that sets one
+# field (for example probes.liveness.failureThreshold) keeps the others. The
+# probes render only when startService is true.
+probes:
+  # Restart only after 3 failed checks in a row: about 30s (3 x 10s) of a node
+  # that does not answer. Before #297 this was failureThreshold: 1 with the 1s
+  # default timeout, so one check slower than 1s restarted the node. An
+  # orderer that really hangs now restarts about 20s later, which costs much
+  # less than a restart caused by a stall.
+  liveness:
+    periodSeconds: 10
+    # Kubernetes waits 1s by default. 5s leaves room for a slow check and is
+    # no longer than periodSeconds.
+    timeoutSeconds: 5
+    failureThreshold: 3
+  # Readiness only takes the pod out of the Service endpoints; it never
+  # restarts it, so it reacts faster than liveness (3 x 5s, the Kubernetes
+  # default threshold). It gets the same 5s timeout, so one slow check does
+  # not take a healthy orderer out of service.
+  readiness:
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 5
+  # The startup probe holds off liveness and readiness until /healthz first
+  # answers, so a slow start (for example a large ledger) does not restart the
+  # container. It allows 300s (30 x 10s), as before #297; only the timeout is
+  # new.
+  startup:
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 30
+
 logLevel: INFO
 
 logGrpc: false

@@ -40,6 +40,7 @@
       image:
         repository: "{{k8s_fabric_orderer_image_repository}}"
       startService: "{{k8s_fabric_orderer_start_service}}"
+      probes: "{{k8s_fabric_orderer_probes}}"
       persistentVolume:
         create: "{{not k8s_fabric_orderer_separate_pvc}}"
         storageSize: "{{k8s_fabric_orderer_storage_size}}"
