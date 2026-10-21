@@ -6,5 +6,9 @@
 # They are amazon/aws-cli and docker:dind with the eMudhra (emSign) root CAs
 # removed (CVE-2026-111943). The roles default to this one version, so
 # picking up a patched buildenv release is a one-line change here. Each
-# role's *_aws_cli_version / k8s_fabric_peer_dind_version still overrides it.
+# role's *_aws_cli_version still overrides it. The *_aws_cli_version
+# variables hold a luthersystems/buildenv tag (for example v0.1.42), not an
+# amazon/aws-cli version: an inventory that set one to an aws-cli version
+# must drop it. k8s_fabric_peer_dind_version is pinned on its own (see
+# k8s_fabric_peer's defaults).
 luther_buildenv_images_version: v0.1.42
