@@ -67,7 +67,9 @@ for line in "${EMSIGN_LINES[@]}"; do
 done
 docker run --rm --user 0 --entrypoint /bin/bash "$IMAGE" -c '
 set -euo pipefail
-find / -xdev -type f -print0 2>/dev/null >/tmp/allfiles
+# A file that vanishes or cannot be read makes find exit non-zero; list
+# what it can.
+find / -xdev -type f -print0 2>/dev/null >/tmp/allfiles || true
 {
 	xargs -0 grep -lIE -e "-----BEGIN (TRUSTED |X509 )?CERTIFICATE-----" </tmp/allfiles 2>/dev/null || true
 	find / -xdev -type f -name cacerts 2>/dev/null || true
@@ -75,12 +77,12 @@ find / -xdev -type f -print0 2>/dev/null >/tmp/allfiles
 } | sort -u >/tmp/certfiles
 # grep -a reads binaries as text; keep only the files with a NUL byte (the
 # text files are checked above, and a stripped bundle keeps its comments).
-xargs -0 grep -laF "$@" </tmp/allfiles 2>/dev/null | while IFS= read -r f; do
+{ xargs -0 grep -laF "$@" </tmp/allfiles 2>/dev/null || true; } | while IFS= read -r f; do
 	if [ "$(tr -d "\\000" <"$f" | wc -c)" -ne "$(wc -c <"$f")" ]; then
 		printf "%s\n" "$f"
 	fi
 done | sort -u >/'"$BINLIST"'
-find / -xdev -type f \( -name node -o -name nodejs \) -perm -u+x 2>/dev/null | sort -u >/'"$NODELIST"'
+{ find / -xdev -type f \( -name node -o -name nodejs \) -perm -u+x 2>/dev/null || true; } | sort -u >/'"$NODELIST"'
 cat /tmp/certfiles /'"$BINLIST"' | sort -u >/tmp/tarfiles
 printf "%s\n" /'"$BINLIST"' /'"$NODELIST"' >>/tmp/tarfiles
 tar -chf - -T /tmp/tarfiles 2>/dev/null
