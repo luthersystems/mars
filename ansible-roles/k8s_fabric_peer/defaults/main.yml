@@ -51,10 +51,13 @@ k8s_fabric_peer_version: "{{k8s_fabric_version}}"
 k8s_fabric_peer_crypto_config: ""
 k8s_fabric_peer_crypto_config_secret_name: ""
 k8s_fabric_peer_aws_cli_version: "{{ luther_buildenv_images_version }}"
+# buildenv v0.1.42's dind is Docker 19.03.14. A later buildenv moves it to a
+# supported Docker (luthersystems/buildenv#161), which upgrades the peer's
+# /var/lib/docker volume in place; set this to hold dind back if needed.
 k8s_fabric_peer_dind_version: "{{ luther_buildenv_images_version }}"
 
 k8s_fabric_peer_use_snapshot_archiver: false
-k8s_fabric_peer_snapshot_archiver_version: "v0.0.4"
+k8s_fabric_peer_snapshot_archiver_version: "v0.0.5"
 
 k8s_fabric_peer_service_account_iam_role_arns: {}
 k8s_fabric_peer_service_account: default

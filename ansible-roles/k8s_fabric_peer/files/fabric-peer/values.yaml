@@ -167,17 +167,17 @@ availabilityZone: ""
 
 # luthersystems/awscli tag: a luthersystems/buildenv release (amazon/aws-cli
 # without the emSign roots). The role passes luther_buildenv_images_version.
-awsCLIVersion: latest
+awsCLIVersion: v0.1.42
 # luthersystems/dind tag: a luthersystems/buildenv release (docker dind
 # without the emSign roots). The role passes luther_buildenv_images_version.
-dindVersion: latest
+dindVersion: v0.1.42
 
 fabricSnapshotArchiver:
   enabled: false
   image:
     repository: luthersystems/fabric-snapshot-archiver
     pullPolicy: IfNotPresent
-    version: v0.0.1
+    version: v0.0.5
   resources: {}
 
 local: false
