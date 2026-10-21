@@ -29,8 +29,9 @@ IMAGE="${1:?usage: smoke-distrust-emudhra.sh <image>}"
 
 # Line 4 of each emSign root's PEM text. Read from the vendored
 # distrust-emudhra.sh, so the two cannot drift apart when buildenv adds a root.
+# The script stores each line split by "_" so it never matches itself.
 mapfile -t EMSIGN_LINES < <(
-	sed -n '/^EMSIGN_LINES="$/,/^"$/p' "$(dirname "$0")/distrust-emudhra.sh" | grep -v '"'
+	sed -n '/^EMSIGN_SPLIT="$/,/^"$/p' "$(dirname "$0")/distrust-emudhra.sh" | grep -v '"' | tr -d _
 )
 if [ "${#EMSIGN_LINES[@]}" -lt 4 ]; then
 	echo "FAIL: could not read EMSIGN_LINES from distrust-emudhra.sh" >&2
@@ -122,10 +123,6 @@ files=0
 while IFS= read -r -d '' f; do
 	path=${f#"$work/root"}
 	case $path in
-	/usr/local/sbin/distrust-emudhra.sh)
-		# The removal script holds the PEM lines it looks for.
-		continue
-		;;
 	*/cacerts)
 		echo "FAIL: $path: a Java keystore; this check cannot read it" >&2
 		fail=1
