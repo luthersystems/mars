@@ -94,4 +94,6 @@ affinity: {}
 
 verbose: false
 
+# luthersystems/aws-cli tag: a luthersystems/buildenv release (amazon/aws-cli
+# without the emSign roots). The role passes luther_buildenv_images_version.
 awsCLIVersion: latest

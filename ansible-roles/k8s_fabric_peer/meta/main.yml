@@ -3,5 +3,6 @@ allow_duplicates: true
 
 dependencies:
   - helm
+  - luther_images
   - k8s_fabric_scripts
 

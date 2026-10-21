@@ -4,7 +4,7 @@
 shiroclient_cli_k8s_namespace: "shiroclient-cli"
 shiroclient_cli_helm_release: "shiroclient-cli"
 shiroclient_cli_helm_chart_path: "{{kubectl_asset_root_path}}/helmcharts/shiroclient"
-shiroclient_cli_aws_cli_version: latest
+shiroclient_cli_aws_cli_version: "{{ luther_buildenv_images_version }}"
 # shiroclient_cli_substrate_version: ""
 shiroclient_cli_bucket_region: ""
 shiroclient_cli_phylum_bucket: ""

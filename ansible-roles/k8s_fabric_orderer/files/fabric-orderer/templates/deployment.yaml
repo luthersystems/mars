@@ -193,7 +193,7 @@ spec:
               readOnly: true
         {{- else }}
         - name: config-fetch
-          image: "amazon/aws-cli:{{ .Values.awsCLIVersion }}"
+          image: "luthersystems/aws-cli:{{ .Values.awsCLIVersion }}"
           env:
             - name: AWS_REGION
               value: {{ .Values.global.aws.region }}

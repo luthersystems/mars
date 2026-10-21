@@ -31,6 +31,9 @@
 #   - fabric-peer, fabric-orderer: a liveness probe that restarts the node
 #     on one failed check, a probe without a 5s timeout, or probe timings
 #     that values.yaml cannot override (#297)
+#   - any chart that runs amazon/aws-cli or docker:*dind: the charts run
+#     luthersystems/aws-cli and luthersystems/dind instead, the same images
+#     without the eMudhra (emSign) roots (luthersystems/buildenv)
 #   - chaincode: the env the k8s_fabric_chaincode role passes
 #     (CHAINCODE_NAME, luthersystems/substrate#808) missing, or dropping
 #     the chart's env defaults
@@ -515,6 +518,14 @@ want_cc_env "chaincode env keeps the metrics address default" CHAINCODE_PROM_LIS
 
 exit ${fail}
 '
+
+# Upstream images that still trust the eMudhra (emSign) roots. A chart that
+# goes back to one would undo luthersystems/buildenv's removal.
+if grep -rnE 'image: *"?(amazon/aws-cli|docker):' "${ROOT}/ansible-roles"/*/files/*/templates; then
+  echo "FAIL: a chart runs amazon/aws-cli or docker dind; use luthersystems/aws-cli or luthersystems/dind"
+  exit 1
+fi
+echo "OK:   no chart runs amazon/aws-cli or docker dind"
 
 case "${1:?usage: smoke-helm-charts.sh <image> | --local}" in
 --local)

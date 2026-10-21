@@ -81,6 +81,7 @@
         version: "{{k8s_fabric_peer_buildpack_version}}"
       logGrpc: "{{k8s_fabric_peer_log_grpc}}"
       awsCLIVersion: "{{k8s_fabric_peer_aws_cli_version}}"
+      dindVersion: "{{k8s_fabric_peer_dind_version}}"
       fabricSnapshotArchiver:
         image:
           version: "{{k8s_fabric_peer_snapshot_archiver_version}}"

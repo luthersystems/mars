@@ -1,0 +1,4 @@
+---
+# Defaults only: roles that run luthersystems/buildenv images depend on this
+# role to share luther_buildenv_images_version.
+dependencies: []

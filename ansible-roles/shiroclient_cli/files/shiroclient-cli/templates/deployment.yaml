@@ -99,7 +99,7 @@ spec:
             {{- toYaml .Values.resources | nindent 12 }}
       initContainers:
         - name: config-fetch
-          image: "amazon/aws-cli:{{ .Values.awsCLIVersion }}"
+          image: "luthersystems/aws-cli:{{ .Values.awsCLIVersion }}"
           env:
             - name: AWS_REGION
               value: {{ .Values.aws.region }}
