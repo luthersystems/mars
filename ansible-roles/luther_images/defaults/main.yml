@@ -1,6 +1,6 @@
 ---
 # The luthersystems/buildenv release whose images the Fabric charts run
-# beside Fabric: luthersystems/aws-cli (init containers that fetch MSP, TLS
+# beside Fabric: luthersystems/awscli (init containers that fetch MSP, TLS
 # and chaincode files from S3) and luthersystems/dind (Docker chaincode).
 #
 # They are amazon/aws-cli and docker:dind with the eMudhra (emSign) root CAs

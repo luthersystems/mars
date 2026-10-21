@@ -315,7 +315,7 @@ spec:
         # start, so a new substrate version needs a pod restart. Substrate
         # upgrades already need downtime, so a syncing sidecar would gain nothing.
         - name: chaincode-archive-bootstrap
-          image: "luthersystems/aws-cli:{{ .Values.awsCLIVersion }}"
+          image: "luthersystems/awscli:{{ .Values.awsCLIVersion }}"
           env:
             - name: AWS_REGION
               value: {{ .Values.substrate.s3.region }}
@@ -360,7 +360,7 @@ spec:
               readOnly: true
         {{- else }}
         - name: config-fetch
-          image: "luthersystems/aws-cli:{{ .Values.awsCLIVersion }}"
+          image: "luthersystems/awscli:{{ .Values.awsCLIVersion }}"
           env:
             - name: AWS_REGION
               value: {{ .Values.global.aws.region }}

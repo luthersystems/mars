@@ -156,7 +156,7 @@ affinity: {}
 
 verbose: false
 
-# luthersystems/aws-cli tag: a luthersystems/buildenv release (amazon/aws-cli
+# luthersystems/awscli tag: a luthersystems/buildenv release (amazon/aws-cli
 # without the emSign roots). This chart takes its values from the umbrella
 # values, not from a role, so the tag is set here; smoke-helm-charts.sh
 # checks it equals luther_buildenv_images_version.

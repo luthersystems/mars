@@ -186,7 +186,7 @@ spec:
       initContainers:
         {{ if or (and (ne .Values.runMode "gateway") (not .Values.sdk.phylumZipBase64)) (not .Values.sdk.configMapName) (not .Values.dlt.cryptoConfigSecret) }}
         - name: config-fetch
-          image: "luthersystems/aws-cli:{{ .Values.awsCLIVersion }}"
+          image: "luthersystems/awscli:{{ .Values.awsCLIVersion }}"
           env:
             - name: AWS_REGION
               value: {{ .Values.aws.region }}

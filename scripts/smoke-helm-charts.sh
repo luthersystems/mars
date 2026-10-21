@@ -32,7 +32,7 @@
 #     on one failed check, a probe without a 5s timeout, or probe timings
 #     that values.yaml cannot override (#297)
 #   - any chart that runs amazon/aws-cli or docker:*dind: the charts run
-#     luthersystems/aws-cli and luthersystems/dind instead, the same images
+#     luthersystems/awscli and luthersystems/dind instead, the same images
 #     without the eMudhra (emSign) roots (luthersystems/buildenv)
 #   - chaincode: the env the k8s_fabric_chaincode role passes
 #     (CHAINCODE_NAME, luthersystems/substrate#808) missing, or dropping
@@ -523,7 +523,7 @@ exit ${fail}
 # goes back to one would undo luthersystems/buildenv's removal. Search every
 # chart, the umbrella charts under helm_charts/files/helmcharts too.
 if grep -rnE --include='*.yaml' --include='*.tpl' 'image: *"?(amazon/aws-cli|docker):' "${ROOT}/ansible-roles"; then
-  echo "FAIL: a chart runs amazon/aws-cli or docker dind; use luthersystems/aws-cli or luthersystems/dind"
+  echo "FAIL: a chart runs amazon/aws-cli or docker dind; use luthersystems/awscli or luthersystems/dind"
   exit 1
 fi
 echo "OK:   no chart runs amazon/aws-cli or docker dind"
