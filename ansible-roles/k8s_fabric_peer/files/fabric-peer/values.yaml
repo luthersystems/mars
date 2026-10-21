@@ -170,7 +170,7 @@ availabilityZone: ""
 awsCLIVersion: v0.1.42
 # luthersystems/dind tag: a luthersystems/buildenv release (docker dind
 # without the emSign roots). The role passes k8s_fabric_peer_dind_version.
-dindVersion: v0.1.42
+dindVersion: v0.1.43
 
 fabricSnapshotArchiver:
   enabled: false
