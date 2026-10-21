@@ -27,7 +27,9 @@
 # root's PEM line or for the common name an emSign root has in DER
 # ("emSign Root CA", "emSign ECC Root CA"); a match fails the check. This
 # covers a Go program built with golang.org/x/crypto/x509roots/fallback and
-# Node.js, whose own root list holds all four emSign roots. Node is the one
+# Node.js, whose own root list holds all four emSign roots. A text file that
+# matches is read on the host for an emSign root's PEM line too, so base64
+# text without a BEGIN line does not pass. Node is the one
 # exception: its root list is always in the binary, so each node executable
 # is run in the image instead (with the image's environment, so NODE_OPTIONS
 # applies) and fails if the CA certificates it uses hold an emSign root. The
@@ -87,15 +89,20 @@ scan() {
 	find / -xdev -type f -name cacerts 2>/dev/null || true
 	find /etc/ssl/certs -maxdepth 1 \( -name "*.pem" -o -name "*.[0-9]" \) 2>/dev/null || true
 } | sort -u >/tmp/certfiles
-# grep -a reads binaries as text; keep only the files with a NUL byte (the
-# text files are checked above, and a stripped bundle keeps its comments).
+# grep -a reads binaries as text. A file with a NUL byte goes in BINLIST.
+# A text file goes in the tar too, so the host reads it for an emSign PEM
+# line even when it has no BEGIN line (base64 text without the PEM header);
+# one that matched only a name passes (a stripped bundle keeps its comments).
+: >/tmp/emsigntext
 scan -laF "$@" | while IFS= read -r f; do
 	if [ "$(tr -d "\\000" <"$f" | wc -c)" -ne "$(wc -c <"$f")" ]; then
 		printf "%s\n" "$f"
+	else
+		printf "%s\n" "$f" >>/tmp/emsigntext
 	fi
 done | sort -u >/'"$BINLIST"'
 { find / -xdev -type f \( -name node -o -name nodejs \) -perm -u+x 2>/dev/null || true; } | sort -u >/'"$NODELIST"'
-cat /tmp/certfiles /'"$BINLIST"' | sort -u >/tmp/tarfiles
+cat /tmp/certfiles /tmp/emsigntext /'"$BINLIST"' | sort -u >/tmp/tarfiles
 printf "%s\n" /'"$BINLIST"' /'"$NODELIST"' >>/tmp/tarfiles
 tar -chf - -T /tmp/tarfiles 2>/dev/null
 ' bash "${grep_args[@]}" | tar -xf - -C "$work/root"
@@ -189,7 +196,7 @@ while IFS= read -r -d '' f; do
 		fi
 	done
 done < <(find "$work/root" -type f -print0)
-echo "scanned $files file(s) with a PEM certificate"
+echo "scanned $files file(s) with a PEM certificate or an emSign name"
 
 # Binary files that hold an emSign root. Each is read again here, with the
 # host's grep, so the image's grep cannot make one pass; a node executable
