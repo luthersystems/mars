@@ -520,12 +520,23 @@ exit ${fail}
 '
 
 # Upstream images that still trust the eMudhra (emSign) roots. A chart that
-# goes back to one would undo luthersystems/buildenv's removal.
-if grep -rnE 'image: *"?(amazon/aws-cli|docker):' "${ROOT}/ansible-roles"/*/files/*/templates; then
+# goes back to one would undo luthersystems/buildenv's removal. Search every
+# chart, the umbrella charts under helm_charts/files/helmcharts too.
+if grep -rnE --include='*.yaml' --include='*.tpl' 'image: *"?(amazon/aws-cli|docker):' "${ROOT}/ansible-roles"; then
   echo "FAIL: a chart runs amazon/aws-cli or docker dind; use luthersystems/aws-cli or luthersystems/dind"
   exit 1
 fi
 echo "OK:   no chart runs amazon/aws-cli or docker dind"
+
+# The shiroclient umbrella chart cannot read the role variable, so its
+# default tag must equal it.
+want=$(sed -n 's/^luther_buildenv_images_version: *//p' "${ROOT}/ansible-roles/luther_images/defaults/main.yml")
+got=$(sed -n 's/^awsCLIVersion: *//p' "${CHARTS}/shiroclient/values.yaml")
+if [ -z "${want}" ] || [ "${got}" != "${want}" ]; then
+  echo "FAIL: shiroclient awsCLIVersion is ${got:-<missing>}, want luther_buildenv_images_version (${want:-<missing>})"
+  exit 1
+fi
+echo "OK:   shiroclient awsCLIVersion matches luther_buildenv_images_version"
 
 case "${1:?usage: smoke-helm-charts.sh <image> | --local}" in
 --local)
