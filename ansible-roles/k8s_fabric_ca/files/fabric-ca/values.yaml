@@ -92,6 +92,8 @@ affinity: {}
 
 availabilityZone: ""
 
-awsCLIVersion: latest
+# luthersystems/awscli tag: a luthersystems/buildenv release (amazon/aws-cli
+# without the emSign roots). The role passes luther_buildenv_images_version.
+awsCLIVersion: v0.1.42
 
 local: false

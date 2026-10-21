@@ -3,3 +3,4 @@ allow_duplicates: true
 
 dependencies:
   - helm
+  - luther_images

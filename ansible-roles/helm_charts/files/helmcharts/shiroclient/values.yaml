@@ -156,7 +156,13 @@ affinity: {}
 
 verbose: false
 
-awsCLIVersion: latest
+# luthersystems/awscli tag: a luthersystems/buildenv release (amazon/aws-cli
+# without the emSign roots). No role sets this value: the helm_charts role
+# only copies the chart, and the deployer's helm values (for example
+# ui-infrastructure's ansible/vars/umbrella.yaml) may override it. So the
+# default is set here, and smoke-helm-charts.sh checks it equals
+# luther_buildenv_images_version.
+awsCLIVersion: v0.1.42
 
 local: false
 

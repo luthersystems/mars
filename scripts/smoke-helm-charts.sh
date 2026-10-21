@@ -31,6 +31,11 @@
 #   - fabric-peer, fabric-orderer: a liveness probe that restarts the node
 #     on one failed check, a probe without a 5s timeout, or probe timings
 #     that values.yaml cannot override (#297)
+#   - any chart that runs amazon/aws-cli or docker:*dind: the charts run
+#     luthersystems/awscli and luthersystems/dind instead, the same images
+#     without the eMudhra (emSign) roots (luthersystems/buildenv)
+#   - a chart default awsCLIVersion or dindVersion that differs from the
+#     role default (luther_buildenv_images_version, k8s_fabric_peer_dind_version)
 #   - chaincode: the env the k8s_fabric_chaincode role passes
 #     (CHAINCODE_NAME, luthersystems/substrate#808) missing, or dropping
 #     the chart's env defaults
@@ -515,6 +520,72 @@ want_cc_env "chaincode env keeps the metrics address default" CHAINCODE_PROM_LIS
 
 exit ${fail}
 '
+
+# The image checks below read only files, but run after the usage check so a
+# bad call fails with the usage line first.
+: "${1:?usage: smoke-helm-charts.sh <image> | --local}"
+
+# Upstream images that still trust the eMudhra (emSign) roots. A chart that
+# goes back to one would undo luthersystems/buildenv's removal. Search every
+# chart, the umbrella charts under helm_charts/files/helmcharts too, for the
+# names anywhere (an image: line, or a repository: value). grep exits 1 when
+# nothing matches; any other status is an error, not a pass.
+set +e
+grep -rnE --include='*.yaml' --include='*.tpl' \
+  '^[^#]*(amazon/aws-cli|docker(\.io/library/docker)?:[^ "]*dind|repository: *"?docker"? *$)' \
+  "${ROOT}/ansible-roles"
+rc=$?
+set -e
+case ${rc} in
+0)
+  echo "FAIL: a chart runs amazon/aws-cli or docker dind; use luthersystems/awscli or luthersystems/dind"
+  exit 1
+  ;;
+1) echo "OK:   no chart runs amazon/aws-cli or docker dind" ;;
+*)
+  echo "FAIL: grep for upstream images exited ${rc}"
+  exit 1
+  ;;
+esac
+
+# The YAML value of a top-level key, without quotes or a trailing comment.
+yaml_value() {
+  sed -n "s/^$1: *//p" "$2" | sed -e 's/ *#.*$//' -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/" | head -n1
+}
+
+# Every chart default must equal the role default, so a chart rendered
+# without the role's values (helm template, the shiroclient umbrella chart)
+# runs the same tag.
+fail_tags=0
+want_tag() { # <desc> <want> <values.yaml> <key>
+  got=$(yaml_value "$4" "$3")
+  if [ -z "$2" ] || [ "${got}" != "$2" ]; then
+    echo "FAIL: $1: $4 is ${got:-<missing>}, want ${2:-<missing>}"
+    fail_tags=1
+  else
+    echo "OK:   $1: $4 is $2"
+  fi
+}
+buildenv=$(yaml_value luther_buildenv_images_version "${ROOT}/ansible-roles/luther_images/defaults/main.yml")
+dind=$(yaml_value k8s_fabric_peer_dind_version "${ROOT}/ansible-roles/k8s_fabric_peer/defaults/main.yml")
+for values in \
+  "${ROOT}/ansible-roles/k8s_fabric_ca/files/fabric-ca/values.yaml" \
+  "${ROOT}/ansible-roles/k8s_fabric_cli/files/fabric-cli/values.yaml" \
+  "${ROOT}/ansible-roles/k8s_fabric_orderer/files/fabric-orderer/values.yaml" \
+  "${ROOT}/ansible-roles/k8s_fabric_peer/files/fabric-peer/values.yaml" \
+  "${ROOT}/ansible-roles/shiroclient_cli/files/shiroclient-cli/values.yaml" \
+  "${CHARTS}/shiroclient/values.yaml"; do
+  want_tag "${values#"${ROOT}/"}" "${buildenv}" "${values}" awsCLIVersion
+done
+want_tag "fabric-peer dind" "${dind}" \
+  "${ROOT}/ansible-roles/k8s_fabric_peer/files/fabric-peer/values.yaml" dindVersion
+# A chart that adds an awscli or dind image must be in the list above.
+listed=$(grep -rlE --include='*.yaml' 'luthersystems/(awscli|dind):' "${ROOT}/ansible-roles" | wc -l)
+if [ "${listed}" -ne 6 ]; then
+  echo "FAIL: ${listed} charts run luthersystems/awscli or dind, the tag check covers 6; add the new one"
+  fail_tags=1
+fi
+[ "${fail_tags}" -eq 0 ] || exit 1
 
 case "${1:?usage: smoke-helm-charts.sh <image> | --local}" in
 --local)
