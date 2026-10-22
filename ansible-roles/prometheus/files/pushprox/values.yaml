@@ -6,8 +6,14 @@ replicaCount: 1
 
 image:
   repository: luthersystems/pushprox
-  tag: 2.178.0-fabric2
-  pullPolicy: Always
+  # From v0.1.0 the image runs as nobody (uid 65534) under tini, on the
+  # hardened service-base-alpine base. The chart sets no command or args,
+  # so the image's default "--listen=:8080" applies; 8080 is not a
+  # privileged port, so nobody can bind it. IfNotPresent: the tag is a
+  # fixed release, so a pod restart need not pull from Docker Hub (rate
+  # limits, outages).
+  tag: v0.1.0
+  pullPolicy: IfNotPresent
 
 imagePullSecrets: []
 nameOverride: ""
@@ -20,16 +26,23 @@ serviceAccount:
   # If not set and create is true, a name is generated using the fullname template
   name:
 
-podSecurityContext: {}
-  # fsGroup: 2000
+# The proxy needs no root, no capability and no writable file. runAsUser
+# is numeric because the image's USER is the name "nobody": with only
+# runAsNonRoot, the kubelet cannot check a user name and refuses to start
+# the container.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  runAsGroup: 65534
+  seccompProfile:
+    type: RuntimeDefault
 
-securityContext: {}
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
 
 service:
   type: ClusterIP
