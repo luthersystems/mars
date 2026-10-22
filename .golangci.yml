@@ -1,0 +1,14 @@
+version: "2"
+# The org security workflow (luthersystems/.github, security / gosec) runs
+# gosec through golangci-lint with this file. mars has no other
+# golangci-lint run.
+linters:
+  exclusions:
+    rules:
+      # Tests write fixtures to t.TempDir() and read them back, by path. File
+      # permissions and file inclusion there guard nothing: the files are the
+      # test's own, in a directory only the test uses.
+      - path: '_test\.go$'
+        linters:
+          - gosec
+        text: "G301|G304|G306"

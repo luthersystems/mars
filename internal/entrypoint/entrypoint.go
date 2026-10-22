@@ -50,7 +50,7 @@ func Run(marsPath string, args []string, env []string) error {
 			return err
 		}
 	}
-	return syscall.Exec(marsPath, append([]string{marsPath}, args...), env)
+	return syscall.Exec(marsPath, append([]string{marsPath}, args...), env) //nolint:gosec // G204: execs the mars binary itself with the container's own args
 }
 
 func PrepareUser(cfg Config) error {
@@ -76,7 +76,7 @@ func ChownTree(root string, uid int, gid int) error {
 		if err != nil {
 			return err
 		}
-		return os.Lchown(path, uid, gid)
+		return os.Lchown(path, uid, gid) //nolint:gosec // G122: runs as root at container start over the user's HOME; Lchown does not follow symlinks
 	})
 }
 
@@ -96,7 +96,7 @@ func envInt(getenv func(string) string, name string, fallback int) (int, error) 
 }
 
 func ensureLine(path string, prefix string, line string) error {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // G304: path is /etc/group or /etc/passwd, set by PrepareUser
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
@@ -105,7 +105,7 @@ func ensureLine(path string, prefix string, line string) error {
 			return nil
 		}
 	}
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644) //nolint:gosec // G302,G304: /etc/group and /etc/passwd must be world-readable (0644)
 	if err != nil {
 		return err
 	}

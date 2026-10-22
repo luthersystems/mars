@@ -260,7 +260,7 @@ func (s *service) encryptionKey(ctx context.Context, opts VaultOpts) (string, er
 	if err != nil {
 		return "", err
 	}
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // G304: the vault password file mars was configured to use
 	if err != nil {
 		return "", err
 	}
@@ -353,7 +353,7 @@ func (s *service) readInventoryConfig() (inventoryConfig, error) {
 		Script:        &script,
 	}
 	path := filepath.Join("inventories", s.env, "mars.yaml")
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // G304: fixed path under inventories/<env>, the operator's own repo
 	if errors.Is(err, os.ErrNotExist) {
 		return cfg, nil
 	}
@@ -422,7 +422,7 @@ func (s *service) encryptedInput(path string) (string, error) {
 
 func (s *service) readSecretInput(path string, stdinErr string) ([]byte, error) {
 	if path != "" {
-		return os.ReadFile(path)
+		return os.ReadFile(path) //nolint:gosec // G304: path is the operator's file argument
 	}
 	if !stdinPipe(s.stdin) {
 		return nil, errors.New(stdinErr)
@@ -452,7 +452,7 @@ func stdinPipe(r io.Reader) bool {
 }
 
 func vaultValue(path string, key string) (string, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // G304: path is the operator's yaml_file argument
 	if err != nil {
 		return "", err
 	}
