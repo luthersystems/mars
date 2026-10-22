@@ -104,6 +104,9 @@
       dockerChaincode: "{{k8s_fabric_cli_chaincode_docker}}"
       availabilityZone: "{{availability_zones[item]}}"
       awsCLIVersion: "{{k8s_fabric_cli_aws_cli_version}}"
+      image:
+        repository: "{{k8s_fabric_cli_image_repository}}"
+        tag: "{{k8s_fabric_cli_image_tag}}"
       local: "{{mars_local | default(false)}}"
   environment: "{{ kubectl_env }}"
   vars:
