@@ -309,6 +309,7 @@ RUN helm plugin install https://github.com/databus23/helm-diff --version ${HELM_
 # the system bundle, the Python venv (certifi, botocore), the AWS CLI and
 # google-cloud-cli. Every customer Terraform deploy runs in this image.
 # Keep it the LAST step: a later apt, pip, installer or COPY --from can bring
-# a bundle back. scripts/check-harden.sh checks this Dockerfile and the built
-# image in CI on both architectures. The image has no Node.js and no Java.
+# a bundle back. CI checks this Dockerfile and the built image on both
+# architectures with the shared action luthersystems/.github/actions/
+# harden-check. The image has no Node.js and no Java.
 RUN --mount=type=bind,from=harden,source=/harden,target=/harden sh /harden/harden.sh

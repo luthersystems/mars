@@ -62,10 +62,14 @@ jobs:
       # and one could bring a CA bundle back. The per-arch tag is already
       # pushed by now, but a failure here stops push-manifests, so the
       # release tag, :latest and the ui-infrastructure pin never point at
-      # the image.
+      # the image. The shared action is the one copy of the check for every
+      # repo (see mars-ci.yml).
       - name: Verify build-harden
-        shell: bash
-        run: ./scripts/check-harden.sh "luthersystems/mars:${GITHUB_REF_NAME}" "linux/${{ matrix.arch }}"
+        uses: luthersystems/.github/actions/harden-check@v1
+        with:
+          dockerfiles: Dockerfile
+          # The tag holds the one platform this job built.
+          images: luthersystems/mars:${{ github.ref_name }} linux/${{ matrix.arch }}
   push-manifests:
     permissions:
       contents: read
