@@ -11,7 +11,8 @@ name: Dependabot auto-merge
 # unreviewed.
 #
 # REQUIRED CHECKS. Auto-merge waits only for checks that branch protection on
-# main marks required. Keep `go test`, `govulncheck` and both docker builds
+# main marks required. Keep `go test`, `security / result` (the shared
+# Security workflow, which runs govulncheck) and both docker builds
 # required, or a bump that fails an unrequired check merges anyway.
 #
 # WHY it approves. Branch protection on main requires one approval. Without
