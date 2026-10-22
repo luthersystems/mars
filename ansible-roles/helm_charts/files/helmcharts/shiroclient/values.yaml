@@ -162,7 +162,7 @@ verbose: false
 # ui-infrastructure's ansible/vars/umbrella.yaml) may override it. So the
 # default is set here, and smoke-helm-charts.sh checks it equals
 # luther_buildenv_images_version.
-awsCLIVersion: v0.1.42
+awsCLIVersion: v0.1.46
 
 local: false
 

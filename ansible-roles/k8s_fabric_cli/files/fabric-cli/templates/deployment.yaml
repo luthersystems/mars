@@ -61,7 +61,7 @@ spec:
         {{- end }}
       containers:
         - name: {{ .Chart.Name }}
-          image: "{{ .Values.image.repository }}:{{ .Values.global.hyperledger.fabricVersion }}"
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Values.global.hyperledger.fabricVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
             - /bin/sh

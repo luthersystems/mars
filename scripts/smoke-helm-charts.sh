@@ -36,6 +36,8 @@
 #     without the eMudhra (emSign) roots (luthersystems/buildenv)
 #   - a chart default awsCLIVersion or dindVersion that differs from the
 #     role default (luther_buildenv_images_version, k8s_fabric_peer_dind_version)
+#   - fabric-cli: an image other than luthersystems/fabric-tools, or a tag
+#     that differs from luther_buildenv_images_version
 #   - chaincode: the env the k8s_fabric_chaincode role passes
 #     (CHAINCODE_NAME, luthersystems/substrate#808) missing, or dropping
 #     the chart's env defaults
@@ -579,6 +581,18 @@ for values in \
 done
 want_tag "fabric-peer dind" "${dind}" \
   "${ROOT}/ansible-roles/k8s_fabric_peer/files/fabric-peer/values.yaml" dindVersion
+# fabric-cli runs luthersystems/fabric-tools, tagged with the buildenv
+# release like awscli.
+cli_values="${ROOT}/ansible-roles/k8s_fabric_cli/files/fabric-cli/values.yaml"
+cli_image=$(sed -n '/^image:/,/^[^ ]/p' "${cli_values}")
+cli_repo=$(printf '%s\n' "${cli_image}" | sed -n 's/^  repository: *//p')
+cli_tag=$(printf '%s\n' "${cli_image}" | sed -n 's/^  tag: *//p')
+if [ "${cli_repo}" != luthersystems/fabric-tools ] || [ "${cli_tag}" != "${buildenv}" ]; then
+  echo "FAIL: fabric-cli image is ${cli_repo:-<missing>}:${cli_tag:-<missing>}, want luthersystems/fabric-tools:${buildenv}"
+  fail_tags=1
+else
+  echo "OK:   fabric-cli image is luthersystems/fabric-tools:${buildenv}"
+fi
 # A chart that adds an awscli or dind image must be in the list above.
 listed=$(grep -rlE --include='*.yaml' 'luthersystems/(awscli|dind):' "${ROOT}/ansible-roles" | wc -l)
 if [ "${listed}" -ne 6 ]; then

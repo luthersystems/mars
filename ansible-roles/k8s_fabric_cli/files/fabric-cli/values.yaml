@@ -30,8 +30,11 @@ dlt:
   channelArtifactsConfigMap: ""
   collectionsConfigMap: ""
 
+# luthersystems/fabric-tools is hyperledger/fabric-tools 2.5.6 with the
+# build-harden kit run. An empty tag uses global.hyperledger.fabricVersion.
 image:
-  repository: hyperledger/fabric-tools
+  repository: luthersystems/fabric-tools
+  tag: v0.1.46
   pullPolicy: IfNotPresent
 
 substrate:
@@ -91,6 +94,6 @@ affinity: {}
 
 # luthersystems/awscli tag: a luthersystems/buildenv release (amazon/aws-cli
 # without the emSign roots). The role passes luther_buildenv_images_version.
-awsCLIVersion: v0.1.42
+awsCLIVersion: v0.1.46
 
 local: false

@@ -29,6 +29,14 @@ k8s_fabric_cli_collections_configmap_name: ""
 
 k8s_fabric_cli_version: "{{k8s_fabric_version}}"
 
+# The CLI image. luthersystems/fabric-tools is hyperledger/fabric-tools 2.5.6
+# with the build-harden kit run (luthersystems/buildenv), tagged with the
+# buildenv release. A network on a Fabric release older than 2.5 sets the
+# repository to hyperledger/fabric-tools and the tag to "": an empty tag
+# uses k8s_fabric_cli_version.
+k8s_fabric_cli_image_repository: luthersystems/fabric-tools
+k8s_fabric_cli_image_tag: "{{ luther_buildenv_images_version }}"
+
 k8s_fabric_cli_aws_cli_version: "{{ luther_buildenv_images_version }}"
 
 k8s_fabric_cli_service_account_iam_role_arns: {}
