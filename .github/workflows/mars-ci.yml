@@ -63,8 +63,13 @@ jobs:
         run: ./scripts/smoke-helm-charts.sh "luthersystems/mars:${GITHUB_SHA}"
       # The Dockerfile runs the build-harden kit last, so no distrusted root
       # CA (such as the eMudhra/emSign roots) is trusted. This proves it on
-      # the image built for each arch.
+      # the Dockerfile and on the image built for each arch. The shared
+      # action is the one copy of the check for every repo, so a fix reaches
+      # mars when v1 moves. It reads the kit pin from the Dockerfile.
       - name: Verify build-harden
         if: matrix.image == 'mars'
-        shell: bash
-        run: ./scripts/check-harden.sh "luthersystems/mars:${GITHUB_SHA}" "linux/${{ matrix.arch }}"
+        uses: luthersystems/.github/actions/harden-check@v1
+        with:
+          dockerfiles: Dockerfile
+          # The tag holds the one platform this job built.
+          images: luthersystems/mars:${{ github.sha }} linux/${{ matrix.arch }}
