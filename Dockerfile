@@ -1,5 +1,8 @@
 # syntax=docker/dockerfile:1.7
 
+# The build-harden kit (luthersystems/buildenv): the final stage runs it last.
+FROM luthersystems/build-harden:v0.1.45@sha256:ed783a0cd4faf6cd791b844970f00309cec76c4ab90b1e111d641ba44d67ba46 AS harden
+
 FROM ubuntu:24.04 AS downloader
 ARG TARGETARCH
 ENV TARGETARCH=$TARGETARCH
@@ -301,22 +304,11 @@ ENV HELM_DIFF_VERSION=$HELM_DIFF_VERSION
 
 RUN helm plugin install https://github.com/databus23/helm-diff --version ${HELM_DIFF_VERSION} --verify=false
 
-# Remove the eMudhra (emSign) root CAs from every trust store in the image
-# (CVE-2026-111943): the Ubuntu system bundle and the CA bundles that
-# the Python venv (certifi, botocore), the AWS CLI and google-cloud-cli
-# (grpc roots.pem, gsutil cacerts.txt) carry.
-# Every customer Terraform deploy runs in this image, so its TLS clients must
-# not trust a root whose intermediates' keys leaked. The script is buildenv's
-# (scripts/distrust-emudhra.sh says which commit), so every Luther image
-# removes the same roots.
-#
-# Keep this the LAST instruction: a later apt, pip, installer or COPY --from
-# can bring a bundle back. scripts/smoke-distrust-emudhra.sh checks the built
-# image in CI on both architectures and fails if any emSign root remains,
-# also one compiled into a program, or one Node.js would trust.
-#
-# The script is bind-mounted, not copied, so it is not left in the image.
-# The image has no Node.js and no Java. A Node.js added later needs
-# ENV NODE_OPTIONS=--use-openssl-ca: its own root list holds the emSign roots.
-RUN --mount=type=bind,source=scripts/distrust-emudhra.sh,target=/tmp/distrust-emudhra.sh \
-  sh /tmp/distrust-emudhra.sh
+# Run the build-harden kit last. It removes the distrusted root CAs (the
+# eMudhra/emSign roots, CVE-2026-111943) from every trust store in the image:
+# the system bundle, the Python venv (certifi, botocore), the AWS CLI and
+# google-cloud-cli. Every customer Terraform deploy runs in this image.
+# Keep it the LAST step: a later apt, pip, installer or COPY --from can bring
+# a bundle back. scripts/check-harden.sh checks this Dockerfile and the built
+# image in CI on both architectures. The image has no Node.js and no Java.
+RUN --mount=type=bind,from=harden,source=/harden,target=/harden sh /harden/harden.sh
