@@ -22,6 +22,19 @@
 # passing as clean. A Java keystore (cacerts) fails the check: the image has
 # no Java today, and a new one would need keytool to read it.
 #
+# Roots compiled into a program are not text, so the scan above skips them.
+# Every binary file (one with a NUL byte) is also searched for an emSign
+# root's PEM line or for the common name an emSign root has in DER
+# ("emSign Root CA", "emSign ECC Root CA"); a match fails the check. This
+# covers a Go program built with golang.org/x/crypto/x509roots/fallback and
+# Node.js, whose own root list holds all four emSign roots. A text file that
+# matches is read on the host for an emSign root's PEM line too, so base64
+# text without a BEGIN line does not pass. Node is the one
+# exception: its root list is always in the binary, so each node executable
+# is run in the image instead (with the image's environment, so NODE_OPTIONS
+# applies) and fails if the CA certificates it uses hold an emSign root. The
+# image has no Node today; a new one needs NODE_OPTIONS=--use-openssl-ca.
+#
 # Usage: scripts/smoke-distrust-emudhra.sh IMAGE
 set -euo pipefail
 
@@ -45,17 +58,58 @@ mkdir "$work/root"
 # List every file that holds a PEM certificate, every Java keystore, and the
 # hash directory, then stream them out as one tar (-h follows the links in
 # /etc/ssl/certs into /usr/share/ca-certificates). -xdev keeps find on the
-# image's own file system (not /proc or /sys).
+# image's own file system (not /proc or /sys). Binary files that hold an
+# emSign root (see above) go in the same tar, listed in BINLIST, and the node
+# executables are listed in NODELIST.
+BINLIST=tmp/smoke-emsign-binaries
+NODELIST=tmp/smoke-emsign-nodes
+grep_args=(-e "emSign Root CA" -e "emSign ECC Root CA")
+for line in "${EMSIGN_LINES[@]}"; do
+	grep_args+=(-e "$line")
+done
 docker run --rm --user 0 --entrypoint /bin/bash "$IMAGE" -c '
 set -euo pipefail
+# A file that vanishes or cannot be read makes find exit non-zero; list
+# what it can.
+find / -xdev -type f -print0 2>/dev/null >/tmp/allfiles || true
+# scan GREP_ARGS: run grep on every file. grep exits 1 for a file with no
+# match and 2 for one it cannot read, and xargs reports either as 123. Any
+# other status (grep missing, killed or out of memory) fails the check: it
+# must not list no file and pass.
+scan() {
+	local rc=0
+	xargs -0 grep "$@" </tmp/allfiles 2>/dev/null || rc=$?
+	if [ "$rc" -ne 0 ] && [ "$rc" -ne 123 ]; then
+		echo "FAIL: grep $1 over the image exited $rc" >&2
+		exit 1
+	fi
+}
 {
-	find / -xdev -type f -print0 2>/dev/null |
-		xargs -0 grep -lIE -e "-----BEGIN (TRUSTED |X509 )?CERTIFICATE-----" 2>/dev/null || true
+	scan -lIE -e "-----BEGIN (TRUSTED |X509 )?CERTIFICATE-----"
 	find / -xdev -type f -name cacerts 2>/dev/null || true
 	find /etc/ssl/certs -maxdepth 1 \( -name "*.pem" -o -name "*.[0-9]" \) 2>/dev/null || true
 } | sort -u >/tmp/certfiles
-tar -chf - -T /tmp/certfiles 2>/dev/null
-' | tar -xf - -C "$work/root"
+# grep -a reads binaries as text. A file with a NUL byte goes in BINLIST.
+# A text file goes in the tar too, so the host reads it for an emSign PEM
+# line even when it has no BEGIN line (base64 text without the PEM header);
+# one that matched only a name passes (a stripped bundle keeps its comments).
+: >/tmp/emsigntext
+scan -laF "$@" | while IFS= read -r f; do
+	if [ "$(tr -d "\\000" <"$f" | wc -c)" -ne "$(wc -c <"$f")" ]; then
+		printf "%s\n" "$f"
+	else
+		printf "%s\n" "$f" >>/tmp/emsigntext
+	fi
+done | sort -u >/'"$BINLIST"'
+{ find / -xdev -type f \( -name node -o -name nodejs \) -perm -u+x 2>/dev/null || true; } | sort -u >/'"$NODELIST"'
+cat /tmp/certfiles /tmp/emsigntext /'"$BINLIST"' | sort -u >/tmp/tarfiles
+printf "%s\n" /'"$BINLIST"' /'"$NODELIST"' >>/tmp/tarfiles
+tar -chf - -T /tmp/tarfiles 2>/dev/null
+' bash "${grep_args[@]}" | tar -xf - -C "$work/root"
+if [ ! -f "$work/root/$BINLIST" ] || [ ! -f "$work/root/$NODELIST" ]; then
+	echo "FAIL: could not list the binary files and node executables in $IMAGE" >&2
+	exit 1
+fi
 
 fail=0
 
@@ -122,6 +176,9 @@ echo "/etc/ssl/certs/*.pem and hash links: $count certificate(s)"
 files=0
 while IFS= read -r -d '' f; do
 	path=${f#"$work/root"}
+	if [ "$path" = "/$BINLIST" ] || [ "$path" = "/$NODELIST" ] || grep -qxF "$path" "$work/root/$BINLIST"; then
+		continue
+	fi
 	case $path in
 	*/cacerts)
 		echo "FAIL: $path: a Java keystore; this check cannot read it" >&2
@@ -139,7 +196,66 @@ while IFS= read -r -d '' f; do
 		fi
 	done
 done < <(find "$work/root" -type f -print0)
-echo "scanned $files file(s) with a PEM certificate"
+echo "scanned $files file(s) with a PEM certificate or an emSign name"
+
+# Binary files that hold an emSign root. Each is read again here, with the
+# host's grep, so the image's grep cannot make one pass; a node executable
+# is left to the check below.
+bins=0
+while IFS= read -r path; do
+	[ -n "$path" ] || continue
+	if grep -qxF "$path" "$work/root/$NODELIST"; then
+		continue
+	fi
+	bins=$((bins + 1))
+	if grep -qaF "${grep_args[@]}" "$work/root$path"; then
+		echo "FAIL: $path: a binary file that holds an emSign root" >&2
+		fail=1
+	else
+		echo "FAIL: $path: the image found an emSign root in it, the host did not" >&2
+		fail=1
+	fi
+done <"$work/root/$BINLIST"
+echo "found $bins binary file(s) with an emSign root, not counting node"
+
+# Node.js. tls.getCACertificates("default") (Node 22.15 and later) lists the
+# certificates Node trusts with its options. An older Node has only
+# tls.rootCertificates, its own list, which holds the emSign roots, so it
+# passes only with --use-openssl-ca, which makes it read the system bundle
+# checked above. A node that cannot run fails.
+NODE_JS='
+const tls = require("tls");
+const { X509Certificate } = require("crypto");
+// Whole arguments only: execArgv also holds the text of this script.
+const opts = (process.env.NODE_OPTIONS || "").split(/\s+/).concat(process.execArgv);
+let certs, how;
+if (typeof tls.getCACertificates === "function") {
+  certs = tls.getCACertificates("default");
+  how = "tls.getCACertificates(default)";
+} else if (opts.includes("--use-openssl-ca") && !opts.includes("--use-bundled-ca")) {
+  certs = [];
+  how = "--use-openssl-ca (the system bundle)";
+} else {
+  certs = tls.rootCertificates;
+  how = "its own root list";
+}
+const bad = certs.map((p) => new X509Certificate(p).subject).filter((s) => /emsign/i.test(s));
+for (const s of bad) console.log("emSign: " + s.replace(/\n/g, ", "));
+console.log(process.version + " uses " + how + ": " + certs.length + " certificate(s), " + bad.length + " emSign");
+process.exit(bad.length ? 1 : 0);
+'
+nodes=0
+while IFS= read -r node; do
+	[ -n "$node" ] || continue
+	nodes=$((nodes + 1))
+	if out=$(docker run --rm --entrypoint "$node" "$IMAGE" -e "$NODE_JS" 2>&1); then
+		echo "$node: $out"
+	else
+		echo "FAIL: $node trusts an emSign root or cannot run: $out" >&2
+		fail=1
+	fi
+done <"$work/root/$NODELIST"
+echo "checked $nodes node executable(s)"
 
 if [ "$fail" -ne 0 ]; then
 	echo "FAIL: $IMAGE trusts an emSign root" >&2

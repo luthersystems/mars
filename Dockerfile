@@ -312,6 +312,11 @@ RUN helm plugin install https://github.com/databus23/helm-diff --version ${HELM_
 #
 # Keep this the LAST instruction: a later apt, pip, installer or COPY --from
 # can bring a bundle back. scripts/smoke-distrust-emudhra.sh checks the built
-# image in CI on both architectures and fails if any emSign root remains.
-COPY scripts/distrust-emudhra.sh /usr/local/sbin/distrust-emudhra.sh
-RUN sh /usr/local/sbin/distrust-emudhra.sh
+# image in CI on both architectures and fails if any emSign root remains,
+# also one compiled into a program, or one Node.js would trust.
+#
+# The script is bind-mounted, not copied, so it is not left in the image.
+# The image has no Node.js and no Java. A Node.js added later needs
+# ENV NODE_OPTIONS=--use-openssl-ca: its own root list holds the emSign roots.
+RUN --mount=type=bind,source=scripts/distrust-emudhra.sh,target=/tmp/distrust-emudhra.sh \
+  sh /tmp/distrust-emudhra.sh
