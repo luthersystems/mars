@@ -4,9 +4,11 @@ global:
 replicaCount: 1
 
 image:
-  # Use the Docker Hub image that includes uvx
-  repository: supercorp/supergateway
-  tag: uvx
+  # The hardened supergateway image with uvx (luthersystems/connectorhub
+  # docker/Dockerfile.supergateway-uvx-git): supercorp/supergateway:3.4.3-uvx
+  # with git, the CA bundle and the build-harden kit.
+  repository: luthersystems/supergateway-uvx-git
+  tag: 3.4.3-2
   pullPolicy: IfNotPresent
 
 # Command that Supergateway runs in stdio mode

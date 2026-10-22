@@ -38,6 +38,8 @@
 #     role default (luther_buildenv_images_version, k8s_fabric_peer_dind_version)
 #   - fabric-cli: an image other than luthersystems/fabric-tools, or a tag
 #     that differs from luther_buildenv_images_version
+#   - supergateway, mcp-inspector: an image other than the hardened
+#     luthersystems/supergateway-uvx-git (luthersystems/connectorhub)
 #   - chaincode: the env the k8s_fabric_chaincode role passes
 #     (CHAINCODE_NAME, luthersystems/substrate#808) missing, or dropping
 #     the chart's env defaults
@@ -593,6 +595,17 @@ if [ "${cli_repo}" != luthersystems/fabric-tools ] || [ "${cli_tag}" != "${build
 else
   echo "OK:   fabric-cli image is luthersystems/fabric-tools:${buildenv}"
 fi
+# supergateway and mcp-inspector run the hardened supergateway image, not
+# supercorp/supergateway.
+for c in supergateway mcp-inspector; do
+  sg_repo=$(sed -n '/^image:/,/^[^ ]/p' "${CHARTS}/${c}/values.yaml" | sed -n 's/^  repository: *//p')
+  if [ "${sg_repo}" != luthersystems/supergateway-uvx-git ]; then
+    echo "FAIL: ${c} image is ${sg_repo:-<missing>}, want luthersystems/supergateway-uvx-git"
+    fail_tags=1
+  else
+    echo "OK:   ${c} image is luthersystems/supergateway-uvx-git"
+  fi
+done
 # A chart that adds an awscli or dind image must be in the list above.
 listed=$(grep -rlE --include='*.yaml' 'luthersystems/(awscli|dind):' "${ROOT}/ansible-roles" | wc -l)
 if [ "${listed}" -ne 6 ]; then
