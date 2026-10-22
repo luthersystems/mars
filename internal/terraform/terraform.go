@@ -154,7 +154,8 @@ func (c *PlanCmd) Run(ctx context.Context, rt *app.Runtime) error {
 	}
 	planPath := c.Out
 	if c.ApplyPlan && planPath == "" {
-		if err := os.MkdirAll(".tf-plans", 0o755); err != nil {
+		// A plan can hold sensitive values, so other users get no access.
+		if err := os.MkdirAll(".tf-plans", 0o750); err != nil {
 			return err
 		}
 		clock := s.clock
@@ -262,7 +263,8 @@ func (c *ApplyCmd) runGuardedApply(ctx context.Context, s *service) error {
 // tempPlanPath creates a unique plan-output path under .tf-plans, mirroring
 // PlanCmd's --apply temp-file convention.
 func (s *service) tempPlanPath() (string, error) {
-	if err := os.MkdirAll(".tf-plans", 0o755); err != nil {
+	// A plan can hold sensitive values, so other users get no access.
+	if err := os.MkdirAll(".tf-plans", 0o750); err != nil {
 		return "", err
 	}
 	clock := s.clock

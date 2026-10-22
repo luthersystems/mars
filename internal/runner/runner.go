@@ -128,7 +128,7 @@ func (r *Real) Run(ctx context.Context, cmd Command) error {
 	if !cmd.Quiet {
 		fmt.Fprintln(r.stderr(cmd), ShellCommand(cmd.Argv))
 	}
-	execCmd := exec.CommandContext(ctx, cmd.Argv[0], cmd.Argv[1:]...)
+	execCmd := exec.CommandContext(ctx, cmd.Argv[0], cmd.Argv[1:]...) //nolint:gosec // G204: running the commands mars builds is this package's purpose
 	execCmd.Dir = cmd.Dir
 	execCmd.Env = mergedEnv(cmd.Env)
 	execCmd.Stdin = firstReader(cmd.Stdin, r.Stdin, os.Stdin)
@@ -144,7 +144,7 @@ func (r *Real) Capture(ctx context.Context, cmd Command) ([]byte, error) {
 	if !cmd.Quiet {
 		fmt.Fprintln(r.stderr(cmd), ShellCommand(cmd.Argv))
 	}
-	execCmd := exec.CommandContext(ctx, cmd.Argv[0], cmd.Argv[1:]...)
+	execCmd := exec.CommandContext(ctx, cmd.Argv[0], cmd.Argv[1:]...) //nolint:gosec // G204: as in Run
 	execCmd.Dir = cmd.Dir
 	execCmd.Env = mergedEnv(cmd.Env)
 	execCmd.Stdin = firstReader(cmd.Stdin, r.Stdin, os.Stdin)
@@ -159,13 +159,13 @@ func (r *Real) Pipe(ctx context.Context, producer Command, consumer Command) err
 	}
 	fmt.Fprintf(r.stderr(consumer), "%s | %s\n", ShellCommand(producer.Argv), ShellCommand(consumer.Argv))
 
-	producerCmd := exec.CommandContext(ctx, producer.Argv[0], producer.Argv[1:]...)
+	producerCmd := exec.CommandContext(ctx, producer.Argv[0], producer.Argv[1:]...) //nolint:gosec // G204: as in Run
 	producerCmd.Dir = producer.Dir
 	producerCmd.Env = mergedEnv(producer.Env)
 	producerCmd.Stdin = firstReader(producer.Stdin, r.Stdin, os.Stdin)
 	producerCmd.Stderr = r.stderr(producer)
 
-	consumerCmd := exec.CommandContext(ctx, consumer.Argv[0], consumer.Argv[1:]...)
+	consumerCmd := exec.CommandContext(ctx, consumer.Argv[0], consumer.Argv[1:]...) //nolint:gosec // G204: as in Run
 	consumerCmd.Dir = consumer.Dir
 	consumerCmd.Env = mergedEnv(consumer.Env)
 	consumerCmd.Stdout = firstWriter(consumer.Stdout, r.Stdout, os.Stdout)

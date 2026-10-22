@@ -349,7 +349,7 @@ Flags:`)
 }
 
 func readRequest(path string) (reversejob.Request, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(path) //nolint:gosec // G304: path is the job's --request flag, set by the workflow
 	if err != nil {
 		return reversejob.Request{}, fmt.Errorf("open --request: %w", err)
 	}
@@ -479,8 +479,8 @@ func ensureFailureResult(outputDir string, result reversejob.Result, runErr erro
 		return err
 	}
 	body = append(body, '\n')
-	if err := os.MkdirAll(outputDir, 0o755); err != nil {
+	if err := os.MkdirAll(outputDir, 0o755); err != nil { //nolint:gosec // G301: the out dir is an output artifact the workflow's executor collects
 		return err
 	}
-	return os.WriteFile(path, body, 0o644)
+	return os.WriteFile(path, body, 0o644) //nolint:gosec // G306: result.json is an output artifact the workflow's executor reads; it holds no secret
 }
