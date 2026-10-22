@@ -7,9 +7,14 @@ metadata:
   annotations:
     "helm.sh/hook": test-success
 spec:
+  securityContext:
+    {{- toYaml .Values.podSecurityContext | nindent 4 }}
   containers:
     - name: wget
       image: busybox
+      securityContext:
+        {{- toYaml .Values.securityContext | nindent 8 }}
       command: ['wget']
-      args:  ['{{ include "pushprox.fullname" . }}:{{ .Values.service.port }}']
+      # /probe: the proxy answers 404 for any other path.
+      args:  ['-O', '-', '{{ include "pushprox.fullname" . }}:{{ .Values.service.port }}/probe']
   restartPolicy: Never
