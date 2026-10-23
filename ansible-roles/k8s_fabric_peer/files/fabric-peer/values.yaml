@@ -32,8 +32,29 @@ image:
   repository: hyperledger/fabric-peer
   pullPolicy: IfNotPresent
 
+# Upstream image the peer builds chaincode in, tagged with fabricVersion. Used
+# only when chaincodeImages below picks no image.
 buildImage:
   repository: hyperledger/fabric-ccenv
+
+# Images for Docker chaincode (dockerChaincode). The peer builds Go chaincode
+# in fabric-ccenv and runs it in fabric-baseos. The upstream 2.2 and 2.4
+# images, and fabric-ccenv 2.5, trust the eMudhra (emSign) certificates
+# (CVE-2026-111943), so by default the chart runs the luthersystems/buildenv
+# copies that block them (luthersystems/mars#319):
+#   fabric-ccenv:<minor>-<version> for Fabric 2.2, 2.4 and 2.5
+#   fabric-baseos:<minor>-<version> for Fabric 2.2 and 2.4 (2.5 has no CA
+#   bundle, so the upstream image stays)
+# The peer builds a chaincode image only when it has none, so a change here
+# applies to chaincode the peer has not built yet. Remove the old dev-* images
+# from the dind daemon to rebuild the others.
+chaincodeImages:
+  # luthersystems/buildenv tag. The role passes
+  # k8s_fabric_peer_chaincode_images_version. Empty keeps the upstream images.
+  version: FABTAG
+  # A full image reference that replaces the default builder or Go runtime.
+  builder: ""
+  golangRuntime: ""
 
 buildpackImage:
   repository: luthersystems/buildpack

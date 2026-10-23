@@ -156,7 +156,11 @@ spec:
             - name: CORE_PEER_GOSSIP_PVTDATA_PUSHACKTIMEOUT
               value: {{ .Values.internal.container.invokeTimeout }}
             - name: CORE_CHAINCODE_BUILDER
-              value: "{{ .Values.buildImage.repository }}:{{ .Values.global.hyperledger.fabricVersion }}"
+              value: {{ include "fabric-peer.chaincode-builder" . | quote }}
+            {{- with include "fabric-peer.chaincode-golang-runtime" . }}
+            - name: CORE_CHAINCODE_GOLANG_RUNTIME
+              value: {{ . | quote }}
+            {{- end }}
             - name: CORE_CHAINCODE_STARTUPTIMEOUT
               value: 500s
           ports:

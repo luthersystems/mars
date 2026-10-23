@@ -124,3 +124,53 @@ The orderer org's domain: dlt.ordererDomain, or dlt.domain when unset.
 {{- define "fabric-peer.orderer-domain" -}}
 {{- .Values.dlt.ordererDomain | default .Values.dlt.domain -}}
 {{- end -}}
+
+{{/*
+The Fabric minor version ("2.5") of global.hyperledger.fabricVersion.
+*/}}
+{{- define "fabric-peer.fabric-minor" -}}
+{{- regexFind "^[0-9]+\\.[0-9]+" (toString .Values.global.hyperledger.fabricVersion) -}}
+{{- end -}}
+
+{{/*
+The image the peer builds Go chaincode in (CORE_CHAINCODE_BUILDER).
+
+The upstream hyperledger/fabric-ccenv images trust the eMudhra (emSign)
+certificates (CVE-2026-111943), and Fabric no longer releases 2.2 or 2.4,
+so for the minors that luthersystems/buildenv wraps, the chart runs the
+hardened luthersystems/fabric-ccenv:<minor>-<buildenv tag> by default
+(luthersystems/mars#319). The tag is the minor, not the peer's patch
+version, because buildenv wraps one patch per minor; Fabric's own default,
+$(TWO_DIGIT_VERSION), also picks the image by minor. chaincodeImages.builder
+names any image instead. An empty chaincodeImages.version, or a minor with
+no wrapper, keeps the upstream buildImage.repository:<fabricVersion>.
+*/}}
+{{- define "fabric-peer.chaincode-builder" -}}
+{{- $minor := include "fabric-peer.fabric-minor" . -}}
+{{- $ci := .Values.chaincodeImages -}}
+{{- if $ci.builder -}}
+{{- $ci.builder -}}
+{{- else if and $ci.version (has $minor (list "2.2" "2.4" "2.5")) -}}
+{{- printf "luthersystems/fabric-ccenv:%s-%s" $minor $ci.version -}}
+{{- else -}}
+{{- printf "%s:%s" .Values.buildImage.repository (toString .Values.global.hyperledger.fabricVersion) -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+The image the peer runs Go chaincode in (CORE_CHAINCODE_GOLANG_RUNTIME), or
+empty to keep the core.yaml default $(DOCKER_NS)/fabric-baseos:$(TWO_DIGIT_VERSION).
+
+Only Fabric 2.2 and 2.4 get the hardened luthersystems/fabric-baseos: the
+upstream 2.5 image has no CA bundle, so it has nothing to block and buildenv
+does not wrap it. chaincodeImages.golangRuntime names any image instead.
+*/}}
+{{- define "fabric-peer.chaincode-golang-runtime" -}}
+{{- $minor := include "fabric-peer.fabric-minor" . -}}
+{{- $ci := .Values.chaincodeImages -}}
+{{- if $ci.golangRuntime -}}
+{{- $ci.golangRuntime -}}
+{{- else if and $ci.version (has $minor (list "2.2" "2.4")) -}}
+{{- printf "luthersystems/fabric-baseos:%s-%s" $minor $ci.version -}}
+{{- end -}}
+{{- end -}}

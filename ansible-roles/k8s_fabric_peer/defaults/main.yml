@@ -59,6 +59,18 @@ k8s_fabric_peer_aws_cli_version: "{{ luther_buildenv_images_version }}"
 # (luthersystems/buildenv#161). smoke-helm-charts.sh checks the chart default
 # equals it.
 k8s_fabric_peer_dind_version: v0.1.46
+# luthersystems/buildenv tag of the Docker chaincode images: fabric-ccenv
+# (the chaincode build image) for Fabric 2.2, 2.4 and 2.5, and fabric-baseos
+# (the Go chaincode runtime) for 2.2 and 2.4. They are the upstream images
+# with the eMudhra (emSign) certificates blocked (CVE-2026-111943,
+# luthersystems/mars#319). Pinned on its own, like dind: it changes the image
+# that builds chaincode, so a bump gets its own test. Empty keeps the upstream
+# hyperledger images. The chart default must equal it (smoke-helm-charts.sh).
+k8s_fabric_peer_chaincode_images_version: FABTAG
+# Full image references that replace the default build image or Go runtime
+# image. Empty uses k8s_fabric_peer_chaincode_images_version.
+k8s_fabric_peer_chaincode_builder_image: ""
+k8s_fabric_peer_chaincode_golang_runtime_image: ""
 
 k8s_fabric_peer_use_snapshot_archiver: false
 k8s_fabric_peer_snapshot_archiver_version: "v0.0.8"

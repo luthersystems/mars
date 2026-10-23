@@ -82,6 +82,10 @@
       logGrpc: "{{k8s_fabric_peer_log_grpc}}"
       awsCLIVersion: "{{k8s_fabric_peer_aws_cli_version}}"
       dindVersion: "{{k8s_fabric_peer_dind_version}}"
+      chaincodeImages:
+        version: "{{k8s_fabric_peer_chaincode_images_version}}"
+        builder: "{{k8s_fabric_peer_chaincode_builder_image}}"
+        golangRuntime: "{{k8s_fabric_peer_chaincode_golang_runtime_image}}"
       fabricSnapshotArchiver:
         image:
           version: "{{k8s_fabric_peer_snapshot_archiver_version}}"
