@@ -639,8 +639,13 @@ want_tag "fabric-peer dind" "${dind}" \
 # default k8s_fabric_peer_chaincode_images_version.
 cc_images=$(yaml_value k8s_fabric_peer_chaincode_images_version "${ROOT}/ansible-roles/k8s_fabric_peer/defaults/main.yml")
 cc_chart=$(sed -n '/^chaincodeImages:/,/^[^ #]/p' "${ROOT}/ansible-roles/k8s_fabric_peer/files/fabric-peer/values.yaml" |
-  sed -n 's/^  version: *//p' | sed -e 's/ *#.*$//' -e 's/^"\(.*\)"$/\1/')
-if [ -z "${cc_images}" ] || [ "${cc_chart}" != "${cc_images}" ]; then
+  sed -n 's/^  version: *//p' | sed -e 's/ *#.*$//' -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/")
+# The default must be a release tag, so a placeholder or a typo cannot ship
+# a tag that no peer can pull.
+if ! printf '%s\n' "${cc_images}" | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' >/dev/null; then
+  echo "FAIL: k8s_fabric_peer_chaincode_images_version is ${cc_images:-<missing>}, want a buildenv release tag (vX.Y.Z)"
+  fail_tags=1
+elif [ "${cc_chart}" != "${cc_images}" ]; then
   echo "FAIL: fabric-peer chaincodeImages.version is ${cc_chart:-<missing>}, want ${cc_images:-<missing>}"
   fail_tags=1
 else

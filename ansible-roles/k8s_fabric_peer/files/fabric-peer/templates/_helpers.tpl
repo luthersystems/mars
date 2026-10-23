@@ -126,10 +126,12 @@ The orderer org's domain: dlt.ordererDomain, or dlt.domain when unset.
 {{- end -}}
 
 {{/*
-The Fabric minor version ("2.5") of global.hyperledger.fabricVersion.
+The Fabric minor version ("2.5") of global.hyperledger.fabricVersion. A
+leading "v" is allowed, so "v2.5.5" does not fall back to the upstream
+images unnoticed.
 */}}
 {{- define "fabric-peer.fabric-minor" -}}
-{{- regexFind "^[0-9]+\\.[0-9]+" (toString .Values.global.hyperledger.fabricVersion) -}}
+{{- regexFind "[0-9]+\\.[0-9]+" (regexFind "^v?[0-9]+\\.[0-9]+" (toString .Values.global.hyperledger.fabricVersion)) -}}
 {{- end -}}
 
 {{/*
@@ -147,7 +149,7 @@ no wrapper, keeps the upstream buildImage.repository:<fabricVersion>.
 */}}
 {{- define "fabric-peer.chaincode-builder" -}}
 {{- $minor := include "fabric-peer.fabric-minor" . -}}
-{{- $ci := .Values.chaincodeImages -}}
+{{- $ci := .Values.chaincodeImages | default dict -}}
 {{- if $ci.builder -}}
 {{- $ci.builder -}}
 {{- else if and $ci.version (has $minor (list "2.2" "2.4" "2.5")) -}}
@@ -167,7 +169,7 @@ does not wrap it. chaincodeImages.golangRuntime names any image instead.
 */}}
 {{- define "fabric-peer.chaincode-golang-runtime" -}}
 {{- $minor := include "fabric-peer.fabric-minor" . -}}
-{{- $ci := .Values.chaincodeImages -}}
+{{- $ci := .Values.chaincodeImages | default dict -}}
 {{- if $ci.golangRuntime -}}
 {{- $ci.golangRuntime -}}
 {{- else if and $ci.version (has $minor (list "2.2" "2.4")) -}}
