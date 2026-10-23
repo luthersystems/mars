@@ -523,7 +523,9 @@ data:
             path:
             name:
 
-        # Generic builder environment, suitable for most chaincode types
+        # Generic builder environment, suitable for most chaincode types.
+        # The fabric-peer chart overrides it with CORE_CHAINCODE_BUILDER
+        # (chaincodeImages, luthersystems/mars#319); change the image there.
         builder: $(DOCKER_NS)/fabric-ccenv:$(TWO_DIGIT_VERSION)
 
         # Enables/disables force pulling of the base docker images (listed below)
@@ -532,7 +534,9 @@ data:
         pull: false
 
         golang:
-            # golang will never need more than baseos
+            # golang will never need more than baseos. For Fabric 2.2 and
+            # 2.4 the fabric-peer chart overrides it with
+            # CORE_CHAINCODE_GOLANG_RUNTIME (chaincodeImages, #319).
             runtime: $(DOCKER_NS)/fabric-baseos:$(TWO_DIGIT_VERSION)
 
             # whether or not golang chaincode should be linked dynamically

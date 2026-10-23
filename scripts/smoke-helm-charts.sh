@@ -40,6 +40,10 @@
 #     that differs from luther_buildenv_images_version
 #   - supergateway, mcp-inspector: an image other than the hardened
 #     luthersystems/supergateway-uvx-git (luthersystems/connectorhub)
+#   - fabric-peer: Docker chaincode images other than the hardened
+#     luthersystems/fabric-ccenv and fabric-baseos for Fabric 2.2, 2.4 and
+#     2.5 (baseos 2.2 and 2.4 only), or a chart default chaincodeImages.version
+#     that differs from k8s_fabric_peer_chaincode_images_version (#319)
 #   - chaincode: the env the k8s_fabric_chaincode role passes
 #     (CHAINCODE_NAME, luthersystems/substrate#808) missing, or dropping
 #     the chart's env defaults
@@ -522,6 +526,54 @@ want_cc_env "chaincode renders CHAINCODE_NAME" CHAINCODE_NAME com_luthersystems_
 want_cc_env "chaincode env keeps the listen address default" CHAINCODE_LISTEN_ADDRESS :8080
 want_cc_env "chaincode env keeps the metrics address default" CHAINCODE_PROM_LISTEN_ADDR :9600
 
+# (description, env name, wanted value or "" for absent, helm args...): an
+# env value of the fabric-peer container. Docker chaincode builds and runs in
+# the hardened luthersystems/fabric-ccenv and fabric-baseos for the Fabric
+# minors buildenv wraps, and upstream otherwise (luthersystems/mars#319).
+want_peer_env() {
+  desc="$1"; name="$2"; want="$3"; shift 3
+  if ! out=$(helm template peer0-org1 "${PEER_CHART}" \
+    --show-only templates/deployment.yaml \
+    --set serviceAccount.name=sa --set chaincodeImages.version=v9.9.9 "$@" 2>&1); then
+    echo "FAIL: ${desc}: helm template failed:"
+    echo "${out}"
+    fail=1
+    return
+  fi
+  got=$(printf "%s\n" "${out}" | awk -v n="${name}" "
+    found { sub(/^ *value: */, \"\"); gsub(/\"/, \"\"); print; exit }
+    \$0 ~ \"- name: \" n \"\$\" { found=1 }")
+  if [ "${got}" = "${want}" ]; then
+    echo "OK:   ${desc}"
+  else
+    echo "FAIL: ${desc}: ${name}=${got:-<absent>}, want ${want:-<absent>}"
+    fail=1
+  fi
+}
+for m in 2.2.15:2.2 2.4.9:2.4; do
+  v=${m%%:*}; mm=${m##*:}
+  want_peer_env "peer ${v} builds in the hardened ccenv" CORE_CHAINCODE_BUILDER \
+    "luthersystems/fabric-ccenv:${mm}-v9.9.9" --set global.hyperledger.fabricVersion=${v}
+  want_peer_env "peer ${v} runs Go chaincode in the hardened baseos" CORE_CHAINCODE_GOLANG_RUNTIME \
+    "luthersystems/fabric-baseos:${mm}-v9.9.9" --set global.hyperledger.fabricVersion=${v}
+done
+want_peer_env "peer 2.5 builds in the hardened ccenv" CORE_CHAINCODE_BUILDER \
+  "luthersystems/fabric-ccenv:2.5-v9.9.9" --set global.hyperledger.fabricVersion=2.5.5
+want_peer_env "peer 2.5 keeps the core.yaml baseos (no CA bundle)" CORE_CHAINCODE_GOLANG_RUNTIME "" \
+  --set global.hyperledger.fabricVersion=2.5.5
+want_peer_env "peer 3.1 keeps the upstream ccenv" CORE_CHAINCODE_BUILDER \
+  "hyperledger/fabric-ccenv:3.1.1" --set global.hyperledger.fabricVersion=3.1.1
+want_peer_env "peer 3.1 keeps the core.yaml baseos" CORE_CHAINCODE_GOLANG_RUNTIME "" \
+  --set global.hyperledger.fabricVersion=3.1.1
+want_peer_env "peer with no chaincodeImages.version keeps the upstream ccenv" CORE_CHAINCODE_BUILDER \
+  "hyperledger/fabric-ccenv:2.2.15" --set global.hyperledger.fabricVersion=2.2.15 --set chaincodeImages.version=
+want_peer_env "peer with no chaincodeImages.version keeps the core.yaml baseos" CORE_CHAINCODE_GOLANG_RUNTIME "" \
+  --set global.hyperledger.fabricVersion=2.2.15 --set chaincodeImages.version=
+want_peer_env "peer chaincodeImages.builder wins" CORE_CHAINCODE_BUILDER "example/ccenv:1" \
+  --set global.hyperledger.fabricVersion=2.2.15 --set chaincodeImages.builder=example/ccenv:1
+want_peer_env "peer chaincodeImages.golangRuntime wins" CORE_CHAINCODE_GOLANG_RUNTIME "example/baseos:1" \
+  --set global.hyperledger.fabricVersion=2.5.5 --set chaincodeImages.golangRuntime=example/baseos:1
+
 exit ${fail}
 '
 
@@ -583,6 +635,22 @@ for values in \
 done
 want_tag "fabric-peer dind" "${dind}" \
   "${ROOT}/ansible-roles/k8s_fabric_peer/files/fabric-peer/values.yaml" dindVersion
+# The chart's chaincodeImages.version (a nested key) must equal the role
+# default k8s_fabric_peer_chaincode_images_version.
+cc_images=$(yaml_value k8s_fabric_peer_chaincode_images_version "${ROOT}/ansible-roles/k8s_fabric_peer/defaults/main.yml")
+cc_chart=$(sed -n '/^chaincodeImages:/,/^[^ #]/p' "${ROOT}/ansible-roles/k8s_fabric_peer/files/fabric-peer/values.yaml" |
+  sed -n 's/^  version: *//p' | sed -e 's/ *#.*$//' -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/")
+# The default must be a release tag, so a placeholder or a typo cannot ship
+# a tag that no peer can pull.
+if ! printf '%s\n' "${cc_images}" | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' >/dev/null; then
+  echo "FAIL: k8s_fabric_peer_chaincode_images_version is ${cc_images:-<missing>}, want a buildenv release tag (vX.Y.Z)"
+  fail_tags=1
+elif [ "${cc_chart}" != "${cc_images}" ]; then
+  echo "FAIL: fabric-peer chaincodeImages.version is ${cc_chart:-<missing>}, want ${cc_images:-<missing>}"
+  fail_tags=1
+else
+  echo "OK:   fabric-peer chaincodeImages.version is ${cc_images}"
+fi
 # fabric-cli runs luthersystems/fabric-tools, tagged with the buildenv
 # release like awscli.
 cli_values="${ROOT}/ansible-roles/k8s_fabric_cli/files/fabric-cli/values.yaml"
