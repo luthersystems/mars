@@ -66,7 +66,7 @@ k8s_fabric_peer_dind_version: v0.1.46
 # luthersystems/mars#319). Pinned on its own, like dind: it changes the image
 # that builds chaincode, so a bump gets its own test. Empty keeps the upstream
 # hyperledger images. The chart default must equal it (smoke-helm-charts.sh).
-k8s_fabric_peer_chaincode_images_version: FABTAG
+k8s_fabric_peer_chaincode_images_version: v0.1.48
 # Full image references that replace the default build image or Go runtime
 # image. Empty uses k8s_fabric_peer_chaincode_images_version.
 k8s_fabric_peer_chaincode_builder_image: ""

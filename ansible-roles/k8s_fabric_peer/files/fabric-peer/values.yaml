@@ -51,7 +51,7 @@ buildImage:
 chaincodeImages:
   # luthersystems/buildenv tag. The role passes
   # k8s_fabric_peer_chaincode_images_version. Empty keeps the upstream images.
-  version: FABTAG
+  version: v0.1.48
   # A full image reference that replaces the default builder or Go runtime.
   builder: ""
   golangRuntime: ""
