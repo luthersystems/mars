@@ -16,6 +16,8 @@ spec:
       annotations:
         rollout-nonce: {{ .Values.global.forceRedeployNonce | default "" | quote }}
     spec:
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -54,6 +56,8 @@ spec:
               port: 8000
             initialDelaySeconds: 15
             periodSeconds: 20
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
 

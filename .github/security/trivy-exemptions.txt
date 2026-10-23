@@ -22,12 +22,3 @@ KSV-0056 | ansible-roles/alb_ingress_controller/files/alb-ingress-controller/tem
 KSV-0056 | ansible-roles/helm_charts/files/helmcharts/connectorhub/templates/rbac.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Manage Kubernetes networking
 KSV-0109 | ansible-roles/helm_charts/files/helmcharts/shiroclient/templates/config.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: ConfigMap with secrets
 KSV-0118 | ansible-roles/alb_ingress_controller/files/alb-ingress-controller/templates/alb-ingress-controller.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Default security context configured
-KSV-0118 | ansible-roles/helm_charts/files/helmcharts/agentbuilder/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Default security context configured
-KSV-0118 | ansible-roles/helm_charts/files/helmcharts/connectordiscoverymcp/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Default security context configured
-KSV-0118 | ansible-roles/helm_charts/files/helmcharts/insideoutmcp/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Default security context configured
-KSV-0118 | ansible-roles/helm_charts/files/helmcharts/lutherauth/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Default security context configured
-KSV-0118 | ansible-roles/helm_charts/files/helmcharts/mcp-inspector/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Default security context configured
-KSV-0118 | ansible-roles/helm_charts/files/helmcharts/oracle/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Default security context configured
-KSV-0118 | ansible-roles/helm_charts/files/helmcharts/supergateway/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Default security context configured
-KSV-0118 | ansible-roles/helm_charts/files/helmcharts/ui/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Default security context configured
-KSV-0118 | ansible-roles/k8s_fabric_chaincode/files/chaincode/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Default security context configured

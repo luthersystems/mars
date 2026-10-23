@@ -45,3 +45,16 @@ ingress:
       paths: []
   tls: []
 
+
+# Pod and container security contexts. They are empty here on purpose: this
+# chart starts the MCP servers an agent uses as child processes, and a
+# browser-based server (Playwright, Puppeteer) needs the user namespaces
+# that seccomp RuntimeDefault blocks, or a setuid sandbox that
+# allowPrivilegeEscalation: false blocks. Set them per deploy once its
+# servers are known to run under them, for example:
+#   podSecurityContext: {seccompProfile: {type: RuntimeDefault}}
+#   securityContext: {allowPrivilegeEscalation: false}
+# Trivy KSV-0118 flags the empty contexts; the exemption row says why.
+podSecurityContext: {}
+
+securityContext: {}
