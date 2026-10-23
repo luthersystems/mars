@@ -7,7 +7,6 @@
 # its row (luthersystems/mars#317). A row for a finding kept on purpose
 # needs a real reason, not the Trivy title.
 DS-0002 | Dockerfile | 2027-01-31 | luthersystems/mars#317 | HIGH: Image user should not be 'root'
-DS-0017 | Dockerfile | 2027-01-31 | luthersystems/mars#317 | HIGH: 'RUN <package-manager> update' instruction alone
 KSV-0014 | ansible-roles/alb_ingress_controller/files/alb-ingress-controller/templates/alb-ingress-controller.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Root file system is not read-only
 KSV-0014 | ansible-roles/helm_charts/files/helmcharts/agentbuilder/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Root file system is not read-only
 KSV-0014 | ansible-roles/helm_charts/files/helmcharts/connectordiscoverymcp/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Root file system is not read-only
