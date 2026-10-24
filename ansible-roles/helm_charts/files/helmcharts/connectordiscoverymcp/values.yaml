@@ -45,3 +45,19 @@ ingress:
       paths: []
   tls: []
 
+
+# Pod security context. RuntimeDefault applies the container runtime's
+# seccomp profile, which blocks the syscalls an ordinary server never makes
+# (kernel module loads, mount, ptrace and the like). Without it EKS runs
+# pods unconfined. Trivy KSV-0118 flags a pod with no security context.
+# Override it here, not in the template, if an image needs more.
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container security context. allowPrivilegeEscalation: false stops a
+# process from gaining more rights than it started with (setuid binaries,
+# file capabilities); the server needs neither. Trivy KSV-0118 flags a
+# container with no security context.
+securityContext:
+  allowPrivilegeEscalation: false

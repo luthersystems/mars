@@ -7,11 +7,9 @@ FROM ubuntu:24.04 AS downloader
 ARG TARGETARCH
 ENV TARGETARCH=$TARGETARCH
 
-RUN apt update -y
-RUN apt install --no-install-recommends -yq \
+RUN apt update -y && apt install --no-install-recommends -yq \
   apt-transport-https \
   lsb-release \
-  gnupg \
   gnupg \
   curl \
   ca-certificates \

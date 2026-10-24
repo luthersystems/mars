@@ -56,3 +56,13 @@ ccid: ""
 availabilityZone: ""
 
 local: false
+
+# Pod security context. RuntimeDefault applies the container runtime's
+# seccomp profile, which blocks the syscalls an ordinary server never makes
+# (kernel module loads, mount, ptrace and the like). Without it EKS runs
+# pods unconfined. Trivy KSV-0118 flags a pod with no security context.
+# Override it here if an image needs more. The container context stays in
+# the template.
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault

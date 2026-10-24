@@ -1,34 +1,27 @@
 # Trivy IaC exemptions for the shared security workflow (security / iac).
 # id | path | expires (YYYY-MM-DD) | issue | reason
 #
-# Why these rows: they baseline the High and Critical findings that were on
-# main when the check was turned on, so it can block new ones at once
-# without failing every PR. Each row expires; fix the finding and delete
-# its row (luthersystems/mars#317). A row for a finding kept on purpose
-# needs a real reason, not the Trivy title.
-DS-0002 | Dockerfile | 2027-01-31 | luthersystems/mars#317 | HIGH: Image user should not be 'root'
-DS-0017 | Dockerfile | 2027-01-31 | luthersystems/mars#317 | HIGH: 'RUN <package-manager> update' instruction alone
-KSV-0014 | ansible-roles/alb_ingress_controller/files/alb-ingress-controller/templates/alb-ingress-controller.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Root file system is not read-only
-KSV-0014 | ansible-roles/helm_charts/files/helmcharts/agentbuilder/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Root file system is not read-only
-KSV-0014 | ansible-roles/helm_charts/files/helmcharts/connectordiscoverymcp/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Root file system is not read-only
-KSV-0014 | ansible-roles/helm_charts/files/helmcharts/connectorhub/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Root file system is not read-only
-KSV-0014 | ansible-roles/helm_charts/files/helmcharts/insideoutmcp/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Root file system is not read-only
-KSV-0014 | ansible-roles/helm_charts/files/helmcharts/mcp-inspector/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Root file system is not read-only
-KSV-0014 | ansible-roles/helm_charts/files/helmcharts/oracle/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Root file system is not read-only
-KSV-0014 | ansible-roles/helm_charts/files/helmcharts/shiroclient/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Root file system is not read-only
-KSV-0014 | ansible-roles/helm_charts/files/helmcharts/supergateway/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Root file system is not read-only
-KSV-0041 | ansible-roles/alb_ingress_controller/files/alb-ingress-controller/templates/rbac-role.yaml | 2027-01-31 | luthersystems/mars#317 | CRITICAL: Manage secrets
-KSV-0053 | ansible-roles/helm_charts/files/helmcharts/connectorhub/templates/rbac.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Exec into Pods
-KSV-0056 | ansible-roles/alb_ingress_controller/files/alb-ingress-controller/templates/rbac-role.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Manage Kubernetes networking
-KSV-0056 | ansible-roles/helm_charts/files/helmcharts/connectorhub/templates/rbac.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Manage Kubernetes networking
-KSV-0109 | ansible-roles/helm_charts/files/helmcharts/shiroclient/templates/config.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: ConfigMap with secrets
-KSV-0118 | ansible-roles/alb_ingress_controller/files/alb-ingress-controller/templates/alb-ingress-controller.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Default security context configured
-KSV-0118 | ansible-roles/helm_charts/files/helmcharts/agentbuilder/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Default security context configured
-KSV-0118 | ansible-roles/helm_charts/files/helmcharts/connectordiscoverymcp/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Default security context configured
-KSV-0118 | ansible-roles/helm_charts/files/helmcharts/insideoutmcp/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Default security context configured
-KSV-0118 | ansible-roles/helm_charts/files/helmcharts/lutherauth/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Default security context configured
-KSV-0118 | ansible-roles/helm_charts/files/helmcharts/mcp-inspector/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Default security context configured
-KSV-0118 | ansible-roles/helm_charts/files/helmcharts/oracle/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Default security context configured
-KSV-0118 | ansible-roles/helm_charts/files/helmcharts/supergateway/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Default security context configured
-KSV-0118 | ansible-roles/helm_charts/files/helmcharts/ui/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Default security context configured
-KSV-0118 | ansible-roles/k8s_fabric_chaincode/files/chaincode/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#317 | HIGH: Default security context configured
+# Each row is either kept on purpose (the reason says why the finding is
+# true by design; issue #317) or deferred (the fix is larger than a config
+# change; issue #322, short expiry so the gate asks again). Fix a deferred
+# finding and delete its row. A new row needs a real reason, not the Trivy
+# title.
+DS-0002 | Dockerfile | 2027-01-31 | luthersystems/mars#322 | Deferred: mars-entrypoint starts as root to write the caller's passwd entry, then setuids to USER_ID. Only mars_macos.sh sets USER_ID, so CI callers (ui-core Argo jobs, the sandbox template) still run commands as root.
+KSV-0014 | ansible-roles/alb_ingress_controller/files/alb-ingress-controller/templates/alb-ingress-controller.yaml | 2027-01-31 | luthersystems/mars#322 | Deferred: legacy ALB ingress controller v1, which no Luther deploy runs (ui-infrastructure and the sandbox use aws_lb_controller); delete the role, not edit it, once its uninstall task is no longer needed.
+KSV-0014 | ansible-roles/helm_charts/files/helmcharts/agentbuilder/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#322 | Deferred: this chart runs MCP servers with npx or uvx, which write caches and temp files; a read-only root needs those paths found and mounted as emptyDir first, or the servers fail at start.
+KSV-0014 | ansible-roles/helm_charts/files/helmcharts/connectordiscoverymcp/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#322 | Deferred: the paths this image writes at run time are not yet listed; a read-only root needs an emptyDir for each, or the pod crashes.
+KSV-0014 | ansible-roles/helm_charts/files/helmcharts/connectorhub/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#322 | Deferred: the paths this image writes at run time are not yet listed; a read-only root needs an emptyDir for each, or the pod crashes.
+KSV-0014 | ansible-roles/helm_charts/files/helmcharts/insideoutmcp/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#322 | Deferred: the paths this image writes at run time are not yet listed; a read-only root needs an emptyDir for each, or the pod crashes.
+KSV-0014 | ansible-roles/helm_charts/files/helmcharts/mcp-inspector/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#322 | Deferred: this chart runs MCP servers with npx or uvx, which write caches and temp files; a read-only root needs those paths found and mounted as emptyDir first, or the servers fail at start.
+KSV-0014 | ansible-roles/helm_charts/files/helmcharts/oracle/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#322 | Deferred: the paths this image writes at run time are not yet listed; a read-only root needs an emptyDir for each, or the pod crashes.
+KSV-0014 | ansible-roles/helm_charts/files/helmcharts/shiroclient/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#322 | Deferred: the paths this image writes at run time are not yet listed; a read-only root needs an emptyDir for each, or the pod crashes.
+KSV-0014 | ansible-roles/helm_charts/files/helmcharts/supergateway/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#322 | Deferred: this chart runs MCP servers with npx or uvx, which write caches and temp files; a read-only root needs those paths found and mounted as emptyDir first, or the servers fail at start.
+KSV-0041 | ansible-roles/alb_ingress_controller/files/alb-ingress-controller/templates/rbac-role.yaml | 2027-01-31 | luthersystems/mars#322 | Deferred: legacy ALB ingress controller v1, which no Luther deploy runs (ui-infrastructure and the sandbox use aws_lb_controller); delete the role, not edit it, once its uninstall task is no longer needed. Its upstream RBAC reads secrets for TLS.
+KSV-0053 | ansible-roles/helm_charts/files/helmcharts/connectorhub/templates/rbac.yaml | 2027-10-31 | luthersystems/mars#317 | Kept on purpose: connectorhub launches each MCP connector as a pod and talks to it over pods/exec and attach, scoped to its own namespace by a Role.
+KSV-0056 | ansible-roles/alb_ingress_controller/files/alb-ingress-controller/templates/rbac-role.yaml | 2027-01-31 | luthersystems/mars#322 | Deferred: legacy ALB ingress controller v1, which no Luther deploy runs (ui-infrastructure and the sandbox use aws_lb_controller); delete the role, not edit it, once its uninstall task is no longer needed.
+KSV-0056 | ansible-roles/helm_charts/files/helmcharts/connectorhub/templates/rbac.yaml | 2027-10-31 | luthersystems/mars#317 | Kept on purpose: connectorhub creates one NetworkPolicy per MCP connector to block cloud metadata egress (connectorhub#190), scoped to its namespace by a Role.
+KSV-0109 | ansible-roles/helm_charts/files/helmcharts/shiroclient/templates/config.yaml | 2027-01-31 | luthersystems/mars#322 | Deferred: the shiroclient Deployment mounts this ConfigMap, config.json.b64 included, in gateway and cli modes. Moving it to a Secret changes the chart's volume contract, so it is its own change.
+KSV-0118 | ansible-roles/alb_ingress_controller/files/alb-ingress-controller/templates/alb-ingress-controller.yaml | 2027-01-31 | luthersystems/mars#322 | Deferred: legacy ALB ingress controller v1, which no Luther deploy runs (ui-infrastructure and the sandbox use aws_lb_controller); delete the role, not edit it, once its uninstall task is no longer needed.
+KSV-0118 | ansible-roles/helm_charts/files/helmcharts/agentbuilder/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#322 | Deferred: the security contexts are empty on purpose. The chart runs arbitrary MCP servers, and a browser-based one needs the user namespaces seccomp RuntimeDefault blocks or the setuid sandbox allowPrivilegeEscalation: false blocks. Set them per deploy (values.yaml).
+KSV-0118 | ansible-roles/helm_charts/files/helmcharts/mcp-inspector/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#322 | Deferred: the security contexts are empty on purpose. The chart runs arbitrary MCP servers, and a browser-based one needs the user namespaces seccomp RuntimeDefault blocks or the setuid sandbox allowPrivilegeEscalation: false blocks. Set them per deploy (values.yaml).
+KSV-0118 | ansible-roles/helm_charts/files/helmcharts/supergateway/templates/deployment.yaml | 2027-01-31 | luthersystems/mars#322 | Deferred: the security contexts are empty on purpose. The chart runs arbitrary MCP servers, and a browser-based one needs the user namespaces seccomp RuntimeDefault blocks or the setuid sandbox allowPrivilegeEscalation: false blocks. Set them per deploy (values.yaml).
