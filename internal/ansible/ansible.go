@@ -76,7 +76,7 @@ type inventoryConfig struct {
 
 func (c *PlaybookCmd) Run(ctx context.Context, rt *app.Runtime) error {
 	s := newService(rt)
-	if err := c.VaultOpts.resolveAndValidate(); err != nil {
+	if err := c.resolveAndValidate(); err != nil {
 		return err
 	}
 	cmd := []string{"ansible-playbook"}
@@ -103,12 +103,12 @@ func (c *PlaybookCmd) Run(ctx context.Context, rt *app.Runtime) error {
 	if c.StartAtTask != "" {
 		cmd = append(cmd, "--start-at-task", c.StartAtTask)
 	}
-	return s.run(ctx, runner.Command{Argv: cmd, Env: c.VaultOpts.envVars()})
+	return s.run(ctx, runner.Command{Argv: cmd, Env: c.envVars()})
 }
 
 func (c *ExecuteCmd) Run(ctx context.Context, rt *app.Runtime) error {
 	s := newService(rt)
-	if err := c.VaultOpts.resolveAndValidate(); err != nil {
+	if err := c.resolveAndValidate(); err != nil {
 		return err
 	}
 	cmd := []string{"ansible"}
@@ -122,12 +122,12 @@ func (c *ExecuteCmd) Run(ctx context.Context, rt *app.Runtime) error {
 	cmd = append(cmd, extra...)
 	cmd = append(cmd, c.HostPattern, "-m", c.Module)
 	cmd = append(cmd, c.Args...)
-	return s.run(ctx, runner.Command{Argv: cmd, Env: c.VaultOpts.envVars()})
+	return s.run(ctx, runner.Command{Argv: cmd, Env: c.envVars()})
 }
 
 func (c *VaultEncryptCmd) Run(ctx context.Context, rt *app.Runtime) error {
 	s := newService(rt)
-	if err := c.VaultOpts.resolveAndValidate(); err != nil {
+	if err := c.resolveAndValidate(); err != nil {
 		return err
 	}
 	key, err := s.encryptionKey(ctx, c.VaultOpts)
@@ -148,7 +148,7 @@ func (c *VaultEncryptCmd) Run(ctx context.Context, rt *app.Runtime) error {
 
 func (c *VaultDecryptCmd) Run(ctx context.Context, rt *app.Runtime) error {
 	s := newService(rt)
-	if err := c.VaultOpts.resolveAndValidate(); err != nil {
+	if err := c.resolveAndValidate(); err != nil {
 		return err
 	}
 	key, err := s.encryptionKey(ctx, c.VaultOpts)
@@ -164,7 +164,7 @@ func (c *VaultDecryptCmd) Run(ctx context.Context, rt *app.Runtime) error {
 
 func (c *VaultDecryptKeyCmd) Run(ctx context.Context, rt *app.Runtime) error {
 	s := newService(rt)
-	if err := c.VaultOpts.resolveAndValidate(); err != nil {
+	if err := c.resolveAndValidate(); err != nil {
 		return err
 	}
 	key, err := s.encryptionKey(ctx, c.VaultOpts)
