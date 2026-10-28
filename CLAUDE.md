@@ -100,7 +100,7 @@ MARS_SHELL=true mars <env>
 - `prometheus`, `fluentbit`, `journald` - Metrics and logging
 
 **Infrastructure:**
-- `alb_ingress_controller`, `aws_lb_controller` - AWS load balancing
+- `aws_lb_controller` - AWS load balancing (`alb_ingress_controller` only uninstalls the legacy v1 controller)
 - `bastion_init` - Bastion host setup
 
 ### Ansible Plugins (`ansible-plugins/`)
