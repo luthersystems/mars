@@ -84,6 +84,10 @@ metadata:
     prometheus.io/port: {{ .Values.fabricSnapshotArchiver.metricsPort | quote }}
 spec:
   type: ClusterIP
+  # Keep the pod scraped while it is not Ready (the peer catching up, or
+  # failing its probes). Otherwise the last-success series goes away exactly
+  # when the peer is unhealthy, and the missed-snapshot alert sees nothing.
+  publishNotReadyAddresses: true
   ports:
     - port: {{ .Values.fabricSnapshotArchiver.metricsPort }}
       targetPort: http-archiver

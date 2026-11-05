@@ -1,6 +1,33 @@
 ---
 # tasks file for k8s_fabric_peer
 
+# A mistake in the schedule settings fails here, before any change. It must
+# not turn the schedule off silently (the missed-snapshot alert then has no
+# series and stays quiet), nor crash-loop the archiver sidecar, which takes
+# the whole peer pod out of its Service.
+- name: Snapshot schedule settings are valid
+  when: k8s_fabric_peer_snapshot_archiver_schedule | bool
+  assert:
+    that:
+      - k8s_fabric_peer_use_snapshot_archiver | bool
+      - k8s_fabric_peer_snapshot_archiver_schedule_peers is sequence
+      - k8s_fabric_peer_snapshot_archiver_schedule_peers is not string
+      - k8s_fabric_peer_snapshot_archiver_schedule_peers | length > 0
+      - (k8s_fabric_peer_snapshot_archiver_schedule_peers | map('int') | max) < (k8s_fabric_peer_org_size | int)
+      - (k8s_fabric_peer_snapshot_archiver_schedule_peers | map('int') | min) >= 0
+      - k8s_fabric_peer_snapshot_archiver_timeout is string
+      - k8s_fabric_peer_snapshot_archiver_timeout is match('^([0-9]+(\\.[0-9]+)?(ns|us|ms|s|m|h))+$')
+      - (k8s_fabric_peer_snapshot_archiver_version | regex_replace('^v', '')) is version(k8s_fabric_peer_snapshot_archiver_schedule_min_version | regex_replace('^v', ''), '>=')
+    fail_msg: >-
+      k8s_fabric_peer_snapshot_archiver_schedule needs
+      k8s_fabric_peer_use_snapshot_archiver, a non-empty list of peer
+      indexes below k8s_fabric_peer_org_size in
+      k8s_fabric_peer_snapshot_archiver_schedule_peers, a Go duration with a
+      unit in k8s_fabric_peer_snapshot_archiver_timeout (for example 2h),
+      and k8s_fabric_peer_snapshot_archiver_version
+      {{ k8s_fabric_peer_snapshot_archiver_schedule_min_version }} or later
+      (the first archiver with serve --snapshot-schedule).
+
 - name: K8s namespace exists
   k8s:
     name: "{{k8s_fabric_peer_namespace}}"

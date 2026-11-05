@@ -261,7 +261,7 @@ want_service "classic load balancer has no operations port" \
 # sidecar idles. On: a ClusterIP metrics service with the scrape
 # annotations, and the archiver API on localhost only, because it has no
 # authentication and can start a restore.
-ARCH="--set fabricSnapshotArchiver.enabled=true --set fabricSnapshotArchiver.schedule.enabled=true"
+ARCH=(--set fabricSnapshotArchiver.enabled=true --set fabricSnapshotArchiver.schedule.enabled=true)
 if out=$(peer_services peer0-org1 --set fabricSnapshotArchiver.enabled=true 2>&1) &&
   ! printf "%s\n" "${out}" | grep -F -- "-archiver " >/dev/null; then
   echo "OK:   archiver schedule off: no archiver service"
@@ -271,7 +271,7 @@ else
   fail=1
 fi
 want_service "archiver schedule on: metrics service is ClusterIP, and scraped" \
-  "peer0-org1-fabric-peer-archiver ClusterIP http-archiver, yes" ${ARCH}
+  "peer0-org1-fabric-peer-archiver ClusterIP http-archiver, yes" "${ARCH[@]}"
 
 # (description, yes|no, line, helm args...): does the fabric-peer
 # deployment have the line (leading spaces ignored)?
@@ -296,14 +296,25 @@ want_peer_render "archiver schedule off: the sidecar idles" yes "- sleep infinit
   --set fabricSnapshotArchiver.enabled=true
 want_peer_render "archiver schedule off: no serve" no "- serve" \
   --set fabricSnapshotArchiver.enabled=true
-want_peer_render "archiver schedule on: runs serve" yes "- serve" ${ARCH}
-want_peer_render "archiver schedule on: no sleep" no "- sleep infinity" ${ARCH}
-want_peer_render "archiver schedule on: passes the cron" yes "- --snapshot-schedule=0 2 * * *" ${ARCH}
-want_peer_render "archiver schedule on: gRPC API on localhost only" yes "- --grpc-addr=127.0.0.1:50051" ${ARCH}
-want_peer_render "archiver schedule on: HTTP API on localhost only" yes "- --http-addr=127.0.0.1:8080" ${ARCH}
-want_peer_render "archiver schedule on: metrics on the pod IP" yes "- --metrics-addr=:9601" ${ARCH}
-want_peer_render "archiver schedule keepArchives is passed" yes "- --keep-archives=3" \
-  ${ARCH} --set fabricSnapshotArchiver.schedule.keepArchives=3
+want_peer_render "archiver schedule on: runs serve" yes "- serve" "${ARCH[@]}"
+want_peer_render "archiver schedule on: no sleep" no "- sleep infinity" "${ARCH[@]}"
+want_peer_render "archiver schedule on: passes the cron" yes "- \"--snapshot-schedule=0 2 * * *\"" "${ARCH[@]}"
+want_peer_render "archiver schedule on: gRPC API on localhost only" yes "- --grpc-addr=127.0.0.1:50051" "${ARCH[@]}"
+want_peer_render "archiver schedule on: HTTP API on localhost only" yes "- --http-addr=127.0.0.1:8080" "${ARCH[@]}"
+want_peer_render "archiver schedule on: metrics on the pod IP" yes "- \"--metrics-addr=:9601\"" "${ARCH[@]}"
+# A timeout without a unit (7200) makes serve exit, which crash-loops the
+# sidecar and takes the peer pod out of its Service: fail at render time.
+if helm template peer0-org1 "${PEER_CHART}" --set serviceAccount.name=sa \
+  "${ARCH[@]}" --set fabricSnapshotArchiver.schedule.timeout=7200 >/dev/null 2>&1; then
+  echo "FAIL: archiver schedule timeout without a unit renders"
+  fail=1
+else
+  echo "OK:   archiver schedule timeout without a unit fails to render"
+fi
+want_peer_render "archiver schedule timeout with a unit renders" yes "- \"--timeout=90m\"" \
+  "${ARCH[@]}" --set fabricSnapshotArchiver.schedule.timeout=90m
+want_peer_render "archiver schedule keepArchives is passed" yes "- \"--keep-archives=3\"" \
+  "${ARCH[@]}" --set fabricSnapshotArchiver.schedule.keepArchives=3
 
 # NLB (ip targets): health check HTTP /healthz on the operations port (9443).
 # The NLB checks the pod port directly, so 9443 needs no listener. A plain
@@ -549,11 +560,11 @@ want_distinct_services "62-character fullname from nameOverride gives two distin
 # The archiver metrics service (#338) must get its own name too, also when
 # the fullname ends in -archiver.
 WANT_SERVICES=3 want_distinct_services "63-character fullname gives three distinct service names with the archiver" \
-  --set fullnameOverride="${a59}aaaa" ${ARCH}
+  --set fullnameOverride="${a59}aaaa" "${ARCH[@]}"
 WANT_SERVICES=3 want_distinct_services "63-character fullname ending in -archiver gives three distinct service names" \
-  --set fullnameOverride="${a58:4}-archiver" ${ARCH}
+  --set fullnameOverride="${a58:4}-archiver" "${ARCH[@]}"
 WANT_SERVICES=3 want_distinct_services "62-character fullname ending in -archiver gives three distinct service names" \
-  --set fullnameOverride="${a58:5}-archiver" ${ARCH}
+  --set fullnameOverride="${a58:5}-archiver" "${ARCH[@]}"
 
 # chaincode (external and CCaaS substrate): the k8s_fabric_chaincode role
 # passes an env map with CHAINCODE_NAME, the chaincode definition name, so

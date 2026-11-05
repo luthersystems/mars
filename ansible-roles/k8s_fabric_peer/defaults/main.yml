@@ -77,10 +77,17 @@ k8s_fabric_peer_snapshot_archiver_version: "v0.0.8"
 # Scheduled snapshots to S3 (luthersystems/mars#338). Needs
 # k8s_fabric_peer_use_snapshot_archiver. Runs on the peers whose index is in
 # k8s_fabric_peer_snapshot_archiver_schedule_peers, peer0 by default: every
-# peer has the same ledger, so one per org is enough. The S3 role needs
-# s3:DeleteObject on the snapshot prefix to keep only the newest
+# peer has the same ledger, so one peer is enough. Turn it on for one org
+# only, too: every org writes to the same S3 prefix, so two orgs upload the
+# same channel twice and each prunes the other's archives. It is off on a
+# peer in recovery mode, where a person restores the ledger by hand. The S3
+# role needs s3:DeleteObject on the snapshot prefix to keep only the newest
 # k8s_fabric_peer_snapshot_archiver_keep_archives archives (0 keeps all).
 k8s_fabric_peer_snapshot_archiver_schedule: false
+# The first archiver release with serve --snapshot-schedule. The role
+# refuses to turn the schedule on with an older image, which would
+# crash-loop the sidecar.
+k8s_fabric_peer_snapshot_archiver_schedule_min_version: "v0.0.9"
 k8s_fabric_peer_snapshot_archiver_schedule_peers: [0]
 k8s_fabric_peer_snapshot_archiver_cron: "0 2 * * *"
 k8s_fabric_peer_snapshot_archiver_keep_archives: 14

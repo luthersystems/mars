@@ -259,18 +259,21 @@ spec:
           # (luthersystems/fabric-snapshot-archiver#36). Its API has no
           # authentication and can start a restore, so it listens on
           # localhost only; reach it with kubectl exec or port-forward. Only
-          # /metrics listens on the pod IP, for Prometheus.
-          command:
-            - /ko-app/fabric-snapshot-archiver
+          # /metrics listens on the pod IP, for Prometheus. No command: the
+          # image's entrypoint is the archiver.
           args:
             - serve
-            - --channel={{ .Values.fabricSnapshotArchiver.channel }}
-            - --snapshot-schedule={{ required "fabricSnapshotArchiver.schedule.cron is required" $schedule.cron }}
-            - --keep-archives={{ $schedule.keepArchives }}
-            - --timeout={{ $schedule.timeout }}
+            - {{ printf "--channel=%s" (required "fabricSnapshotArchiver.channel is required" .Values.fabricSnapshotArchiver.channel) | quote }}
+            - {{ printf "--snapshot-schedule=%s" (required "fabricSnapshotArchiver.schedule.cron is required" $schedule.cron) | quote }}
+            - {{ printf "--keep-archives=%v" $schedule.keepArchives | quote }}
+            {{- $timeout := toString $schedule.timeout }}
+            {{- if not (regexMatch "^([0-9]+(\\.[0-9]+)?(ns|us|ms|s|m|h))+$" $timeout) }}
+            {{- fail (printf "fabricSnapshotArchiver.schedule.timeout %q is not a Go duration with a unit, for example 2h" $timeout) }}
+            {{- end }}
+            - {{ printf "--timeout=%s" $timeout | quote }}
             - --grpc-addr=127.0.0.1:50051
             - --http-addr=127.0.0.1:8080
-            - --metrics-addr=:{{ .Values.fabricSnapshotArchiver.metricsPort }}
+            - {{ printf "--metrics-addr=:%v" .Values.fabricSnapshotArchiver.metricsPort | quote }}
           ports:
             - name: http-archiver
               containerPort: {{ .Values.fabricSnapshotArchiver.metricsPort }}
