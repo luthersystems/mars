@@ -14,6 +14,19 @@
     k8s_pvc_volume_type_override: "{{k8s_fabric_peer_volume_type_override}}"
   when: k8s_fabric_peer_separate_pvc
 
+- name: Create block archive PVC
+  include_role:
+    name: k8s_pvc
+  vars:
+    k8s_pvc_namespace: "{{k8s_fabric_peer_namespace}}"
+    k8s_pvc_name: "blockarchive-fabric-peer{{item}}-{{k8s_fabric_peer_org}}"
+    k8s_pvc_component: fabric
+    k8s_pvc_part_of: bcpeer
+    k8s_pvc_storage_size: "{{k8s_fabric_peer_block_archive_storage_size}}"
+    k8s_pvc_storage_class: "{{k8s_fabric_peer_block_archive_storage_class}}"
+    k8s_pvc_volume_type_override: "{{k8s_fabric_peer_block_archive_volume_type_override}}"
+  when: k8s_fabric_peer_separate_pvc and k8s_fabric_peer_block_archive
+
 - name: Create docker storage PVC
   include_role:
     name: k8s_pvc
@@ -86,6 +99,13 @@
         version: "{{k8s_fabric_peer_chaincode_images_version}}"
         builder: "{{k8s_fabric_peer_chaincode_builder_image}}"
         golangRuntime: "{{k8s_fabric_peer_chaincode_golang_runtime_image}}"
+      blockArchive:
+        enabled: "{{k8s_fabric_peer_block_archive}}"
+        interval: "{{k8s_fabric_peer_block_archive_interval}}"
+        maxMBPerSecond: "{{k8s_fabric_peer_block_archive_max_mb_per_second}}"
+        storageClassName: "{{k8s_fabric_peer_block_archive_storage_class}}"
+        typeOverride: "{{k8s_fabric_peer_block_archive_volume_type_override}}"
+        storageSize: "{{k8s_fabric_peer_block_archive_storage_size}}"
       fabricSnapshotArchiver:
         image:
           version: "{{k8s_fabric_peer_snapshot_archiver_version}}"

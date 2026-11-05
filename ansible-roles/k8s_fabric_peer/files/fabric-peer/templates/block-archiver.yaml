@@ -1,0 +1,19 @@
+{{- if and .Values.blockArchive.enabled .Values.persistentVolume.create }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ list "blockarchive" . | include "fabric-peer.pvc" }}
+  labels:
+    {{- include "fabric-peer.labels" . | nindent 4 }}
+  {{- if .Values.blockArchive.typeOverride }}
+  annotations:
+    ebs.csi.aws.com/volumeType: {{ .Values.blockArchive.typeOverride }}
+  {{- end }}
+spec:
+  storageClassName: {{ .Values.blockArchive.storageClassName }}
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.blockArchive.storageSize }}
+{{- end }}
