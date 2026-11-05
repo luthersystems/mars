@@ -512,10 +512,10 @@ out=$(peer_render --set blockArchive.enabled=true)
 mounts=$(printf "%s\n" "${out}" | grep -c -x "              mountPath: /var/hyperledger/archive")
 if [ "${mounts}" = 2 ] &&
   printf "%s\n" "${out}" | grep -x "        - name: block-archiver" >/dev/null &&
-  printf "%s\n" "${out}" | grep -x '          image: "luthersystems/fabric-snapshot-archiver:v0.0.9"' >/dev/null &&
+  printf "%s\n" "${out}" | grep -x "          image: \"luthersystems/fabric-snapshot-archiver:v0.0.9\"" >/dev/null &&
   printf "%s\n" "${out}" | grep -x "            - archive-blocks" >/dev/null &&
-  printf "%s\n" "${out}" | grep -x '            - "--interval=60s"' >/dev/null &&
-  printf "%s\n" "${out}" | grep -x '            - "--max-mb-per-second=20"' >/dev/null &&
+  printf "%s\n" "${out}" | grep -x "            - \"--interval=60s\"" >/dev/null &&
+  printf "%s\n" "${out}" | grep -x "            - \"--max-mb-per-second=20\"" >/dev/null &&
   printf "%s\n" "${out}" | grep -x "  name: blockarchive-fabric-peer0-org1" >/dev/null &&
   printf "%s\n" "${out}" | grep -x "    ebs.csi.aws.com/volumeType: sc1" >/dev/null; then
   echo "OK:   blockArchive renders the archive-blocks sidecar, both mounts and the PVC"
@@ -530,7 +530,7 @@ if printf "%s\n" "${out}" | grep -x "kind: PersistentVolumeClaim" >/dev/null; th
 else
   echo "OK:   blockArchive leaves the PVC to the role with persistentVolume.create=false"
 fi
-if peer_render --set blockArchive.enabled=true --set blockArchive.interval=60 | grep -q "not a Go duration"; then
+if peer_render --set blockArchive.enabled=true --set blockArchive.interval=60 | grep "not a Go duration" >/dev/null; then
   echo "OK:   blockArchive refuses an interval with no unit"
 else
   echo "FAIL: blockArchive accepts interval=60 (archive-blocks needs a unit)"
