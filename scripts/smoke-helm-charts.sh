@@ -30,7 +30,7 @@
 #     on without the archive-blocks sidecar, its mounts or its PVC
 #   - fabric-peer: two services with the same name, or a changed
 #     <release>-ops name for a fabric-peer<N>-<org> release
-#   - fabric-peer, fabric-orderer, fabric-ca, fabric-cli: no
+#   - fabric-peer, fabric-orderer, fabric-ca, fabric-cli, lutherauth: no
 #     checksum/<name> pod annotation for an entry of checksums (#345, #346),
 #     or one for an empty entry
 #   - shiroclient, connectorhub: a pod checksum that does not change when
@@ -567,6 +567,7 @@ want_checksums fabric-peer "${PEER_CHART}"
 want_checksums fabric-orderer "${ORDERER_CHART}"
 want_checksums fabric-ca "${CA_CHART}"
 want_checksums fabric-cli "${CLI_CHART}"
+want_checksums lutherauth "${CHARTS}/lutherauth"
 # (description, chart, annotation, helm args...): the in-chart Secret the
 # annotation hashes must change it when the args change the Secret (#346).
 want_checksum_moves() {
