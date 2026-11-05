@@ -41,6 +41,24 @@ keep "<fullname>-ops".
 {{- end -}}
 
 {{/*
+The name of the service that publishes the snapshot archiver's metrics.
+Its own service, like the -ops one, because the prometheus.io/port
+annotation names one port per service. A 62- or 63-character fullname
+that ends in "-archiver" gives back the fullname (at 62, trunc 54 ends on
+the "-", which trimSuffix drops), so that one takes the first 8 hex digits
+of the fullname's sha256 too. It cannot clash
+with the -ops name: that ends in "-ops" or in hex digits.
+*/}}
+{{- define "fabric-peer.archiver-fullname" -}}
+{{- $fullname := include "fabric-peer.fullname" . -}}
+{{- $name := printf "%s-archiver" ($fullname | trunc 54 | trimSuffix "-") -}}
+{{- if eq $name $fullname -}}
+{{- $name = printf "%s-%s-archiver" ($fullname | trunc 45 | trimSuffix "-") ($fullname | sha256sum | trunc 8) -}}
+{{- end -}}
+{{- $name -}}
+{{- end -}}
+
+{{/*
 Create chart name and version as used by the chart label.
 */}}
 {{- define "fabric-peer.chart" -}}

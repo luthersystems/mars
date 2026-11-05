@@ -198,7 +198,28 @@ fabricSnapshotArchiver:
   image:
     repository: luthersystems/fabric-snapshot-archiver
     pullPolicy: IfNotPresent
-    version: v0.0.8
+    version: v0.0.9
   resources: {}
+  # The channel the schedule snapshots.
+  channel: luther
+  # Port of the archiver's /metrics on the pod IP (the schedule only).
+  metricsPort: 9601
+  # Snapshots on a schedule, uploaded to S3 (fabric-snapshot-archiver#36).
+  # Off: the container idles for manual use. Needs an archiver image with
+  # serve --snapshot-schedule. Turn it on for one peer of one org only:
+  # every peer has the same ledger, and every org writes to the same S3
+  # prefix, so more uploads cost money and prune each other's archives.
+  schedule:
+    enabled: false
+    # Five-field cron, always UTC. A cron time, not an interval, so that a
+    # pod restart does not push the next snapshot back.
+    cron: "0 2 * * *"
+    # Archives of the channel to keep in S3; 0 keeps all. The S3 role needs
+    # s3:DeleteObject on the prefix to prune.
+    keepArchives: 14
+    # How long a run waits for the peer to write the snapshot, as a Go
+    # duration with a unit. A large ledger takes far longer than the CLI's
+    # 15m default.
+    timeout: 2h
 
 local: false
