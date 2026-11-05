@@ -1,6 +1,17 @@
 ---
 # tasks file for k8s_fabric_orderer
 
+- name: Fabric 3 orderers run without a system channel
+  assert:
+    that:
+      - k8s_fabric_orderer_version | string | regex_replace('^v', '') is version('3.0.0', '<') or k8s_fabric_orderer_channel_participation | bool
+    fail_msg: >-
+      Fabric {{ k8s_fabric_orderer_version }} has no system channel. Set
+      k8s_fabric_orderer_channel_participation to true, and remove the system
+      channel on Fabric 2.5 before the upgrade (docs/fabric-3-upgrade.md in
+      luthersystems/mars). A 3.x orderer whose ledger still has a system
+      channel stops at startup.
+
 - name: K8s namespace exists
   k8s:
     name: "{{k8s_fabric_orderer_namespace}}"

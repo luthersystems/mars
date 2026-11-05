@@ -69,10 +69,33 @@ spec:
               value: "0.0.0.0:{{ .Values.internal.container.operationsPort }}"
             - name: ORDERER_METRICS_PROVIDER
               value: prometheus
+            {{- if .Values.channelParticipation.enabled }}
+            # No system channel (channelParticipation in values.yaml).
+            - name: ORDERER_GENERAL_BOOTSTRAPMETHOD
+              value: none
+            - name: ORDERER_CHANNELPARTICIPATION_ENABLED
+              value: "true"
+            - name: ORDERER_ADMIN_LISTENADDRESS
+              value: "0.0.0.0:{{ .Values.channelParticipation.adminPort }}"
+            - name: ORDERER_ADMIN_TLS_ENABLED
+              value: "true"
+            - name: ORDERER_ADMIN_TLS_CERTIFICATE
+              value: /var/hyperledger/orderer/tls/server.crt
+            - name: ORDERER_ADMIN_TLS_PRIVATEKEY
+              value: /var/hyperledger/orderer/tls/server.key
+            - name: ORDERER_ADMIN_TLS_ROOTCAS
+              value: '[/var/hyperledger/orderer/tls/ca.crt]'
+            # Fabric requires mutual TLS on the admin endpoint.
+            - name: ORDERER_ADMIN_TLS_CLIENTAUTHREQUIRED
+              value: "true"
+            - name: ORDERER_ADMIN_TLS_CLIENTROOTCAS
+              value: '[/var/hyperledger/orderer/tls/ca.crt]'
+            {{- else }}
             - name: ORDERER_GENERAL_GENESISFILE
               value: /var/hyperledger/orderer/artifacts/genesis.block
             - name: ORDERER_GENERAL_GENESISMETHOD
               value: file
+            {{- end }}
             - name: ORDERER_GENERAL_LISTENADDRESS
               value: 0.0.0.0
             - name: ORDERER_GENERAL_LISTENPORT
@@ -114,6 +137,11 @@ spec:
             - name: http-op
               containerPort: {{ .Values.internal.container.operationsPort }}
               protocol: TCP
+            {{- if .Values.channelParticipation.enabled }}
+            - name: admin
+              containerPort: {{ .Values.channelParticipation.adminPort }}
+              protocol: TCP
+            {{- end }}
           {{- if .Values.startService }}
           # Each probe comes from values.yaml (probes.*), which explains the
           # timings. null turns a probe off; a handler there replaces httpGet.

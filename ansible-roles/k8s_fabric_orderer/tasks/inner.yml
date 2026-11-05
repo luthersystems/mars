@@ -40,6 +40,9 @@
       image:
         repository: "{{k8s_fabric_orderer_image_repository}}"
       startService: "{{k8s_fabric_orderer_start_service}}"
+      channelParticipation:
+        enabled: "{{ k8s_fabric_orderer_channel_participation | bool }}"
+        adminPort: "{{ k8s_fabric_orderer_admin_port | int }}"
       probes: "{{k8s_fabric_orderer_probes}}"
       persistentVolume:
         create: "{{not k8s_fabric_orderer_separate_pvc}}"
