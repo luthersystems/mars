@@ -1,0 +1,29 @@
+---
+# defaults file for k8s_fabric_upgrade_v3
+#
+# The Fabric 2.5 to 3.x upgrade (docs/fabric-3-upgrade.md, mars#341). The
+# role runs one action against a running network:
+#   preflight              read-only checks for k8s_fabric_upgrade_v3_step;
+#                          fails the play when a check blocks that step
+#   remove_system_channel  step 2: puts the system channel into maintenance
+#                          mode and removes it from each orderer in turn
+k8s_fabric_upgrade_v3_action: preflight
+# For preflight: the step to check before, remove-system-channel (step 2) or
+# upgrade (step 3).
+k8s_fabric_upgrade_v3_step: upgrade
+# remove_system_channel only prints what it would do when true. Run it so
+# first: the removal has no undo except a restore of the orderer volumes.
+# Ansible check mode (--check) turns it on: the scripts then still run, read
+# only, so a check-mode run shows the real report.
+k8s_fabric_upgrade_v3_dry_run: "{{ ansible_check_mode | default(false) }}"
+# The peer orgs whose CLI pods the checks use (heights, chaincode).
+k8s_fabric_upgrade_v3_peer_orgs: "{{ k8s_fabric_peer_org_names | default(['org1']) }}"
+k8s_fabric_upgrade_v3_channel: luther
+k8s_fabric_upgrade_v3_orderer_count: "{{ k8s_fabric_orderer_cluster_size | default(3) }}"
+k8s_fabric_upgrade_v3_orderer_namespace: fabric-orderer
+k8s_fabric_upgrade_v3_orderer_admin_port: "{{ k8s_fabric_orderer_admin_port | default(7053) }}"
+k8s_fabric_upgrade_v3_domain_root: "{{ k8s_fabric_network_domain_root | default('luther.systems') }}"
+k8s_fabric_upgrade_v3_orderer_domain_root: "{{ k8s_fabric_network_orderer_domain_root | default('') }}"
+# How long remove_system_channel waits for each orderer to serve the channel
+# again before it stops (so one bad orderer does not cost quorum).
+k8s_fabric_upgrade_v3_wait_seconds: 300
