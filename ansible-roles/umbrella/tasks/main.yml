@@ -24,9 +24,12 @@
     mode: "0644"
 
 - name: Install umbrella helm dependencies
-  # Stages files on the deploy host only. Run it in check mode too, because
-  # the cluster tasks after it read these files.
+  # Fetches the subcharts that Chart.yaml lists into charts/ and writes
+  # Chart.lock on the deploy host. The helm install after it needs them, so
+  # run it in check mode too. A remote repository in Chart.yaml makes check
+  # runs fetch from it as well.
   check_mode: false
+  changed_when: false
   command: helm dependency update
   args:
     chdir: "{{ umbrella_helm_chart }}"

@@ -2,12 +2,18 @@
 # tasks file for prometheus
 
 - name: Add prometheus repository
+  # Changes only the helm config on the deploy host. "Install prometheus"
+  # needs the repo to look up the chart, so run it in check mode too.
+  check_mode: false
   kubernetes.core.helm_repository:
     name: prometheus-community
     repo_url: https://prometheus-community.github.io/helm-charts
   no_log: True
 
 - name: Add state metrics repository
+  # Changes only the helm config on the deploy host. "Install prometheus"
+  # needs the repo to look up the chart, so run it in check mode too.
+  check_mode: false
   kubernetes.core.helm_repository:
     name: kube-state-metrics
     repo_url: https://kubernetes.github.io/kube-state-metrics
