@@ -52,3 +52,9 @@ serviceAccount:
 podSecurityContext:
   seccompProfile:
     type: RuntimeDefault
+
+# checksums maps a name to a hash of an object applied outside this chart,
+# such as the envFromSecret Secret. Each non-empty entry becomes the pod
+# annotation checksum/<name>, so a change to the object restarts lutherauth
+# (mars#346). A pod does not restart by itself when a Secret it reads changes.
+checksums: {}

@@ -77,6 +77,21 @@
     group: no
     use_ssh_args: yes
 
+# The cli pod mounts the peer's core.yaml (the chart's coreConfigMap,
+# fabric-peer-config, applied by the k8s_fabric_peer role) with a subPath, and
+# a subPath mount never sees a ConfigMap update. Hash the live ConfigMap so a
+# core.yaml change restarts the cli too, and peer CLI commands do not run on
+# the old config (#345). An orderer-org cli does not mount it.
+- name: Peer core.yaml ConfigMap is read
+  when: k8s_fabric_cli_org != "orderer"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: fabric-peer-config
+    namespace: "{{k8s_fabric_cli_namespace}}"
+  environment: "{{ kubectl_env }}"
+  register: k8s_fabric_cli_core_config
+
 - name: Helm Chart is installed
   kubernetes.core.helm:
     chart_ref: "{{k8s_fabric_cli_helm_chart_path}}"
@@ -86,6 +101,9 @@
     values:
       serviceAccount:
         name: "{{k8s_fabric_cli_service_account}}"
+      checksums:
+        core-config: "{{ (k8s_fabric_cli_core_config.resources[0].data | to_json(sort_keys=True) | hash('sha256')) if (k8s_fabric_cli_core_config.resources | default([]) | length > 0) else '' }}"
+        crypto-config: "{{ (k8s_fabric_cli_crypto_config | hash('sha256')) if (k8s_fabric_cli_crypto_config | default('') | length > 0) else '' }}"
       global:
         lutherEnv: "{{luther_env}}"
         hyperledger:
