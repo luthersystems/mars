@@ -6,6 +6,9 @@
 #- name: Install the pyhelm module
 #  pip: name=pyhelm state=present
 - name: upload helm charts
+  # Stages files on the deploy host only. Run it in check mode too, because
+  # the cluster tasks after it read these files.
+  check_mode: false
   synchronize:
     src: helmcharts/
     dest: "{{helm_charts_root_path}}"

@@ -2,12 +2,18 @@
 # tasks file for k8s_static_resources
 
 - name: Raw resource directories exists
+  # Stages files on the deploy host only. Run it in check mode too, because
+  # the cluster tasks after it read these files.
+  check_mode: false
   file:
     path: "{{k8s_static_resources_root_path}}/{{luther_env}}/k8s_resources/{{item.metadata.namespace | default('nonamespace')}}"
     state: directory
   loop: "{{k8s_static_resources}}"
 
 - name: Template raw resource definitions
+  # Stages files on the deploy host only. Run it in check mode too, because
+  # the cluster tasks after it read these files.
+  check_mode: false
   template:
     dest: "{{k8s_static_resources_root_path}}/{{luther_env}}/k8s_resources/{{item.metadata.namespace | default('nonamespace')}}/{{item.metadata.name}}.yaml"
     src: yaml.j2
@@ -20,12 +26,18 @@
   loop: "{{k8s_static_resources}}"
 
 - name: S3 resource directories exist
+  # Stages files on the deploy host only. Run it in check mode too, because
+  # the cluster tasks after it read these files.
+  check_mode: false
   file:
     path: "{{k8s_static_resources_root_path}}{{item.object_key | dirname}}"
     state: directory
   loop: "{{k8s_static_resources_s3_objects}}"
 
 - name: Download S3 resource definitions
+  # Stages files on the deploy host only. Run it in check mode too, because
+  # the cluster tasks after it read these files.
+  check_mode: false
   amazon.aws.s3_object:
     mode: get
     bucket: "{{item.s3_bucket}}"
