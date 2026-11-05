@@ -26,6 +26,7 @@ archiver() {
 }
 
 # fails CMD...: CMD exits non-zero (its output dropped).
+# shellcheck disable=SC2329 # called through check
 fails() { ! "$@" >/dev/null 2>&1; }
 
 fail=0
