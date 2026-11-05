@@ -33,6 +33,8 @@
 #   - fabric-peer, fabric-orderer, fabric-ca, fabric-cli: no
 #     checksum/<name> pod annotation for an entry of checksums (#345, #346),
 #     or one for an empty entry
+#   - shiroclient, connectorhub: a pod checksum that does not change when
+#     the license or crypto-config Secret in the chart changes (#346)
 #   - shiroclient: the license state volume, mount or env when off (the
 #     default), or a missing or misplaced one when on
 #   - fabric-peer, fabric-orderer: a liveness probe that restarts the node
@@ -565,6 +567,26 @@ want_checksums fabric-peer "${PEER_CHART}"
 want_checksums fabric-orderer "${ORDERER_CHART}"
 want_checksums fabric-ca "${CA_CHART}"
 want_checksums fabric-cli "${CLI_CHART}"
+# (description, chart, annotation, helm args...): the in-chart Secret the
+# annotation hashes must change it when the args change the Secret (#346).
+want_checksum_moves() {
+  desc="$1"; chart="$2"; ann="$3"; shift 3
+  a=$(helm template rel "${chart}" --show-only templates/deployment.yaml 2>&1 | grep "^        ${ann}: ")
+  b=$(helm template rel "${chart}" --show-only templates/deployment.yaml "$@" 2>&1 | grep "^        ${ann}: ")
+  if [ -n "${a}" ] && [ -n "${b}" ] && [ "${a}" != "${b}" ]; then
+    echo "OK:   ${desc}"
+  else
+    echo "FAIL: ${desc}: ${ann} is \"${a}\" then \"${b}\""
+    fail=1
+  fi
+}
+want_checksum_moves "shiroclient restarts on a new license" "${CHARTS}/shiroclient" \
+  checksum/license --set substrate.license=bmV3
+want_checksum_moves "shiroclient restarts on new crypto-config" "${CHARTS}/shiroclient" \
+  checksum/crypto-config --set dlt.cryptoConfigSecret=bmV3
+want_checksum_moves "connectorhub restarts on new crypto-config" "${CHARTS}/connectorhub" \
+  checksum/crypto-config --set dlt.cryptoConfigSecret=bmV3
+
 if peer_render | grep "checksum/" >/dev/null; then
   echo "FAIL: fabric-peer renders a checksum annotation with no checksums"
   fail=1
