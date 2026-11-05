@@ -16,12 +16,17 @@ trap 'rm -rf "$T"' EXIT
 # busybox image the chart runs it in (the same paths mounted in).
 archiver() {
   if [ -n "${BUSYBOX_IMAGE:-}" ]; then
-    docker run --rm -v "$T:$T" -v "$ARCHIVER:/block-archiver.sh:ro" \
+    # As this user, so the test can still write and remove what it makes.
+    docker run --rm --user "$(id -u):$(id -g)" \
+      -v "$T:$T" -v "$ARCHIVER:/block-archiver.sh:ro" \
       "$BUSYBOX_IMAGE" sh /block-archiver.sh "$@"
   else
     sh "$ARCHIVER" "$@"
   fi
 }
+
+# fails CMD...: CMD exits non-zero (its output dropped).
+fails() { ! "$@" >/dev/null 2>&1; }
 
 fail=0
 check() {
@@ -80,9 +85,9 @@ check "a partial copy is replaced" sh -c "[ -L '$chains/luther/blockfile_000004'
 # An archive that cannot be written keeps the originals and fails the pass.
 chmod 0555 "$archive/luther"
 head -c 1000 /dev/urandom >"$chains/luther/blockfile_000006"
-# (Root writes anyway, so only as another user, on the host.)
-if [ "$(id -u)" -ne 0 ] && [ -z "${BUSYBOX_IMAGE:-}" ]; then
-  check "an unwritable archive fails the pass" sh -c "! sh '$ARCHIVER' '$chains' '$archive' 0 >/dev/null 2>&1"
+# (Root writes anyway, so only as another user.)
+if [ "$(id -u)" -ne 0 ]; then
+  check "an unwritable archive fails the pass" fails archiver "$chains" "$archive" 0
   check "and keeps the original" sh -c "[ ! -L '$chains/luther/blockfile_000005' ] && [ -f '$chains/luther/blockfile_000005' ]"
 fi
 chmod 0755 "$archive/luther"
