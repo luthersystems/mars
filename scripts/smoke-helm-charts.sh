@@ -530,7 +530,9 @@ if printf "%s\n" "${out}" | grep -x "kind: PersistentVolumeClaim" >/dev/null; th
 else
   echo "OK:   blockArchive leaves the PVC to the role with persistentVolume.create=false"
 fi
-if peer_render --set blockArchive.enabled=true --set blockArchive.interval=60 | grep "not a Go duration" >/dev/null; then
+# helm exits non-zero here, so capture first: pipefail would fail the pipe.
+out=$(peer_render --set blockArchive.enabled=true --set blockArchive.interval=60 || true)
+if printf "%s\n" "${out}" | grep "not a Go duration" >/dev/null; then
   echo "OK:   blockArchive refuses an interval with no unit"
 else
   echo "FAIL: blockArchive accepts interval=60 (archive-blocks needs a unit)"
