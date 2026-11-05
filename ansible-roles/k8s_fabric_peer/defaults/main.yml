@@ -74,6 +74,18 @@ k8s_fabric_peer_chaincode_golang_runtime_image: ""
 
 k8s_fabric_peer_use_snapshot_archiver: false
 k8s_fabric_peer_snapshot_archiver_version: "v0.0.8"
+# Scheduled snapshots to S3 (luthersystems/mars#338). Needs
+# k8s_fabric_peer_use_snapshot_archiver. Runs on the peers whose index is in
+# k8s_fabric_peer_snapshot_archiver_schedule_peers, peer0 by default: every
+# peer has the same ledger, so one per org is enough. The S3 role needs
+# s3:DeleteObject on the snapshot prefix to keep only the newest
+# k8s_fabric_peer_snapshot_archiver_keep_archives archives (0 keeps all).
+k8s_fabric_peer_snapshot_archiver_schedule: false
+k8s_fabric_peer_snapshot_archiver_schedule_peers: [0]
+k8s_fabric_peer_snapshot_archiver_cron: "0 2 * * *"
+k8s_fabric_peer_snapshot_archiver_keep_archives: 14
+k8s_fabric_peer_snapshot_archiver_timeout: 2h
+k8s_fabric_peer_snapshot_archiver_channel: luther
 
 k8s_fabric_peer_service_account_iam_role_arns: {}
 k8s_fabric_peer_service_account: default

@@ -90,6 +90,12 @@
         image:
           version: "{{k8s_fabric_peer_snapshot_archiver_version}}"
         enabled: "{{k8s_fabric_peer_use_snapshot_archiver}}"
+        channel: "{{k8s_fabric_peer_snapshot_archiver_channel}}"
+        schedule:
+          enabled: "{{ (k8s_fabric_peer_use_snapshot_archiver | bool) and (k8s_fabric_peer_snapshot_archiver_schedule | bool) and ((item | int) in (k8s_fabric_peer_snapshot_archiver_schedule_peers | map('int') | list)) }}"
+          cron: "{{k8s_fabric_peer_snapshot_archiver_cron}}"
+          keepArchives: "{{k8s_fabric_peer_snapshot_archiver_keep_archives}}"
+          timeout: "{{k8s_fabric_peer_snapshot_archiver_timeout}}"
       local: "{{mars_local | default(false)}}"
   environment: "{{ kubectl_env }}"
   vars:

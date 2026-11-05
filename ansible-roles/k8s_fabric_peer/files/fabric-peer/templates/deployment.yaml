@@ -253,10 +253,36 @@ spec:
         - name: fabric-snapshot-archiver
           image: "{{ .Values.fabricSnapshotArchiver.image.repository }}:{{ .Values.fabricSnapshotArchiver.image.version }}"
           imagePullPolicy: {{ .Values.fabricSnapshotArchiver.image.pullPolicy }}
+          {{- $schedule := .Values.fabricSnapshotArchiver.schedule }}
+          {{- if $schedule.enabled }}
+          # serve takes a snapshot on the schedule and uploads it
+          # (luthersystems/fabric-snapshot-archiver#36). Its API has no
+          # authentication and can start a restore, so it listens on
+          # localhost only; reach it with kubectl exec or port-forward. Only
+          # /metrics listens on the pod IP, for Prometheus.
+          command:
+            - /ko-app/fabric-snapshot-archiver
+          args:
+            - serve
+            - --channel={{ .Values.fabricSnapshotArchiver.channel }}
+            - --snapshot-schedule={{ required "fabricSnapshotArchiver.schedule.cron is required" $schedule.cron }}
+            - --keep-archives={{ $schedule.keepArchives }}
+            - --timeout={{ $schedule.timeout }}
+            - --grpc-addr=127.0.0.1:50051
+            - --http-addr=127.0.0.1:8080
+            - --metrics-addr=:{{ .Values.fabricSnapshotArchiver.metricsPort }}
+          ports:
+            - name: http-archiver
+              containerPort: {{ .Values.fabricSnapshotArchiver.metricsPort }}
+              protocol: TCP
+          {{- else }}
+          # No schedule: the container idles, for snapshots and restores run
+          # by hand with kubectl exec.
           command:
             - /bin/sh
             - -c
             - sleep infinity
+          {{- end }}
           env:
             - name: AWS_REGION
               value: {{ .Values.global.aws.region }}
