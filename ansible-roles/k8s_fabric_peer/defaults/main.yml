@@ -21,7 +21,16 @@ k8s_fabric_peer_probes: {}
 k8s_fabric_peer_chaincode_invoke_timeout: 5s
 k8s_fabric_peer_chaincode_memory_limit: 4294967296 # 4Gi
 k8s_fabric_peer_storage_size: 10Gi
+# Storage class of new peer volume claims. It cannot change on an existing
+# claim; use k8s_fabric_peer_volume_type_override for that.
 k8s_fabric_peer_storage_class: gp2
+# EBS volume type to set on the peer volume claims (annotation
+# ebs.csi.aws.com/volumeType), for example gp3. The EBS CSI driver changes the
+# volume in place and online; AWS allows one change in 6 hours. On a 125 GiB
+# test volume, a peer on sc1 committed blocks 90 times slower than on gp3
+# (larger sc1 volumes are faster), so use gp3 unless cost matters more than
+# speed. Measurements and cost:
+# https://docs.luthersystems.com/deployment/peer-storage
 k8s_fabric_peer_volume_type_override: ""
 k8s_fabric_peer_dockerstorage_size: 10Gi
 k8s_fabric_peer_log_level: INFO
@@ -72,6 +81,10 @@ k8s_fabric_peer_chaincode_images_version: v0.1.48
 k8s_fabric_peer_chaincode_builder_image: ""
 k8s_fabric_peer_chaincode_golang_runtime_image: ""
 
+# Add the fabric-snapshot-archiver sidecar to each peer pod. It takes Fabric
+# ledger snapshots to the static S3 bucket and joins a peer from one; the
+# peer's service account needs S3 access (iam_role_arns below). How to use it:
+# https://docs.luthersystems.com/deployment/fabric-snapshot-archiver
 k8s_fabric_peer_use_snapshot_archiver: false
 k8s_fabric_peer_snapshot_archiver_version: "v0.0.8"
 
