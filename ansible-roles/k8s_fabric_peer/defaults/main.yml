@@ -24,6 +24,15 @@ k8s_fabric_peer_storage_size: 10Gi
 k8s_fabric_peer_storage_class: gp2
 k8s_fabric_peer_volume_type_override: ""
 k8s_fabric_peer_dockerstorage_size: 10Gi
+# Tiered ledger storage (the chart's blockArchive): sealed block files move
+# to a second PVC, so the storage PVC can be small and fast (gp3) and the
+# archive large and cheap (sc1, 125Gi minimum). Each peer's archive PVC is
+# blockarchive-fabric-peer<N>-<org>.
+k8s_fabric_peer_block_archive: false
+k8s_fabric_peer_block_archive_storage_size: 125Gi
+k8s_fabric_peer_block_archive_storage_class: "{{k8s_fabric_peer_storage_class}}"
+k8s_fabric_peer_block_archive_volume_type_override: sc1
+k8s_fabric_peer_block_archive_interval: 60
 k8s_fabric_peer_log_level: INFO
 k8s_fabric_peer_pv_selectors:
   - app.kubernetes.io/component=bcpeer

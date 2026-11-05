@@ -29,6 +29,19 @@ jobs:
         run: go vet ./...
       - name: go test
         run: go test ./...
+  # The fabric-peer chart's block-archiver (tiered ledger storage) moves
+  # live ledger files, so its script is tested with this host's sh and in
+  # the busybox image the sidecar runs.
+  block-archiver:
+    name: block-archiver test
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Test with sh
+        run: ./scripts/test-block-archiver.sh
+      - name: Test in busybox
+        run: BUSYBOX_IMAGE=busybox:1.35.0 ./scripts/test-block-archiver.sh
   build:
     name: ${{ matrix.image }} - ${{ matrix.arch }} docker build
     runs-on: ${{ fromJSON('{"arm64":"ubuntu-22.04-arm","amd64":"ubuntu-22.04"}')[matrix.arch] }}

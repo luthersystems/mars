@@ -52,6 +52,14 @@ spec:
         - name: storage
           persistentVolumeClaim:
             claimName: {{ list "storage" . | include "fabric-peer.pvc" }}
+        {{- if .Values.blockArchive.enabled }}
+        - name: blockarchive
+          persistentVolumeClaim:
+            claimName: {{ list "blockarchive" . | include "fabric-peer.pvc" }}
+        - name: block-archiver
+          configMap:
+            name: {{ include "fabric-peer.fullname" . }}-block-archiver
+        {{- end }}
         {{- if .Values.dlt.cryptoConfigSecret }}
         - name: fabric-crypto-config
           secret:
@@ -231,6 +239,12 @@ spec:
               mountPath: /etc/hyperledger/fabric/tls
             - name: storage
               mountPath: /var/hyperledger/production
+            {{- if .Values.blockArchive.enabled }}
+            # The archived block files, behind the symlinks the
+            # block-archiver leaves in the ledger: the same path in both.
+            - name: blockarchive
+              mountPath: {{ .Values.blockArchive.mountPath }}
+            {{- end }}
           workingDir: /opt/gopath/src/github.com/hyperledger/fabric/peer
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
@@ -248,6 +262,28 @@ spec:
               mountPath: /var/lib/docker
             - name: docker-tls
               mountPath: /docker-tls
+        {{- end }}
+        {{- if .Values.blockArchive.enabled }}
+        # Moves sealed block files from the fast storage volume to the cheap
+        # blockarchive volume and leaves symlinks (files/block-archiver.sh).
+        - name: block-archiver
+          image: {{ .Values.blockArchive.image | quote }}
+          command:
+            - sh
+            - /block-archiver/block-archiver.sh
+            - /var/hyperledger/production/ledgersData/chains/chains
+            - {{ .Values.blockArchive.mountPath }}
+            - {{ .Values.blockArchive.intervalSeconds | quote }}
+          volumeMounts:
+            - name: storage
+              mountPath: /var/hyperledger/production
+            - name: blockarchive
+              mountPath: {{ .Values.blockArchive.mountPath }}
+            - name: block-archiver
+              mountPath: /block-archiver
+              readOnly: true
+          resources:
+            {{- toYaml .Values.blockArchive.resources | nindent 12 }}
         {{- end }}
         {{- if .Values.fabricSnapshotArchiver.enabled }}
         - name: fabric-snapshot-archiver

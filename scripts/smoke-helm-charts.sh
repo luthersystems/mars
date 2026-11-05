@@ -372,6 +372,40 @@ done
 want_fabric_probe_count "peer renders no probes with startProbes=false" "${PEER_CHART}" 0 \
   --set startProbes=false
 
+# fabric-peer tiered ledger storage (blockArchive): off by default; on, the
+# block-archiver sidecar and the peer mount the archive volume at the same
+# path (the symlinks point there), and the ConfigMap carries the script.
+peer_render() {
+  helm template fabric-peer0-org1 "${PEER_CHART}" \
+    --set serviceAccount.name=sa --set dlt.organization=org1 \
+    --set dlt.domain=example.com "$@" 2>&1
+}
+if peer_render | grep -e block-archiver -e blockarchive >/dev/null; then
+  echo "FAIL: blockArchive renders by default"
+  fail=1
+else
+  echo "OK:   blockArchive is off by default"
+fi
+out=$(peer_render --set blockArchive.enabled=true)
+mounts=$(printf "%s\n" "${out}" | grep -c -x "              mountPath: /var/hyperledger/archive")
+if [ "${mounts}" = 2 ] &&
+  printf "%s\n" "${out}" | grep -x "        - name: block-archiver" >/dev/null &&
+  printf "%s\n" "${out}" | grep -x "  name: blockarchive-fabric-peer0-org1" >/dev/null &&
+  printf "%s\n" "${out}" | grep -x "    ebs.csi.aws.com/volumeType: sc1" >/dev/null &&
+  printf "%s\n" "${out}" | grep -F "    archive_channel() {" >/dev/null; then
+  echo "OK:   blockArchive renders the sidecar, both mounts, the PVC and the script"
+else
+  echo "FAIL: blockArchive render is missing the sidecar, a mount (${mounts} of 2), the PVC or the script"
+  fail=1
+fi
+out=$(peer_render --set blockArchive.enabled=true --set persistentVolume.create=false)
+if printf "%s\n" "${out}" | grep -x "kind: PersistentVolumeClaim" >/dev/null; then
+  echo "FAIL: blockArchive makes a PVC with persistentVolume.create=false (the role makes it)"
+  fail=1
+else
+  echo "OK:   blockArchive leaves the PVC to the role with persistentVolume.create=false"
+fi
+
 # shiroclient gateway: the startupProbe renders by default, startupProbe:
 # null turns it off, and a custom handler replaces the default httpGet.
 startup_probe() {

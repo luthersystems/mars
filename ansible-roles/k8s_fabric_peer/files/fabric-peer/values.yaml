@@ -88,6 +88,29 @@ persistentVolume:
   dockerStorageSize: 10Gi
   typeOverride: ""
 
+# Tiered ledger storage. The storage volume (fast: gp3) keeps the hot path:
+# the current block file, the block index and the state, history and private
+# data stores, each fsynced on every block. A block-archiver sidecar
+# (files/block-archiver.sh) moves each sealed block file to this second
+# volume (cheap: sc1) and leaves a symlink, so the bulk of the ledger costs
+# sc1 prices. Reads of old blocks then come from sc1.
+blockArchive:
+  enabled: false
+  # The same path in the peer and the sidecar: the symlinks point here.
+  mountPath: /var/hyperledger/archive
+  intervalSeconds: 60
+  image: busybox:1.35.0
+  # Used only when persistentVolume.create; otherwise the role makes the PVC.
+  storageClassName: gp2
+  typeOverride: sc1
+  storageSize: 125Gi
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      memory: 64Mi
+
 service:
   type: LoadBalancer
   port: 7053
