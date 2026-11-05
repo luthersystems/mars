@@ -47,6 +47,9 @@
     values:
       serviceAccount:
         name: "{{k8s_fabric_peer_service_account}}"
+      checksums:
+        core-config: "{{k8s_fabric_peer_configmap_stat.stat.checksum}}"
+        crypto-config: "{{ (k8s_fabric_peer_crypto_config | hash('sha256')) if (k8s_fabric_peer_crypto_config | default('') | length > 0) else '' }}"
       global:
         lutherProjectID: "{{luther_project_id}}"
         lutherEnv: "{{luther_env}}"

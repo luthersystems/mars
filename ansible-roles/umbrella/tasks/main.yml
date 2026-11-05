@@ -78,5 +78,19 @@
     namespace: "{{ umbrella_namespace }}"
     create_namespace: yes
     wait: yes
-    values: "{{ umbrella_values }}"
+    values: "{{ umbrella_values | combine(auth_secret_checksum, recursive=True) }}"
   environment: "{{ kubectl_env }}"
+  vars:
+    # lutherauth reads the auth Secret above at start (envFrom), and helm
+    # does not own it, so a change to it restarted nothing. Its hash on the
+    # pod template makes a new key restart lutherauth now, at deploy time
+    # (mars#346). The hash covers the same data the Secret holds. Each value
+    # is hashed as a string, not through to_json: a vaulted value can encode
+    # as its ciphertext, and re-encrypting the same key would then restart
+    # lutherauth for nothing.
+    auth_secret_checksum: >-
+      {{ {'lutherauth': {'checksums': {'auth-secret':
+            [auth_jwt_secret, umbrella_auth_oauth_client_secret]
+            | map('string') | map('hash', 'sha256') | join(':') | hash('sha256')}}}
+         if (umbrella_lutherauth_secrets | bool) and ('lutherauth' in umbrella_charts)
+         else {} }}

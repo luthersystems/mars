@@ -194,3 +194,26 @@ does not wrap it. chaincodeImages.golangRuntime names any image instead.
 {{- printf "luthersystems/fabric-baseos:%s-%s" $minor $ci.version -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Pod annotations checksum/<name>, one for each non-empty entry of
+.Values.checksums. The k8s_fabric_peer role applies the core.yaml ConfigMap
+outside this chart, and a pod does not restart when an object it mounts
+changes. The role passes a hash of each such object here, so a change to it
+changes the pod template and the Deployment restarts the peer on the new
+data. An unchanged object keeps the same hash and restarts nothing (#345).
+*/}}
+{{- define "fabric-peer.checksum-annotations" -}}
+{{- $sums := dict -}}
+{{- range $name, $sum := .Values.checksums -}}
+{{- if $sum -}}
+{{- $_ := set $sums $name $sum -}}
+{{- end -}}
+{{- end -}}
+{{- with $sums -}}
+annotations:
+{{- range $name, $sum := . }}
+  checksum/{{ $name }}: {{ $sum | quote }}
+{{- end }}
+{{- end -}}
+{{- end -}}

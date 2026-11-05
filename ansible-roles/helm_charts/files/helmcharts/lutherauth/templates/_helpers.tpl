@@ -53,3 +53,27 @@ app.kubernetes.io/part-of: {{ .Values.global.partOf }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Pod annotations checksum/<name>, one for each non-empty entry of
+.Values.checksums. The pod reads envFromSecret at start, and the umbrella
+role applies that Secret outside this chart, so neither helm nor the pod
+sees it change. The role passes a hash of it here: a new signing key or
+OAuth client secret then restarts lutherauth at deploy time, not at the next
+unrelated restart (a node drain), which would change the JWKS kid when no one
+is watching (mars#346).
+*/}}
+{{- define "lutherauth.checksum-annotations" -}}
+{{- $sums := dict -}}
+{{- range $name, $sum := .Values.checksums -}}
+{{- if $sum -}}
+{{- $_ := set $sums $name $sum -}}
+{{- end -}}
+{{- end -}}
+{{- with $sums -}}
+annotations:
+{{- range $name, $sum := . }}
+  checksum/{{ $name }}: {{ $sum | quote }}
+{{- end }}
+{{- end -}}
+{{- end -}}

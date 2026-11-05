@@ -17,6 +17,14 @@ replicaCount: 1
 # configuration file.
 coreConfigMap: fabric-peer-config
 
+# checksums maps a name to a hash of an object the k8s_fabric_cli role
+# applies outside this chart, such as the crypto-config Secret. Each
+# non-empty entry becomes the pod annotation checksum/<name>, so a change to
+# the object restarts the pod (#346). A pod does not restart by itself when a
+# ConfigMap or Secret it reads at start changes, and helm cannot see objects
+# it does not own.
+checksums: {}
+
 dlt:
   component: bccli
   organization: org1

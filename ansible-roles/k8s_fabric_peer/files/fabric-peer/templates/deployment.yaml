@@ -16,6 +16,7 @@ spec:
     metadata:
       labels:
         {{- include "fabric-peer.labels" . | nindent 8 }}
+      {{- with include "fabric-peer.checksum-annotations" . }}{{ . | nindent 6 }}{{ end }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:

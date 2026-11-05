@@ -30,6 +30,11 @@
 #     on without the archive-blocks sidecar, its mounts or its PVC
 #   - fabric-peer: two services with the same name, or a changed
 #     <release>-ops name for a fabric-peer<N>-<org> release
+#   - fabric-peer, fabric-orderer, fabric-ca, fabric-cli, lutherauth: no
+#     checksum/<name> pod annotation for an entry of checksums (#345, #346),
+#     or one for an empty entry
+#   - shiroclient, connectorhub: a pod checksum that does not change when
+#     the license or crypto-config Secret in the chart changes (#346)
 #   - shiroclient: the license state volume, mount or env when off (the
 #     default), or a missing or misplaced one when on
 #   - fabric-peer, fabric-orderer: a liveness probe that restarts the node
@@ -62,10 +67,11 @@ CHARTS="${ROOT}/ansible-roles/helm_charts/files/helmcharts"
 PEER_CHART="${ROOT}/ansible-roles/k8s_fabric_peer/files/fabric-peer"
 ORDERER_CHART="${ROOT}/ansible-roles/k8s_fabric_orderer/files/fabric-orderer"
 CC_CHART="${ROOT}/ansible-roles/k8s_fabric_chaincode/files/chaincode"
+CA_CHART="${ROOT}/ansible-roles/k8s_fabric_ca/files/fabric-ca"
+CLI_CHART="${ROOT}/ansible-roles/k8s_fabric_cli/files/fabric-cli"
 
-# Runs in the image (or locally) with CHARTS, PEER_CHART, ORDERER_CHART and
-# CC_CHART set
-# and helm on PATH.
+# Runs in the image (or locally) with CHARTS, PEER_CHART, ORDERER_CHART,
+# CC_CHART, CA_CHART and CLI_CHART set and helm on PATH.
 # shellcheck disable=SC2016 # expanded by the inner shell
 CHECKS='
 set -uo pipefail
@@ -539,6 +545,56 @@ else
   fail=1
 fi
 
+# Pod checksum annotations (#345, #346): a role applies some objects outside
+# the chart, so only these annotations restart the pods when one changes.
+# (description, chart, helm args...): the pod template must carry
+# checksum/a: "abc" and no annotation for the empty entry b.
+want_checksums() {
+  desc="$1"; chart="$2"; shift 2
+  out=$(helm template rel "${chart}" --set serviceAccount.name=sa \
+    --set dlt.organization=org1 --set dlt.domain=example.com \
+    --set checksums.a=abc --set checksums.b= "$@" 2>&1)
+  if printf "%s\n" "${out}" | awk "/^  template:/{t=1} t&&/^    spec:/{exit} t&&/^      annotations:/{a=1;next} a&&/^        checksum\/a: \"abc\"$/{f=1} END{exit !f}" &&
+    ! printf "%s\n" "${out}" | grep "checksum/b" >/dev/null; then
+    echo "OK:   ${desc} puts checksums on the pod template"
+  else
+    echo "FAIL: ${desc} pod template has no checksum/a: \"abc\", or has checksum/b:"
+    printf "%s\n" "${out}"
+    fail=1
+  fi
+}
+want_checksums fabric-peer "${PEER_CHART}"
+want_checksums fabric-orderer "${ORDERER_CHART}"
+want_checksums fabric-ca "${CA_CHART}"
+want_checksums fabric-cli "${CLI_CHART}"
+want_checksums lutherauth "${CHARTS}/lutherauth"
+# (description, chart, annotation, helm args...): the in-chart Secret the
+# annotation hashes must change it when the args change the Secret (#346).
+want_checksum_moves() {
+  desc="$1"; chart="$2"; ann="$3"; shift 3
+  a=$(helm template rel "${chart}" --show-only templates/deployment.yaml 2>&1 | grep "^        ${ann}: ")
+  b=$(helm template rel "${chart}" --show-only templates/deployment.yaml "$@" 2>&1 | grep "^        ${ann}: ")
+  if [ -n "${a}" ] && [ -n "${b}" ] && [ "${a}" != "${b}" ]; then
+    echo "OK:   ${desc}"
+  else
+    echo "FAIL: ${desc}: ${ann} is \"${a}\" then \"${b}\""
+    fail=1
+  fi
+}
+want_checksum_moves "shiroclient restarts on a new license" "${CHARTS}/shiroclient" \
+  checksum/license --set substrate.license=bmV3
+want_checksum_moves "shiroclient restarts on new crypto-config" "${CHARTS}/shiroclient" \
+  checksum/crypto-config --set dlt.cryptoConfigSecret=bmV3
+want_checksum_moves "connectorhub restarts on new crypto-config" "${CHARTS}/connectorhub" \
+  checksum/crypto-config --set dlt.cryptoConfigSecret=bmV3
+
+if peer_render | grep "checksum/" >/dev/null; then
+  echo "FAIL: fabric-peer renders a checksum annotation with no checksums"
+  fail=1
+else
+  echo "OK:   fabric-peer renders no checksum annotation by default"
+fi
+
 # shiroclient gateway: the startupProbe renders by default, startupProbe:
 # null turns it off, and a custom handler replaces the default httpGet.
 startup_probe() {
@@ -861,13 +917,16 @@ fi
 case "${1:?usage: smoke-helm-charts.sh <image> | --local}" in
 --local)
   CHARTS="${CHARTS}" PEER_CHART="${PEER_CHART}" ORDERER_CHART="${ORDERER_CHART}" \
-    CC_CHART="${CC_CHART}" bash -c "${CHECKS}"
+    CC_CHART="${CC_CHART}" CA_CHART="${CA_CHART}" CLI_CHART="${CLI_CHART}" \
+    bash -c "${CHECKS}"
   ;;
 *)
   docker run --rm -e CHARTS=/charts -v "${CHARTS}:/charts:ro" \
     -e PEER_CHART=/peer-chart -v "${PEER_CHART}:/peer-chart:ro" \
     -e ORDERER_CHART=/orderer-chart -v "${ORDERER_CHART}:/orderer-chart:ro" \
     -e CC_CHART=/cc-chart -v "${CC_CHART}:/cc-chart:ro" \
+    -e CA_CHART=/ca-chart -v "${CA_CHART}:/ca-chart:ro" \
+    -e CLI_CHART=/cli-chart -v "${CLI_CHART}:/cli-chart:ro" \
     --entrypoint /bin/bash "$1" -c "${CHECKS}"
   ;;
 esac
