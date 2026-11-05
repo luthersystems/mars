@@ -45,6 +45,10 @@ jobs:
       # collection modules (ansible.posix synchronize), as in the image.
       - name: Install Ansible (the version in requirements.txt)
         run: pipx install "ansible==$(sed -n 's/^ansible==//p' requirements.txt)" --include-deps
+      # PyYAML comes with Ansible.
+      - name: Tasks give each Fabric script the NAMESPACE it needs
+        run: |
+          "$(pipx environment --value PIPX_LOCAL_VENVS)/ansible/bin/python" scripts/check-script-env.py
       - name: Test the upgrade path
         env:
           FABRIC_BIN_CACHE: ${{ runner.temp }}/fabric-bin

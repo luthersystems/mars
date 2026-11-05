@@ -438,6 +438,10 @@ exec)
     }
     cmd=()
     for a in "$@"; do cmd+=("$(rewrite "$a")"); done
+    # Like kubectl on our CLI pods, which have an init container.
+    case "$pod" in
+    fabric-cli*) echo 'Defaulted container "fabric-cli" out of: fabric-cli, config-setup (init)' >&2 ;;
+    esac
     case "$pod" in
     fabric-cli*-orderer-x)
         export CORE_PEER_LOCALMSPID=OrdererMSP

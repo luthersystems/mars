@@ -73,6 +73,8 @@
   environment: "{{ kubectl_env | combine(extra_env_vars) }}"
   vars:
     extra_env_vars:
+      # channel-utils.sh, which the pauser sources, exits without it.
+      NAMESPACE: "{{k8s_fabric_orderer_namespace}}"
       FABRIC_DOMAIN: "{{k8s_fabric_orderer_domain_root}}"
       FABRIC_ORDERER_CLIENT_AUTH: "{{ k8s_fabric_orderer_client_auth | bool | lower }}"
       PAUSING_AT: orderer
