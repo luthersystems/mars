@@ -105,6 +105,10 @@ jobs:
     runs-on: ubuntu-22.04
     needs:
       - push-manifests
+    # The deploy key is a secret of this environment, made by Terraform in
+    # common-infrastructure (github-org-admin/deploy_keys.json). It admits
+    # v* tags only (github-org/environments.json).
+    environment: deploy
     steps:
       - name: Checkout Repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
