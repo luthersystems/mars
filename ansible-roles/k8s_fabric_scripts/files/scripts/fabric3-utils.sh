@@ -46,20 +46,22 @@ osnadmin_args() {
 }
 
 # osnadmin_json <pod> <args...>: run osnadmin in the pod and print the JSON
-# body. osnadmin prints "Status: <code>" then the body; any status other than
-# 2xx fails.
+# body. osnadmin prints "Status: <code>" then the body on stdout; any status
+# other than 2xx fails. Only stdout is parsed: kubectl writes notes such as
+# 'Defaulted container "fabric-cli" out of: ...' to stderr, and mixed into
+# the body they made jq fail, so the pre-flight read no channels at all.
 osnadmin_json() {
-    local pod="$1" out status
+    local pod="$1" out err status rc=0
     shift
-    out="$(pod_exec "$pod" osnadmin "$@" 2>&1)" || {
-        echo "$out" >&2
-        return 1
-    }
+    err="$(mktemp)"
+    out="$(pod_exec "$pod" osnadmin "$@" 2>"$err")" || rc=$?
     status="$(sed -n 's/^Status: \([0-9]*\).*/\1/p' <<<"$out" | head -n 1)"
-    if [[ ! "$status" =~ ^2 ]]; then
-        echo "$out" >&2
+    if ((rc != 0)) || [[ ! "$status" =~ ^2 ]]; then
+        { echo "$out"; cat "$err"; } >&2
+        rm -f "$err"
         return 1
     fi
+    rm -f "$err"
     sed '/^Status: /d' <<<"$out"
 }
 
