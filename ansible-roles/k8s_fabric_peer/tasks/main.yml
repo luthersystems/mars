@@ -52,6 +52,15 @@
     src: configmap.yaml.j2
     dest: "{{k8s_fabric_peer_configmap_path}}"
 
+# The hash goes to each peer's helm release (checksums.core-config), so a
+# changed core.yaml restarts the peers. The ConfigMap is applied outside the
+# chart, and a running pod keeps the config it started with (mars#345).
+- name: ConfigMap checksum is computed
+  stat:
+    path: "{{k8s_fabric_peer_configmap_path}}"
+    checksum_algorithm: sha256
+  register: k8s_fabric_peer_configmap_stat
+
 - name: K8s ConfigMap exists
   k8s:
     src: "{{k8s_fabric_peer_configmap_path}}"

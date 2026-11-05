@@ -30,6 +30,8 @@
 #     on without the archive-blocks sidecar, its mounts or its PVC
 #   - fabric-peer: two services with the same name, or a changed
 #     <release>-ops name for a fabric-peer<N>-<org> release
+#   - fabric-peer: no checksum/<name> pod annotation for an entry of
+#     checksums (#345), or one for an empty entry
 #   - shiroclient: the license state volume, mount or env when off (the
 #     default), or a missing or misplaced one when on
 #   - fabric-peer, fabric-orderer: a liveness probe that restarts the node
@@ -537,6 +539,32 @@ if printf "%s\n" "${out}" | grep "not a Go duration" >/dev/null; then
 else
   echo "FAIL: blockArchive accepts interval=60 (archive-blocks needs a unit)"
   fail=1
+fi
+
+# Pod checksum annotations (#345, #346): a role applies some objects outside
+# the chart, so only these annotations restart the pods when one changes.
+# (description, chart, helm args...): the pod template must carry
+# checksum/a: "abc" and no annotation for the empty entry b.
+want_checksums() {
+  desc="$1"; chart="$2"; shift 2
+  out=$(helm template rel "${chart}" --set serviceAccount.name=sa \
+    --set dlt.organization=org1 --set dlt.domain=example.com \
+    --set checksums.a=abc --set checksums.b= "$@" 2>&1)
+  if printf "%s\n" "${out}" | awk "/^  template:/{t=1} t&&/^    spec:/{exit} t&&/^      annotations:/{a=1;next} a&&/^        checksum\/a: \"abc\"$/{f=1} END{exit !f}" &&
+    ! printf "%s\n" "${out}" | grep "checksum/b" >/dev/null; then
+    echo "OK:   ${desc} puts checksums on the pod template"
+  else
+    echo "FAIL: ${desc} pod template has no checksum/a: \"abc\", or has checksum/b:"
+    printf "%s\n" "${out}"
+    fail=1
+  fi
+}
+want_checksums fabric-peer "${PEER_CHART}"
+if peer_render | grep "checksum/" >/dev/null; then
+  echo "FAIL: fabric-peer renders a checksum annotation with no checksums"
+  fail=1
+else
+  echo "OK:   fabric-peer renders no checksum annotation by default"
 fi
 
 # shiroclient gateway: the startupProbe renders by default, startupProbe:

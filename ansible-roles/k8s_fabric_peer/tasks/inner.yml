@@ -47,6 +47,8 @@
     values:
       serviceAccount:
         name: "{{k8s_fabric_peer_service_account}}"
+      checksums:
+        core-config: "{{k8s_fabric_peer_configmap_stat.stat.checksum}}"
       global:
         lutherProjectID: "{{luther_project_id}}"
         lutherEnv: "{{luther_env}}"
