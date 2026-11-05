@@ -26,6 +26,8 @@
 #     service, or no ClusterIP operations service
 #   - fabric-peer: the snapshot archiver schedule (#338) not running serve,
 #     its API not on localhost, or no scraped ClusterIP metrics service
+#   - fabric-peer: tiered ledger storage (blockArchive) on by default, or
+#     on without the archive-blocks sidecar, its mounts or its PVC
 #   - fabric-peer: two services with the same name, or a changed
 #     <release>-ops name for a fabric-peer<N>-<org> release
 #   - shiroclient: the license state volume, mount or env when off (the
@@ -490,6 +492,50 @@ want_orderer_render "orderer admin port is not on the load balancer" no \
   "name: admin" service.yaml ${cp_on}
 want_orderer_render "orderer admin port follows adminPort" yes \
   "containerPort: 9053" deployment.yaml ${cp_on} --set channelParticipation.adminPort=9053
+
+# fabric-peer tiered ledger storage (blockArchive): off by default; on, the
+# block-archiver sidecar runs archive-blocks from the snapshot archiver image
+# and the peer mounts the archive volume at the same path (the symlinks point
+# there).
+peer_render() {
+  helm template fabric-peer0-org1 "${PEER_CHART}" \
+    --set serviceAccount.name=sa --set dlt.organization=org1 \
+    --set dlt.domain=example.com "$@" 2>&1
+}
+if peer_render | grep -e block-archiver -e blockarchive >/dev/null; then
+  echo "FAIL: blockArchive renders by default"
+  fail=1
+else
+  echo "OK:   blockArchive is off by default"
+fi
+out=$(peer_render --set blockArchive.enabled=true)
+mounts=$(printf "%s\n" "${out}" | grep -c -x "              mountPath: /var/hyperledger/archive")
+if [ "${mounts}" = 2 ] &&
+  printf "%s\n" "${out}" | grep -x "        - name: block-archiver" >/dev/null &&
+  printf "%s\n" "${out}" | grep -x '          image: "luthersystems/fabric-snapshot-archiver:v0.0.9"' >/dev/null &&
+  printf "%s\n" "${out}" | grep -x "            - archive-blocks" >/dev/null &&
+  printf "%s\n" "${out}" | grep -x '            - "--interval=60s"' >/dev/null &&
+  printf "%s\n" "${out}" | grep -x '            - "--max-mb-per-second=20"' >/dev/null &&
+  printf "%s\n" "${out}" | grep -x "  name: blockarchive-fabric-peer0-org1" >/dev/null &&
+  printf "%s\n" "${out}" | grep -x "    ebs.csi.aws.com/volumeType: sc1" >/dev/null; then
+  echo "OK:   blockArchive renders the archive-blocks sidecar, both mounts and the PVC"
+else
+  echo "FAIL: blockArchive render is missing the sidecar, its args, a mount (${mounts} of 2) or the PVC"
+  fail=1
+fi
+out=$(peer_render --set blockArchive.enabled=true --set persistentVolume.create=false)
+if printf "%s\n" "${out}" | grep -x "kind: PersistentVolumeClaim" >/dev/null; then
+  echo "FAIL: blockArchive makes a PVC with persistentVolume.create=false (the role makes it)"
+  fail=1
+else
+  echo "OK:   blockArchive leaves the PVC to the role with persistentVolume.create=false"
+fi
+if peer_render --set blockArchive.enabled=true --set blockArchive.interval=60 | grep -q "not a Go duration"; then
+  echo "OK:   blockArchive refuses an interval with no unit"
+else
+  echo "FAIL: blockArchive accepts interval=60 (archive-blocks needs a unit)"
+  fail=1
+fi
 
 # shiroclient gateway: the startupProbe renders by default, startupProbe:
 # null turns it off, and a custom handler replaces the default httpGet.

@@ -52,6 +52,11 @@ spec:
         - name: storage
           persistentVolumeClaim:
             claimName: {{ list "storage" . | include "fabric-peer.pvc" }}
+        {{- if .Values.blockArchive.enabled }}
+        - name: blockarchive
+          persistentVolumeClaim:
+            claimName: {{ list "blockarchive" . | include "fabric-peer.pvc" }}
+        {{- end }}
         {{- if .Values.dlt.cryptoConfigSecret }}
         - name: fabric-crypto-config
           secret:
@@ -231,6 +236,12 @@ spec:
               mountPath: /etc/hyperledger/fabric/tls
             - name: storage
               mountPath: /var/hyperledger/production
+            {{- if .Values.blockArchive.enabled }}
+            # The archived block files, behind the symlinks the
+            # block-archiver leaves in the ledger: the same path in both.
+            - name: blockarchive
+              mountPath: {{ .Values.blockArchive.mountPath }}
+            {{- end }}
           workingDir: /opt/gopath/src/github.com/hyperledger/fabric/peer
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
@@ -248,6 +259,32 @@ spec:
               mountPath: /var/lib/docker
             - name: docker-tls
               mountPath: /docker-tls
+        {{- end }}
+        {{- if .Values.blockArchive.enabled }}
+        # Moves sealed block files from the fast storage volume to the cheap
+        # blockarchive volume and leaves symlinks (fabric-snapshot-archiver
+        # archive-blocks). Fabric never writes a sealed file again, so the
+        # peer keeps running; it reads old blocks through the symlinks.
+        {{- $interval := toString .Values.blockArchive.interval }}
+        {{- if not (regexMatch "^([0-9]+(\\.[0-9]+)?(ns|us|ms|s|m|h))+$" $interval) }}
+        {{- fail (printf "blockArchive.interval %q is not a Go duration with a unit, for example 60s" $interval) }}
+        {{- end }}
+        - name: block-archiver
+          image: "{{ .Values.fabricSnapshotArchiver.image.repository }}:{{ .Values.fabricSnapshotArchiver.image.version }}"
+          imagePullPolicy: {{ .Values.fabricSnapshotArchiver.image.pullPolicy }}
+          args:
+            - archive-blocks
+            - --ledger-path=/var/hyperledger/production
+            - {{ printf "--archive-path=%s" .Values.blockArchive.mountPath | quote }}
+            - {{ printf "--interval=%s" $interval | quote }}
+            - {{ printf "--max-mb-per-second=%v" .Values.blockArchive.maxMBPerSecond | quote }}
+          volumeMounts:
+            - name: storage
+              mountPath: /var/hyperledger/production
+            - name: blockarchive
+              mountPath: {{ .Values.blockArchive.mountPath }}
+          resources:
+            {{- toYaml .Values.blockArchive.resources | nindent 12 }}
         {{- end }}
         {{- if .Values.fabricSnapshotArchiver.enabled }}
         - name: fabric-snapshot-archiver
