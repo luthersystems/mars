@@ -90,7 +90,7 @@ k8s_fabric_peer_chaincode_golang_runtime_image: ""
 # and k8s_fabric_peer_service_account to the same service account. How to use it:
 # https://docs.luthersystems.com/deployment/fabric-snapshot-archiver
 k8s_fabric_peer_use_snapshot_archiver: false
-k8s_fabric_peer_snapshot_archiver_version: "v0.0.8"
+k8s_fabric_peer_snapshot_archiver_version: "v0.0.9"
 # Scheduled snapshots to S3 (luthersystems/mars#338). Needs
 # k8s_fabric_peer_use_snapshot_archiver. Runs on the peers whose index is in
 # k8s_fabric_peer_snapshot_archiver_schedule_peers, peer0 by default: every
