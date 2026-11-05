@@ -625,6 +625,23 @@ data:
           shim:   warning
           # Format for the chaincode container logs
           format: '%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}'
+{% if k8s_fabric_peer_version | string | regex_replace('^v', '') is version('3.0.0', '>=') %}
+
+        # Fabric 3.x only: the peer tells each chaincode at registration that
+        # it may send its writes as one batch at the end of the transaction
+        # (useWriteBatch) and read many keys in one call (useGetMultipleKeys).
+        # A shim that supports them (fabric-chaincode-go/v2 v2.1.0 or later,
+        # which substrate uses) then makes fewer round trips to the peer for
+        # each transaction. A 2.5 peer has no such settings, so the block is
+        # left out there and a 2.5 core.yaml does not change.
+        # k8s_fabric_peer_chaincode_runtime_params sets the values.
+{% set rp = k8s_fabric_peer_chaincode_runtime_params_defaults | combine(k8s_fabric_peer_chaincode_runtime_params) %}
+        runtimeParams:
+            useWriteBatch: {{ rp.useWriteBatch | bool | to_json }}
+            maxSizeWriteBatch: {{ rp.maxSizeWriteBatch | int }}
+            useGetMultipleKeys: {{ rp.useGetMultipleKeys | bool | to_json }}
+            maxSizeGetMultipleKeys: {{ rp.maxSizeGetMultipleKeys | int }}
+{% endif %}
 
     ###############################################################################
     #
