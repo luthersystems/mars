@@ -1,0 +1,24 @@
+{{- if .Values.channelParticipation.enabled }}
+{{- /*
+The osnadmin endpoint (channelParticipation in values.yaml). The Service name
+is orderer<N>, the short host name that cryptogen puts in the orderer TLS
+certificate, so osnadmin in the orderer CLI pods (same namespace) can verify
+the server certificate. A separate ClusterIP Service keeps the admin port off
+the orderer load balancer.
+*/}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: orderer{{ .Values.dlt.organizationIndex }}
+  labels:
+    {{- include "fabric-orderer.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.channelParticipation.adminPort }}
+      targetPort: admin
+      protocol: TCP
+      name: admin
+  selector:
+    {{- include "fabric-orderer.match-labels" . | nindent 4 }}
+{{- end }}

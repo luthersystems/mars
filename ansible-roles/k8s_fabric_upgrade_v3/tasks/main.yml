@@ -1,0 +1,71 @@
+---
+# tasks file for k8s_fabric_upgrade_v3
+
+- name: The action is known
+  assert:
+    that:
+      - k8s_fabric_upgrade_v3_action in ['preflight', 'remove_system_channel']
+      - k8s_fabric_upgrade_v3_step in ['remove-system-channel', 'upgrade']
+    fail_msg: >-
+      k8s_fabric_upgrade_v3_action must be preflight or remove_system_channel,
+      and k8s_fabric_upgrade_v3_step remove-system-channel or upgrade
+
+- name: Fabric 3 pre-flight check ({{ k8s_fabric_upgrade_v3_step }})
+  when: k8s_fabric_upgrade_v3_action == 'preflight'
+  command:
+    argv:
+      - "{{ k8s_fabric_scripts_dir }}/fabric3-preflight.sh"
+    chdir: "{{ k8s_fabric_scripts_workdir }}"
+  environment: "{{ kubectl_env | combine(upgrade_env, {'STEP': k8s_fabric_upgrade_v3_step}) }}"
+  vars: &upgrade_vars
+    upgrade_env:
+      ORDERERC: "{{ k8s_fabric_upgrade_v3_orderer_count | string }}"
+      PEER_ORGS: "{{ k8s_fabric_upgrade_v3_peer_orgs | join(' ') }}"
+      CHANNEL: "{{ k8s_fabric_upgrade_v3_channel }}"
+      FABRIC_DOMAIN: "{{ k8s_fabric_upgrade_v3_domain_root }}"
+      FABRIC_ORDERER_DOMAIN: "{{ k8s_fabric_upgrade_v3_orderer_domain_root }}"
+      FABRIC_ORDERER_CLIENT_AUTH: "{{ k8s_fabric_orderer_client_auth | bool | lower }}"
+      ORDERER_NAMESPACE: "{{ k8s_fabric_upgrade_v3_orderer_namespace }}"
+      ORDERER_ADMIN_PORT: "{{ k8s_fabric_upgrade_v3_orderer_admin_port | string }}"
+      WAIT_SECONDS: "{{ k8s_fabric_upgrade_v3_wait_seconds | string }}"
+      DRY_RUN: "{{ k8s_fabric_upgrade_v3_dry_run | bool | lower }}"
+  register: k8s_fabric_upgrade_v3_preflight
+  # Read only, so it runs in check mode too.
+  check_mode: false
+  changed_when: false
+  failed_when: false
+
+# The report is the useful part, also when the check passes.
+- name: Pre-flight report
+  when: k8s_fabric_upgrade_v3_action == 'preflight'
+  debug:
+    msg: "{{ k8s_fabric_upgrade_v3_preflight.stdout_lines + k8s_fabric_upgrade_v3_preflight.stderr_lines }}"
+
+- name: The network is ready for {{ k8s_fabric_upgrade_v3_step }}
+  when: k8s_fabric_upgrade_v3_action == 'preflight'
+  assert:
+    that: k8s_fabric_upgrade_v3_preflight.rc == 0
+    fail_msg: >-
+      The pre-flight check blocks {{ k8s_fabric_upgrade_v3_step }} (exit
+      {{ k8s_fabric_upgrade_v3_preflight.rc }}). Fix each FAIL row above; see
+      docs/fabric-3-upgrade.md in luthersystems/mars.
+
+- name: Remove the orderer system channel
+  when: k8s_fabric_upgrade_v3_action == 'remove_system_channel'
+  command:
+    argv:
+      - "{{ k8s_fabric_scripts_dir }}/remove-system-channel.sh"
+    chdir: "{{ k8s_fabric_scripts_workdir }}"
+  environment: "{{ kubectl_env | combine(upgrade_env) }}"
+  vars: *upgrade_vars
+  register: k8s_fabric_upgrade_v3_remove
+  # In check mode the script runs with DRY_RUN=true (see the defaults).
+  check_mode: false
+  changed_when: >-
+    not (k8s_fabric_upgrade_v3_dry_run | bool)
+    and 'nothing to do' not in k8s_fabric_upgrade_v3_remove.stderr
+
+- name: Removal log
+  when: k8s_fabric_upgrade_v3_action == 'remove_system_channel'
+  debug:
+    msg: "{{ k8s_fabric_upgrade_v3_remove.stderr_lines }}"

@@ -1,0 +1,4 @@
+---
+dependencies:
+  - kubectl
+  - k8s_fabric_scripts

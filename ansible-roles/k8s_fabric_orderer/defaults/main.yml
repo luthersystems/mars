@@ -29,6 +29,15 @@ k8s_fabric_orderer_azs: []
 k8s_fabric_orderer_cert_bucket: ""
 k8s_fabric_orderer_cert_bucket_region: ""
 k8s_fabric_orderer_version: "{{k8s_fabric_version}}"
+# Turn on the channel participation API (osnadmin) and boot without a system
+# channel. Fabric 3.x has no system channel, so this defaults to on for a 3.x
+# orderer, and the role fails a 3.x orderer with it off. A 2.5 network turns
+# it on first, as step 1 of the Fabric 3 upgrade (docs/fabric-3-upgrade.md),
+# and then removes its system channel. Keep it on after that: once the system
+# channel is gone, "off" boots the orderer from the genesis block again.
+k8s_fabric_orderer_channel_participation: "{{ k8s_fabric_orderer_version | string | regex_replace('^v', '') is version('3.0.0', '>=') }}"
+# Port of the osnadmin admin endpoint (a ClusterIP Service named orderer<N>).
+k8s_fabric_orderer_admin_port: 7053
 k8s_fabric_orderer_crypto_config: ""
 k8s_fabric_orderer_crypto_config_secret_name: ""
 k8s_fabric_orderer_log_grpc: false

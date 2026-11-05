@@ -60,6 +60,18 @@ k8s_fabric_peer_chaincode_ccaas: false
 k8s_fabric_peer_chaincode_docker: true
 k8s_fabric_peer_log_grpc: false
 k8s_fabric_peer_version: "{{k8s_fabric_version}}"
+# Fabric 3.x chaincode.runtimeParams in core.yaml (the peer leaves them out
+# for 2.x). The values are the Fabric 3.1 defaults; they let a shim batch its
+# writes and multi-key reads (luthersystems/substrate#1033). Set
+# useWriteBatch or useGetMultipleKeys to false to fall back to one message per
+# key if a chaincode misbehaves with them. Set only the keys you change: the
+# template merges them over k8s_fabric_peer_chaincode_runtime_params_defaults.
+k8s_fabric_peer_chaincode_runtime_params: {}
+k8s_fabric_peer_chaincode_runtime_params_defaults:
+  useWriteBatch: true
+  maxSizeWriteBatch: 1000
+  useGetMultipleKeys: true
+  maxSizeGetMultipleKeys: 1000
 k8s_fabric_peer_crypto_config: ""
 k8s_fabric_peer_crypto_config_secret_name: ""
 k8s_fabric_peer_aws_cli_version: "{{ luther_buildenv_images_version }}"

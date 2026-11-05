@@ -44,6 +44,10 @@
 #     luthersystems/fabric-ccenv and fabric-baseos for Fabric 2.2, 2.4 and
 #     2.5 (baseos 2.2 and 2.4 only), or a chart default chaincodeImages.version
 #     that differs from k8s_fabric_peer_chaincode_images_version (#319)
+#   - fabric-orderer channel participation (mars#341): any change to the
+#     default render, or when on: the genesis file, no bootstrap method none,
+#     no admin port or ClusterIP Service orderer<N>, or the admin port on the
+#     load balancer Service
 #   - chaincode: the env the k8s_fabric_chaincode role passes
 #     (CHAINCODE_NAME, luthersystems/substrate#808) missing, or dropping
 #     the chart's env defaults
@@ -371,6 +375,60 @@ for node in peer orderer; do
 done
 want_fabric_probe_count "peer renders no probes with startProbes=false" "${PEER_CHART}" 0 \
   --set startProbes=false
+
+# fabric-orderer channel participation (mars#341, docs/fabric-3-upgrade.md):
+# off by default, so a 2.x orderer renders the same as before; on, the
+# orderer boots without the genesis file and has the osnadmin endpoint on a
+# ClusterIP Service orderer<N>, never on the load balancer Service.
+# (description, yes|no, line, template, helm args...): does the template
+# render have the line (leading spaces ignored)?
+want_orderer_render() {
+  desc="$1"; want="$2"; str="$3"; tpl="$4"; shift 4
+  if ! out=$(helm template node "${ORDERER_CHART}" --show-only "templates/${tpl}" \
+    --set serviceAccount.name=sa --set dlt.organization=orderer \
+    --set dlt.domain=example.com --set dlt.organizationIndex=1 "$@" 2>&1); then
+    if [ "${want}" = no ] && printf "%s\n" "${out}" | grep "could not find template" >/dev/null; then
+      echo "OK:   ${desc}"
+      return
+    fi
+    echo "FAIL: ${desc}: helm template failed:"
+    echo "${out}"
+    fail=1
+    return
+  fi
+  if printf "%s\n" "${out}" | sed "s/^ *//" | grep -xF -e "${str}" >/dev/null; then got=yes; else got=no; fi
+  if [ "${got}" = "${want}" ]; then
+    echo "OK:   ${desc}"
+  else
+    echo "FAIL: ${desc}: has line \"${str}\": ${got}, want ${want}"
+    fail=1
+  fi
+}
+cp_on="--set channelParticipation.enabled=true"
+want_orderer_render "orderer default boots from the genesis file" yes \
+  "- name: ORDERER_GENERAL_GENESISFILE" deployment.yaml
+want_orderer_render "orderer default has no bootstrap method none" no \
+  "- name: ORDERER_GENERAL_BOOTSTRAPMETHOD" deployment.yaml
+want_orderer_render "orderer default has no admin port" no \
+  "- name: admin" deployment.yaml
+want_orderer_render "orderer default has no admin Service" no \
+  "name: orderer1" service-admin.yaml
+want_orderer_render "orderer channel participation boots with method none" yes \
+  "- name: ORDERER_GENERAL_BOOTSTRAPMETHOD" deployment.yaml ${cp_on}
+want_orderer_render "orderer channel participation drops the genesis file" no \
+  "- name: ORDERER_GENERAL_GENESISFILE" deployment.yaml ${cp_on}
+want_orderer_render "orderer channel participation requires admin client TLS" yes \
+  "- name: ORDERER_ADMIN_TLS_CLIENTAUTHREQUIRED" deployment.yaml ${cp_on}
+want_orderer_render "orderer channel participation has the admin port" yes \
+  "containerPort: 7053" deployment.yaml ${cp_on}
+want_orderer_render "orderer admin Service is orderer<N>" yes \
+  "name: orderer1" service-admin.yaml ${cp_on}
+want_orderer_render "orderer admin Service is ClusterIP" yes \
+  "type: ClusterIP" service-admin.yaml ${cp_on}
+want_orderer_render "orderer admin port is not on the load balancer" no \
+  "name: admin" service.yaml ${cp_on}
+want_orderer_render "orderer admin port follows adminPort" yes \
+  "containerPort: 9053" deployment.yaml ${cp_on} --set channelParticipation.adminPort=9053
 
 # shiroclient gateway: the startupProbe renders by default, startupProbe:
 # null turns it off, and a custom handler replaces the default httpGet.
