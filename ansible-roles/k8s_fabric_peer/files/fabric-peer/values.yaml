@@ -19,10 +19,11 @@ replicaCount: 1
 coreConfigMap: fabric-peer-config
 
 # checksums maps a name to a hash of an object the role applies outside this
-# chart, such as coreConfigMap. Each non-empty entry becomes the pod
-# annotation checksum/<name>, so a change to the object restarts the peer
-# (#345). A pod does not restart by itself when a ConfigMap or Secret it
-# mounts changes, and helm cannot see objects it does not own.
+# chart: coreConfigMap and the crypto-config Secret. Each non-empty entry
+# becomes the pod annotation checksum/<name>, so a change to the object
+# restarts the peer (#345, #346). A pod does not restart by itself when a
+# ConfigMap or Secret it mounts changes, and helm cannot see objects it does
+# not own.
 checksums: {}
 
 dlt:

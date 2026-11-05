@@ -30,8 +30,9 @@
 #     on without the archive-blocks sidecar, its mounts or its PVC
 #   - fabric-peer: two services with the same name, or a changed
 #     <release>-ops name for a fabric-peer<N>-<org> release
-#   - fabric-peer: no checksum/<name> pod annotation for an entry of
-#     checksums (#345), or one for an empty entry
+#   - fabric-peer, fabric-orderer, fabric-ca, fabric-cli: no
+#     checksum/<name> pod annotation for an entry of checksums (#345, #346),
+#     or one for an empty entry
 #   - shiroclient: the license state volume, mount or env when off (the
 #     default), or a missing or misplaced one when on
 #   - fabric-peer, fabric-orderer: a liveness probe that restarts the node
@@ -64,10 +65,11 @@ CHARTS="${ROOT}/ansible-roles/helm_charts/files/helmcharts"
 PEER_CHART="${ROOT}/ansible-roles/k8s_fabric_peer/files/fabric-peer"
 ORDERER_CHART="${ROOT}/ansible-roles/k8s_fabric_orderer/files/fabric-orderer"
 CC_CHART="${ROOT}/ansible-roles/k8s_fabric_chaincode/files/chaincode"
+CA_CHART="${ROOT}/ansible-roles/k8s_fabric_ca/files/fabric-ca"
+CLI_CHART="${ROOT}/ansible-roles/k8s_fabric_cli/files/fabric-cli"
 
-# Runs in the image (or locally) with CHARTS, PEER_CHART, ORDERER_CHART and
-# CC_CHART set
-# and helm on PATH.
+# Runs in the image (or locally) with CHARTS, PEER_CHART, ORDERER_CHART,
+# CC_CHART, CA_CHART and CLI_CHART set and helm on PATH.
 # shellcheck disable=SC2016 # expanded by the inner shell
 CHECKS='
 set -uo pipefail
@@ -560,6 +562,9 @@ want_checksums() {
   fi
 }
 want_checksums fabric-peer "${PEER_CHART}"
+want_checksums fabric-orderer "${ORDERER_CHART}"
+want_checksums fabric-ca "${CA_CHART}"
+want_checksums fabric-cli "${CLI_CHART}"
 if peer_render | grep "checksum/" >/dev/null; then
   echo "FAIL: fabric-peer renders a checksum annotation with no checksums"
   fail=1
@@ -889,13 +894,16 @@ fi
 case "${1:?usage: smoke-helm-charts.sh <image> | --local}" in
 --local)
   CHARTS="${CHARTS}" PEER_CHART="${PEER_CHART}" ORDERER_CHART="${ORDERER_CHART}" \
-    CC_CHART="${CC_CHART}" bash -c "${CHECKS}"
+    CC_CHART="${CC_CHART}" CA_CHART="${CA_CHART}" CLI_CHART="${CLI_CHART}" \
+    bash -c "${CHECKS}"
   ;;
 *)
   docker run --rm -e CHARTS=/charts -v "${CHARTS}:/charts:ro" \
     -e PEER_CHART=/peer-chart -v "${PEER_CHART}:/peer-chart:ro" \
     -e ORDERER_CHART=/orderer-chart -v "${ORDERER_CHART}:/orderer-chart:ro" \
     -e CC_CHART=/cc-chart -v "${CC_CHART}:/cc-chart:ro" \
+    -e CA_CHART=/ca-chart -v "${CA_CHART}:/ca-chart:ro" \
+    -e CLI_CHART=/cli-chart -v "${CLI_CHART}:/cli-chart:ro" \
     --entrypoint /bin/bash "$1" -c "${CHECKS}"
   ;;
 esac

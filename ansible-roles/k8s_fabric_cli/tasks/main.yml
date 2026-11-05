@@ -86,6 +86,8 @@
     values:
       serviceAccount:
         name: "{{k8s_fabric_cli_service_account}}"
+      checksums:
+        crypto-config: "{{ (k8s_fabric_cli_crypto_config | hash('sha256')) if (k8s_fabric_cli_crypto_config | default('') | length > 0) else '' }}"
       global:
         lutherEnv: "{{luther_env}}"
         hyperledger:
