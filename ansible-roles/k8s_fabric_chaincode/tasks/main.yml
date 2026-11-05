@@ -60,6 +60,9 @@
     - prepare_chaincode_upgrade
 
 - name: Helm chart exists
+  # Stages files on the deploy host only. Run it in check mode too, because
+  # the cluster tasks after it read these files.
+  check_mode: false
   synchronize:
     src: chaincode/
     dest: "{{k8s_fabric_chaincode_helm_chart_path}}"

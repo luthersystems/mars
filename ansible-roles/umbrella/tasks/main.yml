@@ -2,6 +2,9 @@
 # tasks file
 
 - name: Create umbrella chart directory
+  # Stages files on the deploy host only. Run it in check mode too, because
+  # the cluster tasks after it read these files.
+  check_mode: false
   file:
     path: "{{ umbrella_helm_chart }}"
     owner: root
@@ -10,6 +13,9 @@
     mode: "0755"
 
 - name: Render umbrella Chart.yaml
+  # Stages files on the deploy host only. Run it in check mode too, because
+  # the cluster tasks after it read these files.
+  check_mode: false
   template:
     src: Chart.yaml.j2
     dest: "{{ umbrella_helm_chart }}/Chart.yaml"
@@ -18,6 +24,9 @@
     mode: "0644"
 
 - name: Install umbrella helm dependencies
+  # Stages files on the deploy host only. Run it in check mode too, because
+  # the cluster tasks after it read these files.
+  check_mode: false
   command: helm dependency update
   args:
     chdir: "{{ umbrella_helm_chart }}"

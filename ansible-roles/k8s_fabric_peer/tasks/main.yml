@@ -10,11 +10,17 @@
   environment: "{{ kubectl_env }}"
 
 - name: ConfigMap directory exists
+  # Stages files on the deploy host only. Run it in check mode too, because
+  # the cluster tasks after it read these files.
+  check_mode: false
   file:
     path: "{{k8s_fabric_peer_configmap_path | dirname}}"
     state: directory
 
 - name: ConfigMap is rendered
+  # Stages files on the deploy host only. Run it in check mode too, because
+  # the cluster tasks after it read these files.
+  check_mode: false
   template:
     src: configmap.yaml.j2
     dest: "{{k8s_fabric_peer_configmap_path}}"
@@ -61,6 +67,9 @@
   loop: "{{ k8s_fabric_peer_service_account_iam_role_arns | dict2items }}"
 
 - name: Helm chart exists
+  # Stages files on the deploy host only. Run it in check mode too, because
+  # the cluster tasks after it read these files.
+  check_mode: false
   synchronize:
     src: fabric-peer/
     dest: "{{k8s_fabric_peer_helm_chart_path}}"
