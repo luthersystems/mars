@@ -28,6 +28,21 @@
       {{ k8s_fabric_peer_snapshot_archiver_schedule_min_version }} or later
       (the first archiver with serve --snapshot-schedule).
 
+# The block-archiver sidecar runs `archive-blocks`. An older archiver exits
+# on that argument, and the crash-looping sidecar takes the peer pod out of
+# its Service (platform-test, mars v0.145.0 with archiver v0.0.8).
+- name: Block archive settings are valid
+  when: k8s_fabric_peer_block_archive | bool
+  assert:
+    that:
+      - (k8s_fabric_peer_snapshot_archiver_version | regex_replace('^v', '')) is version(k8s_fabric_peer_block_archive_min_version | regex_replace('^v', ''), '>=')
+    fail_msg: >-
+      k8s_fabric_peer_block_archive needs
+      k8s_fabric_peer_snapshot_archiver_version
+      {{ k8s_fabric_peer_block_archive_min_version }} or later (the first
+      archiver with archive-blocks); the version is
+      {{ k8s_fabric_peer_snapshot_archiver_version }}.
+
 - name: K8s namespace exists
   k8s:
     name: "{{k8s_fabric_peer_namespace}}"

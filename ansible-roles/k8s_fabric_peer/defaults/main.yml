@@ -51,6 +51,8 @@ k8s_fabric_peer_block_archive_interval: 60s
 # Copy rate limit in MiB/s (0: none), so the first pass of a large ledger
 # does not take the disk from the peer. sc1 gives 12 MiB/s per TiB base.
 k8s_fabric_peer_block_archive_max_mb_per_second: 20
+# The first archiver release with archive-blocks.
+k8s_fabric_peer_block_archive_min_version: "v0.0.9"
 k8s_fabric_peer_log_level: INFO
 k8s_fabric_peer_pv_selectors:
   - app.kubernetes.io/component=bcpeer
