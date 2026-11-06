@@ -766,7 +766,7 @@ want_peer_env() {
   desc="$1"; name="$2"; want="$3"; shift 3
   if ! out=$(helm template peer0-org1 "${PEER_CHART}" \
     --show-only templates/deployment.yaml \
-    --set serviceAccount.name=sa --set chaincodeImages.version=v9.9.9 "$@" 2>&1); then
+    --set serviceAccount.name=sa --set dockerChaincode=true --set chaincodeImages.version=v9.9.9 "$@" 2>&1); then
     echo "FAIL: ${desc}: helm template failed:"
     echo "${out}"
     fail=1
@@ -799,6 +799,12 @@ want_peer_env "peer 3.1 keeps the core.yaml baseos (no CA bundle)" CORE_CHAINCOD
   --set global.hyperledger.fabricVersion=3.1.1
 want_peer_env "peer 3.0 keeps the upstream ccenv (no wrapper)" CORE_CHAINCODE_BUILDER \
   "hyperledger/fabric-ccenv:3.0.0" --set global.hyperledger.fabricVersion=3.0.0
+want_peer_env "peer 3.1 keeps the upstream ccenv before buildenv v0.1.56" CORE_CHAINCODE_BUILDER \
+  "hyperledger/fabric-ccenv:3.1.1" --set global.hyperledger.fabricVersion=3.1.1 --set chaincodeImages.version=v0.1.48
+want_peer_env "ccaas peer renders no chaincode builder" CORE_CHAINCODE_BUILDER "" \
+  --set global.hyperledger.fabricVersion=3.1.1 --set dockerChaincode=false
+want_peer_env "ccaas peer renders no Go runtime" CORE_CHAINCODE_GOLANG_RUNTIME "" \
+  --set global.hyperledger.fabricVersion=2.2.15 --set dockerChaincode=false
 want_peer_env "peer with no chaincodeImages.version keeps the upstream ccenv" CORE_CHAINCODE_BUILDER \
   "hyperledger/fabric-ccenv:2.2.15" --set global.hyperledger.fabricVersion=2.2.15 --set chaincodeImages.version=
 want_peer_env "peer with no chaincodeImages.version keeps the core.yaml baseos" CORE_CHAINCODE_GOLANG_RUNTIME "" \

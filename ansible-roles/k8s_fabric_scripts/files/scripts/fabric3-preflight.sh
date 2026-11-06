@@ -262,7 +262,7 @@ check_heights() {
     done
 }
 
-# Chaincode mode: Docker chaincode builds with the upstream 3.x images.
+# Chaincode mode: Docker chaincode builds in a different image on 3.x.
 check_chaincode_mode() {
     local org docker
     for org in $PEER_ORGS; do
@@ -271,7 +271,7 @@ check_chaincode_mode() {
         docker="$(kubectl -n "fabric-$org" get deployments -l app.kubernetes.io/component=bcpeer -o json 2>/dev/null |
             jq -r '[.items[].spec.template.spec | (.containers // []) + (.initContainers // []) | .[].name] | any(. == "docker-chaincodes")')"
         if [[ "$docker" == true ]]; then
-            result WARN none "$org chaincode" "Docker (dind): 3.1 builds in luthersystems/fabric-ccenv:3.1 (its own Go); test a chaincode build on test first"
+            result WARN none "$org chaincode" "Docker (dind): 3.1 builds in luthersystems/fabric-ccenv:3.1 (Ubuntu) with chaincode images v0.1.56 or later, other 3.x in the upstream image; test a chaincode build on test first"
         else
             result PASS any "$org chaincode" "external or chaincode as a service"
         fi

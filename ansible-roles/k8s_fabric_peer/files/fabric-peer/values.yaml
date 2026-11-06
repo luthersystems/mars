@@ -54,6 +54,8 @@ buildImage:
 #   buildenv v0.1.56, luthersystems/buildenv#189)
 #   fabric-baseos:<minor>-<version> for Fabric 2.2 and 2.4 (2.5 and 3.1 have
 #   no CA bundle, so the upstream image stays)
+# The chart sets these images only on a dockerChaincode peer, so an external
+# or ccaas peer does not restart when they change.
 # The peer builds a chaincode image only when it has none, so a change here
 # applies to chaincode the peer has not built yet. Remove the old dev-* images
 # from the dind daemon to rebuild the others.
