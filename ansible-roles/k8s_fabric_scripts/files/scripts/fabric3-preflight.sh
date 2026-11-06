@@ -20,7 +20,9 @@
 #   STEP, ORDERERC (orderer count), PEER_ORGS (space-separated org names,
 #   for example "org1"), CHANNEL (default luther), FABRIC_DOMAIN,
 #   FABRIC_ORDERER_DOMAIN, FABRIC_ORDERER_CLIENT_AUTH, ORDERER_NAMESPACE
-#   (default fabric-orderer), ORDERER_ADMIN_PORT (default 7053)
+#   (default fabric-orderer), ORDERER_ADMIN_PORT (default 7053),
+#   CONFIG_FETCH_TRIES (default 6) and CONFIG_FETCH_WAIT (seconds, default
+#   10): the tries of the channel config fetch
 #
 # Test: scripts/test-fabric3-upgrade.sh (a local 2.5.7 network and a fake kubectl).
 
@@ -38,6 +40,8 @@ ORDERERC="${ORDERERC:?}"
 PEER_ORGS="${PEER_ORGS:?}"
 ORDERER_NAMESPACE="${ORDERER_NAMESPACE:-fabric-orderer}"
 ORDERER_ADMIN_PORT="${ORDERER_ADMIN_PORT:-7053}"
+CONFIG_FETCH_TRIES="${CONFIG_FETCH_TRIES:-6}"
+CONFIG_FETCH_WAIT="${CONFIG_FETCH_WAIT:-10}"
 
 # channel-utils.sh needs NAMESPACE; the functions below set it per call.
 NAMESPACE="$ORDERER_NAMESPACE"
@@ -95,16 +99,36 @@ check_images() {
     done
 }
 
+# fetch_channel_config <pod> <channel>: channel_config_json, tried
+# CONFIG_FETCH_TRIES times, CONFIG_FETCH_WAIT seconds apart. Just after an
+# orderer restart (step 1) or the system channel removal (step 2), the
+# orderer can refuse a fetch until Raft has a leader for the channel again:
+# a healthy network showed a FAIL here once on a first run after step 2.
+# The last error goes to stderr.
+fetch_channel_config() {
+    local n
+    for ((n = 1; ; n++)); do
+        channel_config_json "$1" "$2" && return 0
+        ((n >= CONFIG_FETCH_TRIES)) && return 1
+        sleep "$CONFIG_FETCH_WAIT"
+    done
+}
+
 # Channel config: consensus type, capabilities.
 check_channel_config() {
-    local org="${PEER_ORGS%% *}" pod cfg
+    local org="${PEER_ORGS%% *}" pod cfg err_file err rc=0
     NAMESPACE="fabric-$org"
     if ! pod="$(select_first_cli_pod "$org" 0 2>/dev/null)"; then
         result FAIL any "$CHANNEL config" "no CLI pod for $org"
         return
     fi
-    if ! cfg="$(channel_config_json "$pod" "$CHANNEL")"; then
-        result FAIL any "$CHANNEL config" "could not fetch the channel config with $pod"
+    err_file="$(mktemp)"
+    cfg="$(fetch_channel_config "$pod" "$CHANNEL" 2>"$err_file")" || rc=$?
+    err="$(tail -n 1 "$err_file")"
+    rm -f "$err_file"
+    if ((rc != 0)); then
+        result FAIL any "$CHANNEL config" \
+            "could not fetch the channel config with $pod after $CONFIG_FETCH_TRIES tries: ${err:-no error text}"
         return
     fi
     local ctype state

@@ -438,6 +438,16 @@ exec)
     }
     cmd=()
     for a in "$@"; do cmd+=("$(rewrite "$a")"); done
+    # Refuse the next $FAKE_WORK/fetch-fails config fetches, as an orderer
+    # with no Raft leader for the channel yet does.
+    if [[ "$*" == *"channel fetch config"* && -s "$FAKE_WORK/fetch-fails" ]]; then
+        n="$(cat "$FAKE_WORK/fetch-fails")"
+        if ((n > 0)); then
+            echo $((n - 1)) >"$FAKE_WORK/fetch-fails"
+            echo "Error: can't read the block: &{SERVICE_UNAVAILABLE}" >&2
+            exit 1
+        fi
+    fi
     # Like kubectl on our CLI pods, which have an init container.
     case "$pod" in
     fabric-cli*) echo 'Defaulted container "fabric-cli" out of: fabric-cli, config-setup (init)' >&2 ;;
@@ -609,6 +619,19 @@ ok "remove-system-channel.sh is safe to run again"
 expect_commit "after step 2"
 preflight upgrade || { cat "$WORK/preflight.out"; fail "pre-flight for step 3 failed"; }
 ok "pre-flight READY for step 3"
+
+# ---- the pre-flight retries a refused config fetch ------------------------
+
+echo 2 >"$WORK/fetch-fails"
+CONFIG_FETCH_WAIT=1 preflight upgrade || { cat "$WORK/preflight.out"; fail "pre-flight did not retry the config fetch"; }
+[[ "$(cat "$WORK/fetch-fails")" == 0 ]] || fail "the fake orderer did not refuse the fetches"
+ok "pre-flight READY when the orderer refuses the first two config fetches"
+echo 9 >"$WORK/fetch-fails"
+if CONFIG_FETCH_TRIES=2 CONFIG_FETCH_WAIT=1 preflight upgrade; then fail "pre-flight passed with no channel config"; fi
+row "$CH config" | grep -q 'after 2 tries: Error: can.t read the block: &{SERVICE_UNAVAILABLE}' ||
+    { cat "$WORK/preflight.out"; fail "the config FAIL row does not show the fetch error"; }
+rm -f "$WORK/fetch-fails"
+ok "pre-flight FAIL row shows the fetch error after the last try"
 
 # ---- step 3: orderers, then the peer, one at a time ------------------------
 

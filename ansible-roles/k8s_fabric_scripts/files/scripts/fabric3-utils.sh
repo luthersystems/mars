@@ -78,15 +78,21 @@ osnadmin_list() {
 
 # channel_config_json <pod> <channel> [orderer index]: the channel's current
 # config (common.Config) as JSON, fetched through orderer<index> (default 0).
+# When the fetch fails, the last line of its error goes to stderr. A peer
+# logs INFO lines to stderr on success too, so they are kept back until then.
 channel_config_json() {
-    local pod="$1" ch="$2" i="${3:-0}" dir
+    local pod="$1" ch="$2" i="${3:-0}" dir err rc=0
     dir="/tmp/fabric3-$ch-$$"
-    pod_exec "$pod" mkdir -p "$dir" >/dev/null &&
+    if ! err="$(pod_exec "$pod" mkdir -p "$dir" 2>&1 >/dev/null &&
         pod_exec "$pod" peer channel fetch config "$dir/config.pb" -c "$ch" \
-            -o "orderer$i.${ORDERER_DOMAIN}:7050" "${ORDERER_TLS_ARGS[@]}" >/dev/null 2>&1 &&
+            -o "orderer$i.${ORDERER_DOMAIN}:7050" "${ORDERER_TLS_ARGS[@]}" 2>&1 >/dev/null)"; then
+        grep -v '^Defaulted container' <<<"$err" | tail -n 1 >&2
+        rc=1
+    else
         pod_exec "$pod" configtxlator proto_decode --type common.Block --input "$dir/config.pb" |
-        jq '.data.data[0].payload.data.config'
-    local rc=$?
+            jq '.data.data[0].payload.data.config'
+        rc=$?
+    fi
     pod_exec "$pod" rm -rf "$dir" >/dev/null 2>&1
     return "$rc"
 }
