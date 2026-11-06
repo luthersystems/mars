@@ -164,13 +164,16 @@ version, because buildenv wraps one patch per minor; Fabric's own default,
 $(TWO_DIGIT_VERSION), also picks the image by minor. chaincodeImages.builder
 names any image instead. An empty chaincodeImages.version, or a minor with
 no wrapper, keeps the upstream buildImage.repository:<fabricVersion>.
+buildenv publishes the 3.1 image only from v0.1.56 (luthersystems/buildenv#189),
+so an older chaincodeImages.version keeps the upstream image for 3.1 instead of
+naming a tag that does not exist.
 */}}
 {{- define "fabric-peer.chaincode-builder" -}}
 {{- $minor := include "fabric-peer.fabric-minor" . -}}
 {{- $ci := .Values.chaincodeImages | default dict -}}
 {{- if $ci.builder -}}
 {{- $ci.builder -}}
-{{- else if and $ci.version (has $minor (list "2.2" "2.4" "2.5")) -}}
+{{- else if and $ci.version (or (has $minor (list "2.2" "2.4" "2.5")) (and (eq $minor "3.1") (semverCompare ">=0.1.56-0" (trimPrefix "v" (toString $ci.version))))) -}}
 {{- printf "luthersystems/fabric-ccenv:%s-%s" $minor $ci.version -}}
 {{- else -}}
 {{- printf "%s:%s" .Values.buildImage.repository (toString .Values.global.hyperledger.fabricVersion) -}}
@@ -182,8 +185,8 @@ The image the peer runs Go chaincode in (CORE_CHAINCODE_GOLANG_RUNTIME), or
 empty to keep the core.yaml default $(DOCKER_NS)/fabric-baseos:$(TWO_DIGIT_VERSION).
 
 Only Fabric 2.2 and 2.4 get the hardened luthersystems/fabric-baseos: the
-upstream 2.5 image has no CA bundle, so it has nothing to block and buildenv
-does not wrap it. chaincodeImages.golangRuntime names any image instead.
+upstream 2.5 and 3.1 images have no CA bundle, so they have nothing to block
+and buildenv does not wrap them. chaincodeImages.golangRuntime names any image instead.
 */}}
 {{- define "fabric-peer.chaincode-golang-runtime" -}}
 {{- $minor := include "fabric-peer.fabric-minor" . -}}
