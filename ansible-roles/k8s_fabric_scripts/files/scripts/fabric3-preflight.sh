@@ -271,7 +271,7 @@ check_chaincode_mode() {
         docker="$(kubectl -n "fabric-$org" get deployments -l app.kubernetes.io/component=bcpeer -o json 2>/dev/null |
             jq -r '[.items[].spec.template.spec | (.containers // []) + (.initContainers // []) | .[].name] | any(. == "docker-chaincodes")')"
         if [[ "$docker" == true ]]; then
-            result WARN none "$org chaincode" "Docker (dind): 3.x builds with hyperledger/fabric-ccenv:3.1, not the hardened image; test a chaincode build on test first"
+            result WARN none "$org chaincode" "Docker (dind): 3.1 builds in luthersystems/fabric-ccenv:3.1 (its own Go); test a chaincode build on test first"
         else
             result PASS any "$org chaincode" "external or chaincode as a service"
         fi

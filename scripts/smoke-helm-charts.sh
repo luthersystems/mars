@@ -50,8 +50,8 @@
 #   - supergateway, mcp-inspector: an image other than the hardened
 #     luthersystems/supergateway-uvx-git (luthersystems/connectorhub)
 #   - fabric-peer: Docker chaincode images other than the hardened
-#     luthersystems/fabric-ccenv and fabric-baseos for Fabric 2.2, 2.4 and
-#     2.5 (baseos 2.2 and 2.4 only), or a chart default chaincodeImages.version
+#     luthersystems/fabric-ccenv and fabric-baseos for Fabric 2.2, 2.4, 2.5
+#     and 3.1 (baseos 2.2 and 2.4 only), or a chart default chaincodeImages.version
 #     that differs from k8s_fabric_peer_chaincode_images_version (#319)
 #   - fabric-orderer channel participation (mars#341): any change to the
 #     default render, or when on: the genesis file, no bootstrap method none,
@@ -793,10 +793,12 @@ want_peer_env "peer 2.5 builds in the hardened ccenv" CORE_CHAINCODE_BUILDER \
   "luthersystems/fabric-ccenv:2.5-v9.9.9" --set global.hyperledger.fabricVersion=2.5.5
 want_peer_env "peer 2.5 keeps the core.yaml baseos (no CA bundle)" CORE_CHAINCODE_GOLANG_RUNTIME "" \
   --set global.hyperledger.fabricVersion=2.5.5
-want_peer_env "peer 3.1 keeps the upstream ccenv" CORE_CHAINCODE_BUILDER \
-  "hyperledger/fabric-ccenv:3.1.1" --set global.hyperledger.fabricVersion=3.1.1
-want_peer_env "peer 3.1 keeps the core.yaml baseos" CORE_CHAINCODE_GOLANG_RUNTIME "" \
+want_peer_env "peer 3.1 builds in the hardened ccenv" CORE_CHAINCODE_BUILDER \
+  "luthersystems/fabric-ccenv:3.1-v9.9.9" --set global.hyperledger.fabricVersion=3.1.1
+want_peer_env "peer 3.1 keeps the core.yaml baseos (no CA bundle)" CORE_CHAINCODE_GOLANG_RUNTIME "" \
   --set global.hyperledger.fabricVersion=3.1.1
+want_peer_env "peer 3.0 keeps the upstream ccenv (no wrapper)" CORE_CHAINCODE_BUILDER \
+  "hyperledger/fabric-ccenv:3.0.0" --set global.hyperledger.fabricVersion=3.0.0
 want_peer_env "peer with no chaincodeImages.version keeps the upstream ccenv" CORE_CHAINCODE_BUILDER \
   "hyperledger/fabric-ccenv:2.2.15" --set global.hyperledger.fabricVersion=2.2.15 --set chaincodeImages.version=
 want_peer_env "peer with no chaincodeImages.version keeps the core.yaml baseos" CORE_CHAINCODE_GOLANG_RUNTIME "" \

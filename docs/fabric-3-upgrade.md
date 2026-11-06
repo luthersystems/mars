@@ -156,11 +156,15 @@ gets the same `core.yaml` as before.
 
 ## Docker chaincode
 
-Fabric 3 peers that build chaincode with Docker use the upstream
-`hyperledger/fabric-ccenv:<version>` image. buildenv has hardened images only
-for 2.2, 2.4 and 2.5 ([buildenv#189](https://github.com/luthersystems/buildenv/issues/189)
-adds 3.1). Networks with chaincode as a service (`ccaas`) are not
-affected. The pre-flight check shows a warning for Docker chaincode.
+A Fabric 3.1 peer that builds chaincode with Docker builds it in the hardened
+`luthersystems/fabric-ccenv:3.1-<buildenv tag>` image, as 2.2, 2.4 and 2.5 do
+([buildenv#189](https://github.com/luthersystems/buildenv/issues/189)). The
+upstream `fabric-baseos:3.1` has no CA bundle, so the peer runs chaincode in
+it unchanged. Other 3.x minors use the upstream `hyperledger/fabric-ccenv`.
+Networks with chaincode as a service (`ccaas`) are not affected. The
+pre-flight check shows a warning for Docker chaincode: the 3.1 image is a
+different build image (Ubuntu 24.04, not Debian), so test a chaincode build on
+test first.
 
 ## New networks
 
