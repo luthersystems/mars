@@ -1,25 +1,20 @@
 ---
-# tasks file for alb-ingress-controller
-
-- name: Helm chart exists
-  synchronize:
-    src: alb-ingress-controller/
-    dest: "{{alb_ingress_controller_helm_chart_path}}"
-    delete: yes
-    recursive: yes
-    owner: no
-    group: no
-    use_ssh_args: yes
-
-- name: Install the alb-ingress-controller
-  command:
-    argv:
-      - helm
-      - upgrade
-      - --install
-      - --namespace=kube-system
-      - --set=clusterName={{kubectl_eks_cluster_name}}
-      - --set=image.tag={{alb_ingress_controller_tag}}
-      - ingress-controller
-      - "{{alb_ingress_controller_helm_chart_path}}"
-  environment: "{{ kubectl_env }}"
+# The install path of this role is gone (mars#322). It installed the
+# aws-alb-ingress-controller v1.1.9, which watches Ingress in
+# extensions/v1beta1, an API Kubernetes 1.22 removed. Every EKS version AWS
+# supports is newer, so the controller it installed could not serve any
+# Ingress. The aws_lb_controller role is its replacement.
+#
+# Fail, not skip: a playbook that still lists this role expects a working
+# ALB controller, and a silent no-op would leave its Ingresses with no
+# load balancer and no error.
+#
+# The uninstall task stays, so a cluster that still runs the old release can
+# remove it: include this role with tasks_from: uninstall.
+- name: Refuse to install the removed alb-ingress-controller v1
+  ansible.builtin.fail:
+    msg: >-
+      The alb_ingress_controller role no longer installs anything: the
+      aws-alb-ingress-controller v1 does not work on Kubernetes 1.22 or
+      later. Use the aws_lb_controller role. To remove an old release, use
+      this role with tasks_from: uninstall.

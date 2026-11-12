@@ -23,6 +23,10 @@ spec:
         {{- include "connectorhub.labels" . | nindent 8 }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/config.yaml") . | sha256sum }}
+        # A pod does not restart when a Secret it reads changes. The init
+        # container unzips this one at start, so new certificates restart
+        # the pods at deploy time, not at some later restart (#346).
+        checksum/crypto-config: {{ include (print $.Template.BasePath "/crypto-config.yaml") . | sha256sum }}
         rollout-nonce: {{ .Values.global.forceRedeployNonce | default "" | quote }}
     spec:
       securityContext:

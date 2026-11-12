@@ -605,9 +605,7 @@ func (s *service) locateVarFiles() []string {
 	for _, env := range []string{"common", s.env} {
 		matches, _ := filepath.Glob(filepath.Join("vars", env, "*.tfvars"))
 		sort.Strings(matches)
-		for _, match := range matches {
-			paths = append(paths, match)
-		}
+		paths = append(paths, matches...)
 	}
 	if s.verbosity >= 1 {
 		for _, path := range paths {

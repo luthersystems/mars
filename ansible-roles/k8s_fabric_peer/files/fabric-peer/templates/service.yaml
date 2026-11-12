@@ -68,3 +68,32 @@ spec:
   selector:
     app.kubernetes.io/name: {{ include "fabric-peer.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
+{{- if and .Values.fabricSnapshotArchiver.enabled .Values.fabricSnapshotArchiver.schedule.enabled }}
+---
+# The snapshot archiver's metrics, for the alert when scheduled snapshots
+# stop (fabric_snapshot_archiver_schedule_last_success_timestamp_seconds).
+# ClusterIP, in-cluster only, like the operations port.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "fabric-peer.archiver-fullname" . }}
+  labels:
+    {{- include "fabric-peer.labels" . | nindent 4 }}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: {{ .Values.fabricSnapshotArchiver.metricsPort | quote }}
+spec:
+  type: ClusterIP
+  # Keep the pod scraped while it is not Ready (the peer catching up, or
+  # failing its probes). Otherwise the last-success series goes away exactly
+  # when the peer is unhealthy, and the missed-snapshot alert sees nothing.
+  publishNotReadyAddresses: true
+  ports:
+    - port: {{ .Values.fabricSnapshotArchiver.metricsPort }}
+      targetPort: http-archiver
+      protocol: TCP
+      name: http-archiver
+  selector:
+    app.kubernetes.io/name: {{ include "fabric-peer.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}

@@ -14,6 +14,14 @@ global:
 
 replicaCount: 1
 
+# checksums maps a name to a hash of an object the k8s_fabric_orderer role
+# applies outside this chart, such as the crypto-config Secret. Each
+# non-empty entry becomes the pod annotation checksum/<name>, so a change to
+# the object restarts the pod (#346). A pod does not restart by itself when a
+# ConfigMap or Secret it reads at start changes, and helm cannot see objects
+# it does not own.
+checksums: {}
+
 dlt:
   component: bcord
   organization: orderer
@@ -108,6 +116,28 @@ probes:
     periodSeconds: 10
     timeoutSeconds: 5
     failureThreshold: 30
+
+# The channel participation API: the osnadmin admin endpoint, and no system
+# channel. Fabric 3.x has no system channel, so a 3.x orderer needs this on;
+# the k8s_fabric_orderer role turns it on for 3.x and fails a 3.x orderer
+# without it. On a 2.5 orderer that still has a system channel, turning it on
+# is step 1 of the Fabric 3 upgrade (docs/fabric-3-upgrade.md): the orderer
+# loads the system channel from its ledger, so BootstrapMethod "none" does not
+# lose it, and osnadmin can then remove it.
+#
+# When on, the chart:
+#   - sets General.BootstrapMethod to "none" and drops the genesis block
+#     settings (a 3.x orderer refuses to start with BootstrapMethod "file")
+#   - turns on ChannelParticipation and the Admin endpoint on adminPort, with
+#     mutual TLS that admits only clients with a certificate from the orderer
+#     TLS CA (the orderer nodes and the orderer org users)
+#   - adds a ClusterIP Service named orderer<N>, the short host name in the
+#     orderer TLS certificate, so the orderer CLI pods in the same namespace
+#     can reach the endpoint with osnadmin. It is a separate Service so the
+#     admin port is never on the orderer load balancer.
+channelParticipation:
+  enabled: false
+  adminPort: 7053
 
 logLevel: INFO
 

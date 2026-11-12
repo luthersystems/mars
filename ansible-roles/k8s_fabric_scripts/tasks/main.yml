@@ -2,6 +2,9 @@
 # tasks file for k8s_fabric_scripts
 
 - name: Scripts directory exists
+  # Stages files on the deploy host only. Run it in check mode too, because
+  # the cluster tasks after it read these files.
+  check_mode: false
   file:
     path: "{{k8s_fabric_scripts_dir}}"
     state: directory
@@ -10,6 +13,9 @@
   when: not mars_local | default(false)
 
 - name: Scripts are uploaded
+  # Stages files on the deploy host only. Run it in check mode too, because
+  # the cluster tasks after it read these files.
+  check_mode: false
   synchronize:
     src: scripts/
     dest: "{{k8s_fabric_scripts_dir}}"

@@ -2,6 +2,9 @@
 # tasks file for k8s_fabric_chaincode
 
 - name: Check committed chaincode
+  # Only queries the peer. The next task reads its result, so run it in
+  # check mode too.
+  check_mode: false
   command:
     argv:
       - "{{ k8s_fabric_scripts_dir }}/query-committed.sh"
@@ -60,6 +63,9 @@
     - prepare_chaincode_upgrade
 
 - name: Helm chart exists
+  # Stages files on the deploy host only. Run it in check mode too, because
+  # the cluster tasks after it read these files.
+  check_mode: false
   synchronize:
     src: chaincode/
     dest: "{{k8s_fabric_chaincode_helm_chart_path}}"
@@ -83,7 +89,10 @@
         version: "{{k8s_fabric_chaincode_version}}"
       service:
         name: "substrate-{{ cc_dash_ver }}-peer{{ item.1 }}"
-      ccid: "{{ k8s_fabric_chaincode_ccid_override | default(install_result.results[index].stdout, true) }}"
+      # Check mode skips "Install chaincode on peers", so it has no
+      # package ID to show. Use a marker there so the helm dry run still
+      # runs; a real run keeps failing when the ID is missing.
+      ccid: "{{ k8s_fabric_chaincode_ccid_override | default(install_result.results[index].stdout | default('unknown-in-check-mode', true) if ansible_check_mode else install_result.results[index].stdout, true) }}"
       dlt:
         organization: "{{item.0 }}"
         peerIndex: "{{item.1}}"

@@ -23,6 +23,8 @@
     values:
       serviceAccount:
         name: "{{k8s_fabric_orderer_service_account}}"
+      checksums:
+        crypto-config: "{{ (k8s_fabric_orderer_crypto_config | hash('sha256')) if (k8s_fabric_orderer_crypto_config | default('') | length > 0) else '' }}"
       global:
         lutherProjectID: "{{luther_project_id}}"
         lutherEnv: "{{luther_env}}"
@@ -40,6 +42,9 @@
       image:
         repository: "{{k8s_fabric_orderer_image_repository}}"
       startService: "{{k8s_fabric_orderer_start_service}}"
+      channelParticipation:
+        enabled: "{{ k8s_fabric_orderer_channel_participation | bool }}"
+        adminPort: "{{ k8s_fabric_orderer_admin_port | int }}"
       probes: "{{k8s_fabric_orderer_probes}}"
       persistentVolume:
         create: "{{not k8s_fabric_orderer_separate_pvc}}"
@@ -68,6 +73,8 @@
   environment: "{{ kubectl_env | combine(extra_env_vars) }}"
   vars:
     extra_env_vars:
+      # channel-utils.sh, which the pauser sources, exits without it.
+      NAMESPACE: "{{k8s_fabric_orderer_namespace}}"
       FABRIC_DOMAIN: "{{k8s_fabric_orderer_domain_root}}"
       FABRIC_ORDERER_CLIENT_AUTH: "{{ k8s_fabric_orderer_client_auth | bool | lower }}"
       PAUSING_AT: orderer

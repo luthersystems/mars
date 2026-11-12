@@ -31,6 +31,30 @@ jobs:
         run: go vet ./...
       - name: go test
         run: go test ./...
+  # The Fabric 2.5 to 3.x upgrade scripts and role (mars#341,
+  # docs/fabric-3-upgrade.md) against a real local network: the release
+  # binaries, three Raft orderers, one peer and a fake kubectl. Step 2 of the
+  # runbook has no undo, so the scripts must be proven before they reach a
+  # cluster.
+  fabric3-upgrade:
+    name: fabric 3 upgrade test
+    # 24.04: its Python 3.12 runs the Ansible of the mars image.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      # The ansible package, not ansible-core alone: the roles use
+      # collection modules (ansible.posix synchronize), as in the image.
+      - name: Install Ansible (the version in requirements.txt)
+        run: pipx install "ansible==$(sed -n 's/^ansible==//p' requirements.txt)" --include-deps
+      # PyYAML comes with Ansible.
+      - name: Tasks give each Fabric script the NAMESPACE it needs
+        run: |
+          "$(pipx environment --value PIPX_LOCAL_VENVS)/ansible/bin/python" scripts/check-script-env.py
+      - name: Test the upgrade path
+        env:
+          FABRIC_BIN_CACHE: ${{ runner.temp }}/fabric-bin
+        run: ./scripts/test-fabric3-upgrade.sh
   build:
     name: ${{ matrix.image }} - ${{ matrix.arch }} docker build
     runs-on: ${{ fromJSON('{"arm64":"ubuntu-22.04-arm","amd64":"ubuntu-22.04"}')[matrix.arch] }}

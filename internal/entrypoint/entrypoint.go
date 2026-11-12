@@ -109,9 +109,12 @@ func ensureLine(path string, prefix string, line string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	_, err = fmt.Fprintln(f, line)
-	return err
+	if _, err = fmt.Fprintln(f, line); err != nil {
+		_ = f.Close()
+		return err
+	}
+	// A failed close can lose the appended line, so it is an error too.
+	return f.Close()
 }
 
 func dropPrivileges(cfg Config) error {

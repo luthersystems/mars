@@ -1,6 +1,6 @@
 # {{ include "ingress.chart" . }}
 
-It's assumed that the alb-ingress-controller has already been installed and is
+It's assumed that the AWS Load Balancer Controller (aws_lb_controller role) is installed and is
 watching the namespace of the installed ingress chart.
 
 1. Get the application URL by running these commands:

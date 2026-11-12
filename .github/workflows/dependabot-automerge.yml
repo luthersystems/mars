@@ -39,9 +39,11 @@ name: Dependabot auto-merge
 # gate merges.
 #
 # KNOWN LIMIT. The merge is done by GITHUB_TOKEN, and GitHub starts no
-# workflow runs for events that GITHUB_TOKEN causes. mars has no push
-# workflow on main today, so nothing is skipped; a release is still cut by
-# a tag (mars-release.yml), never by a merge.
+# workflow runs for events that GITHUB_TOKEN causes. So a Dependabot merge
+# gets no push run of mars-ci.yml on main. mars-release-dispatch.yml needs
+# that run on main's head, and refuses to cut a release while the head is
+# a Dependabot merge ("no push run of mars-ci.yml on main exists"). Merge
+# a reviewed PR first; its push run on the new head unblocks the release.
 #
 # Copied from luthersystems/elps (.github/workflows/dependabot-automerge.yml).
 

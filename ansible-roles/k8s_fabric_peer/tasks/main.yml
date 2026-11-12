@@ -1,6 +1,48 @@
 ---
 # tasks file for k8s_fabric_peer
 
+# A mistake in the schedule settings fails here, before any change. It must
+# not turn the schedule off silently (the missed-snapshot alert then has no
+# series and stays quiet), nor crash-loop the archiver sidecar, which takes
+# the whole peer pod out of its Service.
+- name: Snapshot schedule settings are valid
+  when: k8s_fabric_peer_snapshot_archiver_schedule | bool
+  assert:
+    that:
+      - k8s_fabric_peer_use_snapshot_archiver | bool
+      - k8s_fabric_peer_snapshot_archiver_schedule_peers is sequence
+      - k8s_fabric_peer_snapshot_archiver_schedule_peers is not string
+      - k8s_fabric_peer_snapshot_archiver_schedule_peers | length > 0
+      - (k8s_fabric_peer_snapshot_archiver_schedule_peers | map('int') | max) < (k8s_fabric_peer_org_size | int)
+      - (k8s_fabric_peer_snapshot_archiver_schedule_peers | map('int') | min) >= 0
+      - k8s_fabric_peer_snapshot_archiver_timeout is string
+      - k8s_fabric_peer_snapshot_archiver_timeout is match('^([0-9]+(\\.[0-9]+)?(ns|us|ms|s|m|h))+$')
+      - (k8s_fabric_peer_snapshot_archiver_version | regex_replace('^v', '')) is version(k8s_fabric_peer_snapshot_archiver_schedule_min_version | regex_replace('^v', ''), '>=')
+    fail_msg: >-
+      k8s_fabric_peer_snapshot_archiver_schedule needs
+      k8s_fabric_peer_use_snapshot_archiver, a non-empty list of peer
+      indexes below k8s_fabric_peer_org_size in
+      k8s_fabric_peer_snapshot_archiver_schedule_peers, a Go duration with a
+      unit in k8s_fabric_peer_snapshot_archiver_timeout (for example 2h),
+      and k8s_fabric_peer_snapshot_archiver_version
+      {{ k8s_fabric_peer_snapshot_archiver_schedule_min_version }} or later
+      (the first archiver with serve --snapshot-schedule).
+
+# The block-archiver sidecar runs `archive-blocks`. An older archiver exits
+# on that argument, and the crash-looping sidecar takes the peer pod out of
+# its Service (platform-test, mars v0.145.0 with archiver v0.0.8).
+- name: Block archive settings are valid
+  when: k8s_fabric_peer_block_archive | bool
+  assert:
+    that:
+      - (k8s_fabric_peer_snapshot_archiver_version | regex_replace('^v', '')) is version(k8s_fabric_peer_block_archive_min_version | regex_replace('^v', ''), '>=')
+    fail_msg: >-
+      k8s_fabric_peer_block_archive needs
+      k8s_fabric_peer_snapshot_archiver_version
+      {{ k8s_fabric_peer_block_archive_min_version }} or later (the first
+      archiver with archive-blocks); the version is
+      {{ k8s_fabric_peer_snapshot_archiver_version }}.
+
 - name: K8s namespace exists
   k8s:
     name: "{{k8s_fabric_peer_namespace}}"
@@ -10,14 +52,29 @@
   environment: "{{ kubectl_env }}"
 
 - name: ConfigMap directory exists
+  # Stages files on the deploy host only. Run it in check mode too, because
+  # the cluster tasks after it read these files.
+  check_mode: false
   file:
     path: "{{k8s_fabric_peer_configmap_path | dirname}}"
     state: directory
 
 - name: ConfigMap is rendered
+  # Stages files on the deploy host only. Run it in check mode too, because
+  # the cluster tasks after it read these files.
+  check_mode: false
   template:
     src: configmap.yaml.j2
     dest: "{{k8s_fabric_peer_configmap_path}}"
+
+# The hash goes to each peer's helm release (checksums.core-config), so a
+# changed core.yaml restarts the peers. The ConfigMap is applied outside the
+# chart, and a running pod keeps the config it started with (mars#345).
+- name: ConfigMap checksum is computed
+  stat:
+    path: "{{k8s_fabric_peer_configmap_path}}"
+    checksum_algorithm: sha256
+  register: k8s_fabric_peer_configmap_stat
 
 - name: K8s ConfigMap exists
   k8s:
@@ -61,6 +118,9 @@
   loop: "{{ k8s_fabric_peer_service_account_iam_role_arns | dict2items }}"
 
 - name: Helm chart exists
+  # Stages files on the deploy host only. Run it in check mode too, because
+  # the cluster tasks after it read these files.
+  check_mode: false
   synchronize:
     src: fabric-peer/
     dest: "{{k8s_fabric_peer_helm_chart_path}}"

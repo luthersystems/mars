@@ -1,5 +1,8 @@
 ---
 - name: Helm chart exists
+  # Stages files on the deploy host only. Run it in check mode too, because
+  # the cluster tasks after it read these files.
+  check_mode: false
   synchronize:
     src: pvc/
     dest: "{{k8s_pvc_helm_chart_path}}"

@@ -24,8 +24,17 @@
 #     off
 #   - fabric-peer: http-op or the scrape annotations on the load balancer
 #     service, or no ClusterIP operations service
+#   - fabric-peer: the snapshot archiver schedule (#338) not running serve,
+#     its API not on localhost, or no scraped ClusterIP metrics service
+#   - fabric-peer: tiered ledger storage (blockArchive) on by default, or
+#     on without the archive-blocks sidecar, its mounts or its PVC
 #   - fabric-peer: two services with the same name, or a changed
 #     <release>-ops name for a fabric-peer<N>-<org> release
+#   - fabric-peer, fabric-orderer, fabric-ca, fabric-cli, lutherauth: no
+#     checksum/<name> pod annotation for an entry of checksums (#345, #346),
+#     or one for an empty entry
+#   - shiroclient, connectorhub: a pod checksum that does not change when
+#     the license or crypto-config Secret in the chart changes (#346)
 #   - shiroclient: the license state volume, mount or env when off (the
 #     default), or a missing or misplaced one when on
 #   - fabric-peer, fabric-orderer: a liveness probe that restarts the node
@@ -41,9 +50,13 @@
 #   - supergateway, mcp-inspector: an image other than the hardened
 #     luthersystems/supergateway-uvx-git (luthersystems/connectorhub)
 #   - fabric-peer: Docker chaincode images other than the hardened
-#     luthersystems/fabric-ccenv and fabric-baseos for Fabric 2.2, 2.4 and
-#     2.5 (baseos 2.2 and 2.4 only), or a chart default chaincodeImages.version
+#     luthersystems/fabric-ccenv and fabric-baseos for Fabric 2.2, 2.4, 2.5
+#     and 3.1 (baseos 2.2 and 2.4 only), or a chart default chaincodeImages.version
 #     that differs from k8s_fabric_peer_chaincode_images_version (#319)
+#   - fabric-orderer channel participation (mars#341): any change to the
+#     default render, or when on: the genesis file, no bootstrap method none,
+#     no admin port or ClusterIP Service orderer<N>, or the admin port on the
+#     load balancer Service
 #   - chaincode: the env the k8s_fabric_chaincode role passes
 #     (CHAINCODE_NAME, luthersystems/substrate#808) missing, or dropping
 #     the chart's env defaults
@@ -54,10 +67,11 @@ CHARTS="${ROOT}/ansible-roles/helm_charts/files/helmcharts"
 PEER_CHART="${ROOT}/ansible-roles/k8s_fabric_peer/files/fabric-peer"
 ORDERER_CHART="${ROOT}/ansible-roles/k8s_fabric_orderer/files/fabric-orderer"
 CC_CHART="${ROOT}/ansible-roles/k8s_fabric_chaincode/files/chaincode"
+CA_CHART="${ROOT}/ansible-roles/k8s_fabric_ca/files/fabric-ca"
+CLI_CHART="${ROOT}/ansible-roles/k8s_fabric_cli/files/fabric-cli"
 
-# Runs in the image (or locally) with CHARTS, PEER_CHART, ORDERER_CHART and
-# CC_CHART set
-# and helm on PATH.
+# Runs in the image (or locally) with CHARTS, PEER_CHART, ORDERER_CHART,
+# CC_CHART, CA_CHART and CLI_CHART set and helm on PATH.
 # shellcheck disable=SC2016 # expanded by the inner shell
 CHECKS='
 set -uo pipefail
@@ -255,6 +269,65 @@ want_service "classic load balancer has no operations port" \
   "peer0-org1-fabric-peer LoadBalancer grpc-gossip,grpc-svc, no" \
   --set service.useNLB=false
 
+# Snapshot archiver schedule (#338). Off: no archiver service, and the
+# sidecar idles. On: a ClusterIP metrics service with the scrape
+# annotations, and the archiver API on localhost only, because it has no
+# authentication and can start a restore.
+ARCH=(--set fabricSnapshotArchiver.enabled=true --set fabricSnapshotArchiver.schedule.enabled=true)
+if out=$(peer_services peer0-org1 --set fabricSnapshotArchiver.enabled=true 2>&1) &&
+  ! printf "%s\n" "${out}" | grep -F -- "-archiver " >/dev/null; then
+  echo "OK:   archiver schedule off: no archiver service"
+else
+  echo "FAIL: archiver schedule off: no archiver service, got:"
+  printf "%s\n" "${out}"
+  fail=1
+fi
+want_service "archiver schedule on: metrics service is ClusterIP, and scraped" \
+  "peer0-org1-fabric-peer-archiver ClusterIP http-archiver, yes" "${ARCH[@]}"
+
+# (description, yes|no, line, helm args...): does the fabric-peer
+# deployment have the line (leading spaces ignored)?
+want_peer_render() {
+  desc="$1"; want="$2"; str="$3"; shift 3
+  if ! out=$(helm template peer0-org1 "${PEER_CHART}" \
+    --show-only templates/deployment.yaml --set serviceAccount.name=sa "$@" 2>&1); then
+    echo "FAIL: ${desc}: helm template failed:"
+    echo "${out}"
+    fail=1
+    return
+  fi
+  if printf "%s\n" "${out}" | sed "s/^ *//" | grep -xF -e "${str}" >/dev/null; then got=yes; else got=no; fi
+  if [ "${got}" = "${want}" ]; then
+    echo "OK:   ${desc}"
+  else
+    echo "FAIL: ${desc}: has line \"${str}\": ${got}, want ${want}"
+    fail=1
+  fi
+}
+want_peer_render "archiver schedule off: the sidecar idles" yes "- sleep infinity" \
+  --set fabricSnapshotArchiver.enabled=true
+want_peer_render "archiver schedule off: no serve" no "- serve" \
+  --set fabricSnapshotArchiver.enabled=true
+want_peer_render "archiver schedule on: runs serve" yes "- serve" "${ARCH[@]}"
+want_peer_render "archiver schedule on: no sleep" no "- sleep infinity" "${ARCH[@]}"
+want_peer_render "archiver schedule on: passes the cron" yes "- \"--snapshot-schedule=0 2 * * *\"" "${ARCH[@]}"
+want_peer_render "archiver schedule on: gRPC API on localhost only" yes "- --grpc-addr=127.0.0.1:50051" "${ARCH[@]}"
+want_peer_render "archiver schedule on: HTTP API on localhost only" yes "- --http-addr=127.0.0.1:8080" "${ARCH[@]}"
+want_peer_render "archiver schedule on: metrics on the pod IP" yes "- \"--metrics-addr=:9601\"" "${ARCH[@]}"
+# A timeout without a unit (7200) makes serve exit, which crash-loops the
+# sidecar and takes the peer pod out of its Service: fail at render time.
+if helm template peer0-org1 "${PEER_CHART}" --set serviceAccount.name=sa \
+  "${ARCH[@]}" --set fabricSnapshotArchiver.schedule.timeout=7200 >/dev/null 2>&1; then
+  echo "FAIL: archiver schedule timeout without a unit renders"
+  fail=1
+else
+  echo "OK:   archiver schedule timeout without a unit fails to render"
+fi
+want_peer_render "archiver schedule timeout with a unit renders" yes "- \"--timeout=90m\"" \
+  "${ARCH[@]}" --set fabricSnapshotArchiver.schedule.timeout=90m
+want_peer_render "archiver schedule keepArchives is passed" yes "- \"--keep-archives=3\"" \
+  "${ARCH[@]}" --set fabricSnapshotArchiver.schedule.keepArchives=3
+
 # NLB (ip targets): health check HTTP /healthz on the operations port (9443).
 # The NLB checks the pod port directly, so 9443 needs no listener. A plain
 # TCP check on the TLS peer port (7051) would log a failed TLS handshake for
@@ -372,6 +445,156 @@ done
 want_fabric_probe_count "peer renders no probes with startProbes=false" "${PEER_CHART}" 0 \
   --set startProbes=false
 
+# fabric-orderer channel participation (mars#341, docs/fabric-3-upgrade.md):
+# off by default, so a 2.x orderer renders the same as before; on, the
+# orderer boots without the genesis file and has the osnadmin endpoint on a
+# ClusterIP Service orderer<N>, never on the load balancer Service.
+# (description, yes|no, line, template, helm args...): does the template
+# render have the line (leading spaces ignored)?
+want_orderer_render() {
+  desc="$1"; want="$2"; str="$3"; tpl="$4"; shift 4
+  if ! out=$(helm template node "${ORDERER_CHART}" --show-only "templates/${tpl}" \
+    --set serviceAccount.name=sa --set dlt.organization=orderer \
+    --set dlt.domain=example.com --set dlt.organizationIndex=1 "$@" 2>&1); then
+    if [ "${want}" = no ] && printf "%s\n" "${out}" | grep "could not find template" >/dev/null; then
+      echo "OK:   ${desc}"
+      return
+    fi
+    echo "FAIL: ${desc}: helm template failed:"
+    echo "${out}"
+    fail=1
+    return
+  fi
+  if printf "%s\n" "${out}" | sed "s/^ *//" | grep -xF -e "${str}" >/dev/null; then got=yes; else got=no; fi
+  if [ "${got}" = "${want}" ]; then
+    echo "OK:   ${desc}"
+  else
+    echo "FAIL: ${desc}: has line \"${str}\": ${got}, want ${want}"
+    fail=1
+  fi
+}
+cp_on="--set channelParticipation.enabled=true"
+want_orderer_render "orderer default boots from the genesis file" yes \
+  "- name: ORDERER_GENERAL_GENESISFILE" deployment.yaml
+want_orderer_render "orderer default has no bootstrap method none" no \
+  "- name: ORDERER_GENERAL_BOOTSTRAPMETHOD" deployment.yaml
+want_orderer_render "orderer default has no admin port" no \
+  "- name: admin" deployment.yaml
+want_orderer_render "orderer default has no admin Service" no \
+  "name: orderer1" service-admin.yaml
+want_orderer_render "orderer channel participation boots with method none" yes \
+  "- name: ORDERER_GENERAL_BOOTSTRAPMETHOD" deployment.yaml ${cp_on}
+want_orderer_render "orderer channel participation drops the genesis file" no \
+  "- name: ORDERER_GENERAL_GENESISFILE" deployment.yaml ${cp_on}
+want_orderer_render "orderer channel participation requires admin client TLS" yes \
+  "- name: ORDERER_ADMIN_TLS_CLIENTAUTHREQUIRED" deployment.yaml ${cp_on}
+want_orderer_render "orderer channel participation has the admin port" yes \
+  "containerPort: 7053" deployment.yaml ${cp_on}
+want_orderer_render "orderer admin Service is orderer<N>" yes \
+  "name: orderer1" service-admin.yaml ${cp_on}
+want_orderer_render "orderer admin Service is ClusterIP" yes \
+  "type: ClusterIP" service-admin.yaml ${cp_on}
+want_orderer_render "orderer admin port is not on the load balancer" no \
+  "name: admin" service.yaml ${cp_on}
+want_orderer_render "orderer admin port follows adminPort" yes \
+  "containerPort: 9053" deployment.yaml ${cp_on} --set channelParticipation.adminPort=9053
+
+# fabric-peer tiered ledger storage (blockArchive): off by default; on, the
+# block-archiver sidecar runs archive-blocks from the snapshot archiver image
+# and the peer mounts the archive volume at the same path (the symlinks point
+# there).
+peer_render() {
+  helm template fabric-peer0-org1 "${PEER_CHART}" \
+    --set serviceAccount.name=sa --set dlt.organization=org1 \
+    --set dlt.domain=example.com "$@" 2>&1
+}
+if peer_render | grep -e block-archiver -e blockarchive >/dev/null; then
+  echo "FAIL: blockArchive renders by default"
+  fail=1
+else
+  echo "OK:   blockArchive is off by default"
+fi
+out=$(peer_render --set blockArchive.enabled=true)
+mounts=$(printf "%s\n" "${out}" | grep -c -x "              mountPath: /var/hyperledger/archive")
+if [ "${mounts}" = 2 ] &&
+  printf "%s\n" "${out}" | grep -x "        - name: block-archiver" >/dev/null &&
+  printf "%s\n" "${out}" | grep -x "          image: \"luthersystems/fabric-snapshot-archiver:v0.0.9\"" >/dev/null &&
+  printf "%s\n" "${out}" | grep -x "            - archive-blocks" >/dev/null &&
+  printf "%s\n" "${out}" | grep -x "            - \"--interval=60s\"" >/dev/null &&
+  printf "%s\n" "${out}" | grep -x "            - \"--max-mb-per-second=20\"" >/dev/null &&
+  printf "%s\n" "${out}" | grep -x "  name: blockarchive-fabric-peer0-org1" >/dev/null &&
+  printf "%s\n" "${out}" | grep -x "    ebs.csi.aws.com/volumeType: sc1" >/dev/null; then
+  echo "OK:   blockArchive renders the archive-blocks sidecar, both mounts and the PVC"
+else
+  echo "FAIL: blockArchive render is missing the sidecar, its args, a mount (${mounts} of 2) or the PVC"
+  fail=1
+fi
+out=$(peer_render --set blockArchive.enabled=true --set persistentVolume.create=false)
+if printf "%s\n" "${out}" | grep -x "kind: PersistentVolumeClaim" >/dev/null; then
+  echo "FAIL: blockArchive makes a PVC with persistentVolume.create=false (the role makes it)"
+  fail=1
+else
+  echo "OK:   blockArchive leaves the PVC to the role with persistentVolume.create=false"
+fi
+# helm exits non-zero here, so capture first: pipefail would fail the pipe.
+out=$(peer_render --set blockArchive.enabled=true --set blockArchive.interval=60 || true)
+if printf "%s\n" "${out}" | grep "not a Go duration" >/dev/null; then
+  echo "OK:   blockArchive refuses an interval with no unit"
+else
+  echo "FAIL: blockArchive accepts interval=60 (archive-blocks needs a unit)"
+  fail=1
+fi
+
+# Pod checksum annotations (#345, #346): a role applies some objects outside
+# the chart, so only these annotations restart the pods when one changes.
+# (description, chart, helm args...): the pod template must carry
+# checksum/a: "abc" and no annotation for the empty entry b.
+want_checksums() {
+  desc="$1"; chart="$2"; shift 2
+  out=$(helm template rel "${chart}" --set serviceAccount.name=sa \
+    --set dlt.organization=org1 --set dlt.domain=example.com \
+    --set checksums.a=abc --set checksums.b= "$@" 2>&1)
+  if printf "%s\n" "${out}" | awk "/^  template:/{t=1} t&&/^    spec:/{exit} t&&/^      annotations:/{a=1;next} a&&/^        checksum\/a: \"abc\"$/{f=1} END{exit !f}" &&
+    ! printf "%s\n" "${out}" | grep "checksum/b" >/dev/null; then
+    echo "OK:   ${desc} puts checksums on the pod template"
+  else
+    echo "FAIL: ${desc} pod template has no checksum/a: \"abc\", or has checksum/b:"
+    printf "%s\n" "${out}"
+    fail=1
+  fi
+}
+want_checksums fabric-peer "${PEER_CHART}"
+want_checksums fabric-orderer "${ORDERER_CHART}"
+want_checksums fabric-ca "${CA_CHART}"
+want_checksums fabric-cli "${CLI_CHART}"
+want_checksums lutherauth "${CHARTS}/lutherauth"
+# (description, chart, annotation, helm args...): the in-chart Secret the
+# annotation hashes must change it when the args change the Secret (#346).
+want_checksum_moves() {
+  desc="$1"; chart="$2"; ann="$3"; shift 3
+  a=$(helm template rel "${chart}" --show-only templates/deployment.yaml 2>&1 | grep "^        ${ann}: ")
+  b=$(helm template rel "${chart}" --show-only templates/deployment.yaml "$@" 2>&1 | grep "^        ${ann}: ")
+  if [ -n "${a}" ] && [ -n "${b}" ] && [ "${a}" != "${b}" ]; then
+    echo "OK:   ${desc}"
+  else
+    echo "FAIL: ${desc}: ${ann} is \"${a}\" then \"${b}\""
+    fail=1
+  fi
+}
+want_checksum_moves "shiroclient restarts on a new license" "${CHARTS}/shiroclient" \
+  checksum/license --set substrate.license=bmV3
+want_checksum_moves "shiroclient restarts on new crypto-config" "${CHARTS}/shiroclient" \
+  checksum/crypto-config --set dlt.cryptoConfigSecret=bmV3
+want_checksum_moves "connectorhub restarts on new crypto-config" "${CHARTS}/connectorhub" \
+  checksum/crypto-config --set dlt.cryptoConfigSecret=bmV3
+
+if peer_render | grep "checksum/" >/dev/null; then
+  echo "FAIL: fabric-peer renders a checksum annotation with no checksums"
+  fail=1
+else
+  echo "OK:   fabric-peer renders no checksum annotation by default"
+fi
+
 # shiroclient gateway: the startupProbe renders by default, startupProbe:
 # null turns it off, and a custom handler replaces the default httpGet.
 startup_probe() {
@@ -472,12 +695,13 @@ want_distinct_services() {
     return
   fi
   names=$(printf "%s\n" "${out}" | cut -d" " -f1)
-  if [ "$(printf "%s\n" "${names}" | grep -c .)" = 2 ] &&
-    [ "$(printf "%s\n" "${names}" | sort -u | grep -c .)" = 2 ] &&
+  n="${WANT_SERVICES:-2}"
+  if [ "$(printf "%s\n" "${names}" | grep -c .)" = "${n}" ] &&
+    [ "$(printf "%s\n" "${names}" | sort -u | grep -c .)" = "${n}" ] &&
     ! printf "%s\n" "${names}" | grep -Evx "[a-z]([-a-z0-9]{0,61}[a-z0-9])?" >/dev/null; then
     echo "OK:   ${desc}"
   else
-    echo "FAIL: ${desc}: want two distinct valid service names, got:"
+    echo "FAIL: ${desc}: want ${n} distinct valid service names, got:"
     printf "%s\n" "${names}"
     fail=1
   fi
@@ -495,6 +719,14 @@ want_distinct_services "62-character fullname ending in -ops gives two distinct 
 # peer0-org1-<nameOverride> is a 62-character fullname too.
 want_distinct_services "62-character fullname from nameOverride gives two distinct service names" \
   --set nameOverride="${a58:11}-ops"
+# The archiver metrics service (#338) must get its own name too, also when
+# the fullname ends in -archiver.
+WANT_SERVICES=3 want_distinct_services "63-character fullname gives three distinct service names with the archiver" \
+  --set fullnameOverride="${a59}aaaa" "${ARCH[@]}"
+WANT_SERVICES=3 want_distinct_services "63-character fullname ending in -archiver gives three distinct service names" \
+  --set fullnameOverride="${a58:4}-archiver" "${ARCH[@]}"
+WANT_SERVICES=3 want_distinct_services "62-character fullname ending in -archiver gives three distinct service names" \
+  --set fullnameOverride="${a58:5}-archiver" "${ARCH[@]}"
 
 # chaincode (external and CCaaS substrate): the k8s_fabric_chaincode role
 # passes an env map with CHAINCODE_NAME, the chaincode definition name, so
@@ -534,7 +766,7 @@ want_peer_env() {
   desc="$1"; name="$2"; want="$3"; shift 3
   if ! out=$(helm template peer0-org1 "${PEER_CHART}" \
     --show-only templates/deployment.yaml \
-    --set serviceAccount.name=sa --set chaincodeImages.version=v9.9.9 "$@" 2>&1); then
+    --set serviceAccount.name=sa --set dockerChaincode=true --set chaincodeImages.version=v9.9.9 "$@" 2>&1); then
     echo "FAIL: ${desc}: helm template failed:"
     echo "${out}"
     fail=1
@@ -561,10 +793,18 @@ want_peer_env "peer 2.5 builds in the hardened ccenv" CORE_CHAINCODE_BUILDER \
   "luthersystems/fabric-ccenv:2.5-v9.9.9" --set global.hyperledger.fabricVersion=2.5.5
 want_peer_env "peer 2.5 keeps the core.yaml baseos (no CA bundle)" CORE_CHAINCODE_GOLANG_RUNTIME "" \
   --set global.hyperledger.fabricVersion=2.5.5
-want_peer_env "peer 3.1 keeps the upstream ccenv" CORE_CHAINCODE_BUILDER \
-  "hyperledger/fabric-ccenv:3.1.1" --set global.hyperledger.fabricVersion=3.1.1
-want_peer_env "peer 3.1 keeps the core.yaml baseos" CORE_CHAINCODE_GOLANG_RUNTIME "" \
+want_peer_env "peer 3.1 builds in the hardened ccenv" CORE_CHAINCODE_BUILDER \
+  "luthersystems/fabric-ccenv:3.1-v9.9.9" --set global.hyperledger.fabricVersion=3.1.1
+want_peer_env "peer 3.1 keeps the core.yaml baseos (no CA bundle)" CORE_CHAINCODE_GOLANG_RUNTIME "" \
   --set global.hyperledger.fabricVersion=3.1.1
+want_peer_env "peer 3.0 keeps the upstream ccenv (no wrapper)" CORE_CHAINCODE_BUILDER \
+  "hyperledger/fabric-ccenv:3.0.0" --set global.hyperledger.fabricVersion=3.0.0
+want_peer_env "peer 3.1 keeps the upstream ccenv before buildenv v0.1.56" CORE_CHAINCODE_BUILDER \
+  "hyperledger/fabric-ccenv:3.1.1" --set global.hyperledger.fabricVersion=3.1.1 --set chaincodeImages.version=v0.1.48
+want_peer_env "ccaas peer renders no chaincode builder" CORE_CHAINCODE_BUILDER "" \
+  --set global.hyperledger.fabricVersion=3.1.1 --set dockerChaincode=false
+want_peer_env "ccaas peer renders no Go runtime" CORE_CHAINCODE_GOLANG_RUNTIME "" \
+  --set global.hyperledger.fabricVersion=2.2.15 --set dockerChaincode=false
 want_peer_env "peer with no chaincodeImages.version keeps the upstream ccenv" CORE_CHAINCODE_BUILDER \
   "hyperledger/fabric-ccenv:2.2.15" --set global.hyperledger.fabricVersion=2.2.15 --set chaincodeImages.version=
 want_peer_env "peer with no chaincodeImages.version keeps the core.yaml baseos" CORE_CHAINCODE_GOLANG_RUNTIME "" \
@@ -685,13 +925,16 @@ fi
 case "${1:?usage: smoke-helm-charts.sh <image> | --local}" in
 --local)
   CHARTS="${CHARTS}" PEER_CHART="${PEER_CHART}" ORDERER_CHART="${ORDERER_CHART}" \
-    CC_CHART="${CC_CHART}" bash -c "${CHECKS}"
+    CC_CHART="${CC_CHART}" CA_CHART="${CA_CHART}" CLI_CHART="${CLI_CHART}" \
+    bash -c "${CHECKS}"
   ;;
 *)
   docker run --rm -e CHARTS=/charts -v "${CHARTS}:/charts:ro" \
     -e PEER_CHART=/peer-chart -v "${PEER_CHART}:/peer-chart:ro" \
     -e ORDERER_CHART=/orderer-chart -v "${ORDERER_CHART}:/orderer-chart:ro" \
     -e CC_CHART=/cc-chart -v "${CC_CHART}:/cc-chart:ro" \
+    -e CA_CHART=/ca-chart -v "${CA_CHART}:/ca-chart:ro" \
+    -e CLI_CHART=/cli-chart -v "${CLI_CHART}:/cli-chart:ro" \
     --entrypoint /bin/bash "$1" -c "${CHECKS}"
   ;;
 esac

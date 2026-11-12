@@ -41,6 +41,24 @@ keep "<fullname>-ops".
 {{- end -}}
 
 {{/*
+The name of the service that publishes the snapshot archiver's metrics.
+Its own service, like the -ops one, because the prometheus.io/port
+annotation names one port per service. A 62- or 63-character fullname
+that ends in "-archiver" gives back the fullname (at 62, trunc 54 ends on
+the "-", which trimSuffix drops), so that one takes the first 8 hex digits
+of the fullname's sha256 too. It cannot clash
+with the -ops name: that ends in "-ops" or in hex digits.
+*/}}
+{{- define "fabric-peer.archiver-fullname" -}}
+{{- $fullname := include "fabric-peer.fullname" . -}}
+{{- $name := printf "%s-archiver" ($fullname | trunc 54 | trimSuffix "-") -}}
+{{- if eq $name $fullname -}}
+{{- $name = printf "%s-%s-archiver" ($fullname | trunc 45 | trimSuffix "-") ($fullname | sha256sum | trunc 8) -}}
+{{- end -}}
+{{- $name -}}
+{{- end -}}
+
+{{/*
 Create chart name and version as used by the chart label.
 */}}
 {{- define "fabric-peer.chart" -}}
@@ -146,13 +164,16 @@ version, because buildenv wraps one patch per minor; Fabric's own default,
 $(TWO_DIGIT_VERSION), also picks the image by minor. chaincodeImages.builder
 names any image instead. An empty chaincodeImages.version, or a minor with
 no wrapper, keeps the upstream buildImage.repository:<fabricVersion>.
+buildenv publishes the 3.1 image only from v0.1.56 (luthersystems/buildenv#189),
+so an older chaincodeImages.version keeps the upstream image for 3.1 instead of
+naming a tag that does not exist.
 */}}
 {{- define "fabric-peer.chaincode-builder" -}}
 {{- $minor := include "fabric-peer.fabric-minor" . -}}
 {{- $ci := .Values.chaincodeImages | default dict -}}
 {{- if $ci.builder -}}
 {{- $ci.builder -}}
-{{- else if and $ci.version (has $minor (list "2.2" "2.4" "2.5")) -}}
+{{- else if and $ci.version (or (has $minor (list "2.2" "2.4" "2.5")) (and (eq $minor "3.1") (semverCompare ">=0.1.56-0" (trimPrefix "v" (toString $ci.version))))) -}}
 {{- printf "luthersystems/fabric-ccenv:%s-%s" $minor $ci.version -}}
 {{- else -}}
 {{- printf "%s:%s" .Values.buildImage.repository (toString .Values.global.hyperledger.fabricVersion) -}}
@@ -164,8 +185,8 @@ The image the peer runs Go chaincode in (CORE_CHAINCODE_GOLANG_RUNTIME), or
 empty to keep the core.yaml default $(DOCKER_NS)/fabric-baseos:$(TWO_DIGIT_VERSION).
 
 Only Fabric 2.2 and 2.4 get the hardened luthersystems/fabric-baseos: the
-upstream 2.5 image has no CA bundle, so it has nothing to block and buildenv
-does not wrap it. chaincodeImages.golangRuntime names any image instead.
+upstream 2.5 and 3.1 images have no CA bundle, so they have nothing to block
+and buildenv does not wrap them. chaincodeImages.golangRuntime names any image instead.
 */}}
 {{- define "fabric-peer.chaincode-golang-runtime" -}}
 {{- $minor := include "fabric-peer.fabric-minor" . -}}
@@ -174,5 +195,28 @@ does not wrap it. chaincodeImages.golangRuntime names any image instead.
 {{- $ci.golangRuntime -}}
 {{- else if and $ci.version (has $minor (list "2.2" "2.4")) -}}
 {{- printf "luthersystems/fabric-baseos:%s-%s" $minor $ci.version -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Pod annotations checksum/<name>, one for each non-empty entry of
+.Values.checksums. The k8s_fabric_peer role applies the core.yaml ConfigMap
+outside this chart, and a pod does not restart when an object it mounts
+changes. The role passes a hash of each such object here, so a change to it
+changes the pod template and the Deployment restarts the peer on the new
+data. An unchanged object keeps the same hash and restarts nothing (#345).
+*/}}
+{{- define "fabric-peer.checksum-annotations" -}}
+{{- $sums := dict -}}
+{{- range $name, $sum := .Values.checksums -}}
+{{- if $sum -}}
+{{- $_ := set $sums $name $sum -}}
+{{- end -}}
+{{- end -}}
+{{- with $sums -}}
+annotations:
+{{- range $name, $sum := . }}
+  checksum/{{ $name }}: {{ $sum | quote }}
+{{- end }}
 {{- end -}}
 {{- end -}}

@@ -353,7 +353,7 @@ func readRequest(path string) (reversejob.Request, error) {
 	if err != nil {
 		return reversejob.Request{}, fmt.Errorf("open --request: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }() // read only: a close error loses nothing
 	req, err := reversejob.DecodeRequest(f)
 	if err != nil {
 		return reversejob.Request{}, fmt.Errorf("decode --request: %w", err)

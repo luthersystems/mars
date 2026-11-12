@@ -111,6 +111,7 @@ func ShellQuote(s string) string {
 		return "''"
 	}
 	if strings.IndexFunc(s, func(r rune) bool {
+		//nolint:staticcheck // QF1001: the list of safe characters reads clearer negated as a whole.
 		return !(r == '_' || r == '-' || r == '.' || r == '/' || r == ':' || r == '=' || r == ',' ||
 			(r >= '0' && r <= '9') ||
 			(r >= 'A' && r <= 'Z') ||

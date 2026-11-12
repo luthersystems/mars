@@ -2,6 +2,9 @@
 # tasks file
 
 - name: Create umbrella chart directory
+  # Stages files on the deploy host only. Run it in check mode too, because
+  # the cluster tasks after it read these files.
+  check_mode: false
   file:
     path: "{{ umbrella_helm_chart }}"
     owner: root
@@ -10,6 +13,9 @@
     mode: "0755"
 
 - name: Render umbrella Chart.yaml
+  # Stages files on the deploy host only. Run it in check mode too, because
+  # the cluster tasks after it read these files.
+  check_mode: false
   template:
     src: Chart.yaml.j2
     dest: "{{ umbrella_helm_chart }}/Chart.yaml"
@@ -18,6 +24,12 @@
     mode: "0644"
 
 - name: Install umbrella helm dependencies
+  # Fetches the subcharts that Chart.yaml lists into charts/ and writes
+  # Chart.lock on the deploy host. The helm install after it needs them, so
+  # run it in check mode too. A remote repository in Chart.yaml makes check
+  # runs fetch from it as well.
+  check_mode: false
+  changed_when: false
   command: helm dependency update
   args:
     chdir: "{{ umbrella_helm_chart }}"
@@ -66,5 +78,19 @@
     namespace: "{{ umbrella_namespace }}"
     create_namespace: yes
     wait: yes
-    values: "{{ umbrella_values }}"
+    values: "{{ umbrella_values | combine(auth_secret_checksum, recursive=True) }}"
   environment: "{{ kubectl_env }}"
+  vars:
+    # lutherauth reads the auth Secret above at start (envFrom), and helm
+    # does not own it, so a change to it restarted nothing. Its hash on the
+    # pod template makes a new key restart lutherauth now, at deploy time
+    # (mars#346). The hash covers the same data the Secret holds. Each value
+    # is hashed as a string, not through to_json: a vaulted value can encode
+    # as its ciphertext, and re-encrypting the same key would then restart
+    # lutherauth for nothing.
+    auth_secret_checksum: >-
+      {{ {'lutherauth': {'checksums': {'auth-secret':
+            [auth_jwt_secret, umbrella_auth_oauth_client_secret]
+            | map('string') | map('hash', 'sha256') | join(':') | hash('sha256')}}}
+         if (umbrella_lutherauth_secrets | bool) and ('lutherauth' in umbrella_charts)
+         else {} }}

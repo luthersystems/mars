@@ -75,3 +75,27 @@ Create the name of the fabric ca service account to use
 {{- define "fabric-ca.serviceAccountName" -}}
 {{ default "default" .Values.serviceAccount.name }}
 {{- end -}}
+
+{{/*
+Pod annotations checksum/<name>, one for each non-empty entry of
+.Values.checksums. The k8s_fabric_ca role applies some objects the pod
+reads at start, such as the crypto-config Secret, outside this chart. A pod
+does not restart when such an object changes, and helm cannot see the
+change. The role passes a hash of each object here, so a change to it changes
+the pod template and the Deployment restarts the pod on the new data. An
+unchanged object keeps the same hash and restarts nothing (#345, #346).
+*/}}
+{{- define "fabric-ca.checksum-annotations" -}}
+{{- $sums := dict -}}
+{{- range $name, $sum := .Values.checksums -}}
+{{- if $sum -}}
+{{- $_ := set $sums $name $sum -}}
+{{- end -}}
+{{- end -}}
+{{- with $sums -}}
+annotations:
+{{- range $name, $sum := . }}
+  checksum/{{ $name }}: {{ $sum | quote }}
+{{- end }}
+{{- end -}}
+{{- end -}}

@@ -1,0 +1,6 @@
+# Allowlist for the shared work marker gate (luthersystems/.github,
+# actions/work-markers). Only for words that are not work: copied source,
+# data, quoted text. Deferred work names its issue on the marker instead.
+#
+# path | text | expires | issue | reason
+ansible-roles/umbrella/defaults/main.yml | umbrella_auth_oauth_client_secret: "TODO" | never | - | The placeholder value of a secret every inventory that sets umbrella_lutherauth_secrets overrides.

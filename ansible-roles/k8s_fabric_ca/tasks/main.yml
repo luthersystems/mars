@@ -31,6 +31,9 @@
   loop: "{{ k8s_fabric_ca_service_account_iam_role_arns | dict2items }}"
 
 - name: Helm chart exists
+  # Stages files on the deploy host only. Run it in check mode too, because
+  # the cluster tasks after it read these files.
+  check_mode: false
   synchronize:
     src: fabric-ca/
     dest: "{{k8s_fabric_ca_helm_chart_path}}"
@@ -77,6 +80,8 @@
     values:
       serviceAccount:
         name: "{{k8s_fabric_ca_service_account}}"
+      checksums:
+        crypto-config: "{{ (k8s_fabric_ca_crypto_config | hash('sha256')) if (k8s_fabric_ca_crypto_config | default('') | length > 0) else '' }}"
       global:
         lutherProjectID: "{{luther_project_id}}"
         lutherEnv: "{{luther_env}}"

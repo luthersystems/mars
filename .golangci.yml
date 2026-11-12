@@ -1,8 +1,16 @@
 version: "2"
-# The org security workflow (luthersystems/.github, security / gosec) runs
-# gosec through golangci-lint with this file. mars has no other
-# golangci-lint run.
+# golangci-lint runs with this file twice: in the shared Quality workflow
+# (luthersystems/.github, quality / lint) and, for gosec, in the shared
+# Security workflow (security / gosec).
 linters:
+  settings:
+    errcheck:
+      # mars is a CLI. These print to its stdout and stderr, and a failed
+      # write to either leaves nothing better to do than go on.
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
   exclusions:
     rules:
       # Tests write fixtures to t.TempDir() and read them back, by path. File
