@@ -538,7 +538,7 @@ packaging==26.0
     #   azure-cli
     #   azure-cli-core
     #   knack
-paramiko==5.0.0
+paramiko==5.1.0
     # via
     #   azure-cli
     #   fabric
