@@ -343,3 +343,19 @@ mcpEgress:
     # default assumes the cluster domain is `cluster.local`; change the suffix
     # if yours differs (kubelet `clusterDomain`).
     dnsName: kubernetes.default.svc.cluster.local
+
+# Pod security context, added to the chart's runAsUser and fsGroup.
+# RuntimeDefault applies the container runtime's seccomp profile, which
+# blocks the syscalls an ordinary server never makes (kernel module loads,
+# mount, ptrace and the like). Without it EKS runs pods unconfined (mars#322).
+# Override it here, not in the template, if an image needs more.
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
+
+# Security context of every container, the init containers too.
+# allowPrivilegeEscalation: false stops a process from gaining more rights
+# than it started with (setuid binaries, file capabilities); none of these
+# containers needs them.
+securityContext:
+  allowPrivilegeEscalation: false

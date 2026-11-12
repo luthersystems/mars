@@ -35,6 +35,10 @@
 #     or one for an empty entry
 #   - shiroclient, connectorhub: a pod checksum that does not change when
 #     the license or crypto-config Secret in the chart changes (#346)
+#   - shiroclient, connectorhub: a container without allowPrivilegeEscalation:
+#     false, or a pod without seccomp RuntimeDefault and runAsUser (#322)
+#   - shiroclient: the gateway config not in a Secret by default, or the
+#     old ConfigMap gone when sdk.configMapName asks for it (#322)
 #   - shiroclient: the license state volume, mount or env when off (the
 #     default), or a missing or misplaced one when on
 #   - fabric-peer, fabric-orderer: a liveness probe that restarts the node
@@ -669,6 +673,68 @@ want_sc_render "shiroclient license state mountPath moves the env" yes "value: \
   ${LS} --set licenseState.mountPath=/state
 want_sc_render "shiroclient license state sizeLimit renders" yes "sizeLimit: 1Mi" \
   ${LS} --set licenseState.sizeLimit=1Mi
+
+# shiroclient, connectorhub security contexts (mars#322): the pod keeps its
+# runAsUser and fsGroup and adds seccomp RuntimeDefault, and every container,
+# the init containers too, has allowPrivilegeEscalation: false. The args
+# render each init container (no crypto-config Secret: config-fetch; with
+# one: config-setup).
+want_hardened() {
+  desc="$1"; chart="$2"; shift 2
+  if ! out=$(helm template h "${CHARTS}/${chart}" --show-only templates/deployment.yaml "$@" 2>&1); then
+    echo "FAIL: ${desc}: helm template failed:"
+    echo "${out}"
+    fail=1
+    return
+  fi
+  lines=$(printf "%s\n" "${out}" | sed "s/^ *//")
+  images=$(printf "%s\n" "${lines}" | grep -c "^image: " || true)
+  noesc=$(printf "%s\n" "${lines}" | grep -cx "allowPrivilegeEscalation: false" || true)
+  seccomp=$(printf "%s\n" "${lines}" | grep -cx "type: RuntimeDefault" || true)
+  user=$(printf "%s\n" "${lines}" | grep -cx "runAsUser: 6553" || true)
+  if [ "${images}" -gt 0 ] && [ "${noesc}" = "${images}" ] && [ "${seccomp}" = 1 ] && [ "${user}" = 1 ]; then
+    echo "OK:   ${desc} (${images} containers)"
+  else
+    echo "FAIL: ${desc}: ${images} containers, ${noesc} with allowPrivilegeEscalation: false, ${seccomp} seccomp RuntimeDefault, ${user} runAsUser 6553"
+    fail=1
+  fi
+}
+want_hardened "shiroclient gateway is hardened" shiroclient
+want_hardened "shiroclient with crypto-config is hardened" shiroclient --set dlt.cryptoConfigSecret=fabric-crypto-config
+want_hardened "connectorhub is hardened" connectorhub
+want_hardened "connectorhub with crypto-config is hardened" connectorhub --set dlt.cryptoConfigSecret=fabric-crypto-config
+
+# shiroclient gateway config (mars#322, Trivy KSV-0109): a Secret by default,
+# mounted as one; the old ConfigMap only with sdk.secretName empty and
+# sdk.configMapName set. Each key lands where the pod mounts it.
+# (description, yes|no, line, template, helm args...)
+want_sc_config() {
+  desc="$1"; want="$2"; str="$3"; tpl="$4"; shift 4
+  if ! out=$(helm template sc "${CHARTS}/shiroclient" --show-only "templates/${tpl}" "$@" 2>&1); then
+    echo "FAIL: ${desc}: helm template failed:"
+    echo "${out}"
+    fail=1
+    return
+  fi
+  if printf "%s\n" "${out}" | sed "s/^ *//" | grep -xF -e "${str}" >/dev/null; then got=yes; else got=no; fi
+  if [ "${got}" = "${want}" ]; then
+    echo "OK:   ${desc}"
+  else
+    echo "FAIL: ${desc}: has line \"${str}\": ${got}, want ${want}"
+    fail=1
+  fi
+}
+CM="--set sdk.secretName= --set sdk.configMapName=shiroclient-config"
+B64="--set sdk.bootstrapBase64=Ym9vdA== --set sdk.phylumZipBase64=emlw"
+want_sc_config "shiroclient config is a Secret by default" yes "kind: Secret" config.yaml
+want_sc_config "shiroclient config is no ConfigMap by default" no "kind: ConfigMap" config.yaml
+want_sc_config "shiroclient mounts the config Secret" yes "secretName: shiroclient-config" deployment.yaml
+want_sc_config "shiroclient Secret has the bootstrap config" yes "config.json.b64: Ym9vdA==" config.yaml ${B64}
+want_sc_config "shiroclient Secret has phylum.zip as data" yes "data:" config.yaml ${B64}
+want_sc_config "shiroclient mounts config.json.b64 from the Secret" yes "subPath: config.json.b64" deployment.yaml ${B64}
+want_sc_config "shiroclient configMapName still renders a ConfigMap" yes "kind: ConfigMap" config.yaml ${CM}
+want_sc_config "shiroclient configMapName still mounts the ConfigMap" yes "name: shiroclient-config" deployment.yaml ${CM}
+want_sc_config "shiroclient configMapName ConfigMap keeps binaryData" yes "binaryData:" config.yaml ${CM} ${B64}
 
 # The role names each peer release fabric-peer<N>-<org>. The -ops name of
 # such a release must not change, or an upgrade renames the Service.

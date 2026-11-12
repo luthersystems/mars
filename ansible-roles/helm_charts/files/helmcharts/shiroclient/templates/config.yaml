@@ -1,13 +1,32 @@
-{{ if .Values.sdk.configMapName }}
+{{- /*
+A Secret by default (sdk.secretName): fabric-client.yaml holds the CA
+registrar's enrollSecret, and config.json.b64 the phylum's bootstrap config
+(Trivy KSV-0109, mars#322). sdk.configMapName with an empty sdk.secretName
+renders the old ConfigMap, with the same keys.
+*/}}
+{{- if include "shiroclient.configName" . }}
 apiVersion: v1
+{{- if .Values.sdk.secretName }}
+kind: Secret
+type: Opaque
+{{- else }}
 kind: ConfigMap
+{{- end }}
 metadata:
-  name: {{ .Values.sdk.configMapName }}
-{{ if .Values.sdk.phylumZipBase64 }}
+  name: {{ include "shiroclient.configName" . }}
+{{- if .Values.sdk.phylumZipBase64 }}
+{{- if .Values.sdk.secretName }}
+data:
+{{- else }}
 binaryData:
+{{- end }}
   phylum.zip: {{ .Values.sdk.phylumZipBase64 }}
 {{- end }}
+{{- if .Values.sdk.secretName }}
+stringData:
+{{- else }}
 data:
+{{- end }}
   {{ if .Values.sdk.bootstrapBase64 }}
   config.json.b64: {{ .Values.sdk.bootstrapBase64 }}
   {{- end }}

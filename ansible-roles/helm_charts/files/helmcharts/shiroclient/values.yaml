@@ -46,12 +46,18 @@ sdk:
   txCommitTimeout: 60s
   txRetryMinDelay: 50ms
   txRetryMaxDelay: 2s
-  configMapName: shiroclient-config
+  # The Secret the chart writes the gateway config to (shiroclient.yaml,
+  # fabric-client.yaml, and config.json.b64 and phylum.zip when set). The
+  # config holds the CA registrar's enrollSecret, so it is a Secret (mars#322).
+  secretName: shiroclient-config
+  # Deprecated: with secretName empty, the chart writes the same keys to a
+  # ConfigMap of this name, as before mars#322.
+  configMapName: ""
   bootstrapBase64: ""
   phylumZipBase64: ""
   peerResponseTimeout: 5s
   # Settings written to shiroclient.yaml and fabric-client.yaml in the
-  # configMapName config map.
+  # secretName Secret.
   chaincodeID: com_luthersystems_chaincode_substrate01
   channel: luther
   minEndorsers: 1
@@ -170,3 +176,19 @@ serviceAccount:
   create: false
   annotations: {}
   name: ""
+
+# Pod security context, added to the chart's runAsUser and fsGroup.
+# RuntimeDefault applies the container runtime's seccomp profile, which
+# blocks the syscalls an ordinary server never makes (kernel module loads,
+# mount, ptrace and the like). Without it EKS runs pods unconfined (mars#322).
+# Override it here, not in the template, if an image needs more.
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
+
+# Security context of every container, the init containers too.
+# allowPrivilegeEscalation: false stops a process from gaining more rights
+# than it started with (setuid binaries, file capabilities); none of these
+# containers needs them.
+securityContext:
+  allowPrivilegeEscalation: false
