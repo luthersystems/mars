@@ -88,7 +88,7 @@ jobs:
       actions: read # read the mars-ci.yml runs for the release commit
       contents: read # verify the release; the Claude App token creates it
       id-token: write # Bedrock role and the Claude App token
-    uses: luthersystems/.github/.github/workflows/release-tag.yml@ecf4a077df3cc9d017ed44cafcec94d396ba308b # v1.8.0
+    uses: luthersystems/.github/.github/workflows/release-tag.yml@444a3bb9b287c80a9fe2d93d0dc7abfb390330c2 # v1.8.2
     with:
       version: ${{ needs.version.outputs.version }}
       dry_run: ${{ inputs.dry_run }}
