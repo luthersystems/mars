@@ -645,6 +645,15 @@ done
 
 preflight remove-system-channel || { cat "$WORK/preflight.out"; fail "pre-flight for step 2 failed"; }
 ok "pre-flight READY for step 2"
+# join-orderers.sh (mars#343) refuses an orderer that has a system channel,
+# and skips one that serves the channel already.
+CHANNEL=other bash "$SCRIPTS/join-orderers.sh" >"$WORK/logs/join-sys.log" 2>&1 &&
+    fail "join-orderers.sh joined an orderer that has a system channel"
+grep -q "has the system channel $SYS" "$WORK/logs/join-sys.log" ||
+    { cat "$WORK/logs/join-sys.log"; fail "join-orderers.sh did not name the system channel"; }
+bash "$SCRIPTS/join-orderers.sh" >"$WORK/logs/join-existing.log" 2>&1 ||
+    { cat "$WORK/logs/join-existing.log"; fail "join-orderers.sh failed on orderers that serve $CH"; }
+ok "join-orderers.sh refuses a system channel orderer and skips one that serves $CH"
 if preflight upgrade; then cat "$WORK/preflight.out"; fail "pre-flight for step 3 passed with a system channel"; fi
 row 'orderer0 system channel' | grep -q "$SYS" || fail "pre-flight does not name the system channel"
 ok "pre-flight blocks step 3 while $SYS exists"

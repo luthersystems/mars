@@ -42,33 +42,40 @@ log() { echo "join-orderers: $*" >&2; }
 
 pod="$(select_first_cli_pod orderer 0)"
 
+block_checked=false
 for i in $(seq 0 "$((ORDERERC - 1))"); do
-    mapfile -t args < <(osnadmin_args "$i")
-    status="$(osnadmin_status "$pod" channel list --channelID "$CHANNEL" "${args[@]}")" || {
-        log "osnadmin cannot reach orderer$i. Is channel participation on?"
-        exit 1
-    }
-    case "$status" in
-    2*)
-        log "orderer$i already serves $CHANNEL"
-        continue
-        ;;
-    404) ;;
-    *)
-        log "osnadmin channel list on orderer$i: status $status"
-        exit 1
-        ;;
-    esac
-    if ! pod_exec "$pod" test -f "$GENESISBLOCK" 2>/dev/null; then
-        log "the orderer CLI pod has no $GENESISBLOCK. Generate the channel" \
-            "artifacts with fabric-network-builder v0.1.0 or later, which" \
-            "writes the channel genesis block, and roll the CLI pods."
+    # One channel list answers both questions: is CHANNEL there, and is a
+    # system channel? osnadmin_json prints osnadmin's own error on a failure.
+    if ! list="$(osnadmin_list "$pod" "$i")"; then
+        log "osnadmin channel list failed on orderer$i (its error is above)." \
+            "The orderers need channel participation on and the admin Service orderer$i."
         exit 1
     fi
+    if jq -e --arg ch "$CHANNEL" 'any(.channels[]?; .name == $ch)' <<<"$list" >/dev/null; then
+        log "orderer$i already serves $CHANNEL"
+        continue
+    fi
+    sys="$(jq -r '.systemChannel.name // empty' <<<"$list")"
+    if [[ -n "$sys" ]]; then
+        log "orderer$i has the system channel $sys, so it cannot join $CHANNEL with" \
+            "osnadmin. A network with a system channel creates its channel with" \
+            "peer channel create: set CHANNEL_PARTICIPATION false, or remove the" \
+            "system channel first (docs/fabric-3-upgrade.md)."
+        exit 1
+    fi
+    if [[ "$block_checked" != true ]]; then
+        if ! pod_exec "$pod" test -f "$GENESISBLOCK" 2>/dev/null; then
+            log "the orderer CLI pod has no $GENESISBLOCK. Generate the channel" \
+                "artifacts with fabric-network-builder v0.1.0 or later, which" \
+                "writes the channel genesis block, and roll the CLI pods."
+            exit 1
+        fi
+        block_checked=true
+    fi
+    mapfile -t args < <(osnadmin_args "$i")
     if ! osnadmin_json "$pod" channel join --channelID "$CHANNEL" \
         --config-block "$GENESISBLOCK" "${args[@]}" >/dev/null; then
-        log "osnadmin channel join failed on orderer$i. An orderer that still has" \
-            "a system channel cannot join a channel this way (docs/fabric-3-upgrade.md)."
+        log "osnadmin channel join failed on orderer$i (its error is above)"
         exit 1
     fi
     log "orderer$i joined $CHANNEL"

@@ -705,8 +705,8 @@ want_hardened "connectorhub is hardened" connectorhub
 want_hardened "connectorhub with crypto-config is hardened" connectorhub --set dlt.cryptoConfigSecret=fabric-crypto-config
 
 # shiroclient gateway config (mars#322, Trivy KSV-0109): a Secret by default,
-# mounted as one; the old ConfigMap only with sdk.secretName empty and
-# sdk.configMapName set. Each key lands where the pod mounts it.
+# mounted as one; the old ConfigMap when sdk.configMapName is set, which
+# wins over sdk.secretName. Each key lands where the pod mounts it.
 # (description, yes|no, line, template, helm args...)
 want_sc_config() {
   desc="$1"; want="$2"; str="$3"; tpl="$4"; shift 4
@@ -724,17 +724,20 @@ want_sc_config() {
     fail=1
   fi
 }
-CM="--set sdk.secretName= --set sdk.configMapName=shiroclient-config"
+CM="--set sdk.configMapName=shiroclient-config"
 B64="--set sdk.bootstrapBase64=Ym9vdA== --set sdk.phylumZipBase64=emlw"
 want_sc_config "shiroclient config is a Secret by default" yes "kind: Secret" config.yaml
 want_sc_config "shiroclient config is no ConfigMap by default" no "kind: ConfigMap" config.yaml
 want_sc_config "shiroclient mounts the config Secret" yes "secretName: shiroclient-config" deployment.yaml
-want_sc_config "shiroclient Secret has the bootstrap config" yes "config.json.b64: Ym9vdA==" config.yaml ${B64}
+want_sc_config "shiroclient Secret has the bootstrap config, base64" yes "config.json.b64: WW05dmRBPT0=" config.yaml ${B64}
+want_sc_config "shiroclient Secret has no stringData" no "stringData:" config.yaml ${B64}
 want_sc_config "shiroclient Secret has phylum.zip as data" yes "data:" config.yaml ${B64}
 want_sc_config "shiroclient mounts config.json.b64 from the Secret" yes "subPath: config.json.b64" deployment.yaml ${B64}
 want_sc_config "shiroclient configMapName still renders a ConfigMap" yes "kind: ConfigMap" config.yaml ${CM}
 want_sc_config "shiroclient configMapName still mounts the ConfigMap" yes "name: shiroclient-config" deployment.yaml ${CM}
 want_sc_config "shiroclient configMapName ConfigMap keeps binaryData" yes "binaryData:" config.yaml ${CM} ${B64}
+want_sc_config "shiroclient podSecurityContext overrides runAsUser" yes "runAsUser: 1000" deployment.yaml --set podSecurityContext.runAsUser=1000
+want_sc_config "shiroclient podSecurityContext override keeps fsGroup" yes "fsGroup: 65534" deployment.yaml --set podSecurityContext.runAsUser=1000
 
 # The role names each peer release fabric-peer<N>-<org>. The -ops name of
 # such a release must not change, or an upgrade renames the Service.

@@ -54,10 +54,10 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 
 {{/*
 The name of the object that holds the gateway config (shiroclient.yaml,
-fabric-client.yaml, and config.json.b64 and phylum.zip when set): a Secret
-named sdk.secretName, or, when that is empty, the old ConfigMap named
-sdk.configMapName. Empty: the init container fetches the config from S3.
+fabric-client.yaml, and config.json.b64 and phylum.zip when set): the
+deprecated ConfigMap sdk.configMapName when set, else the Secret
+sdk.secretName. Both empty: the init container fetches the config from S3.
 */}}
 {{- define "shiroclient.configName" -}}
-{{- .Values.sdk.secretName | default .Values.sdk.configMapName -}}
+{{- .Values.sdk.configMapName | default .Values.sdk.secretName -}}
 {{- end }}

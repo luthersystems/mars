@@ -30,12 +30,10 @@ spec:
         checksum/crypto-config: {{ include (print $.Template.BasePath "/crypto-config.yaml") . | sha256sum }}
         rollout-nonce: {{ .Values.global.forceRedeployNonce | default "" | quote }}
     spec:
+      # runAsUser and fsGroup (65534 chowns the mounts) are the chart's;
+      # podSecurityContext adds to them and can override them.
       securityContext:
-        runAsUser: 6553
-        fsGroup: 65534 # chown mounts
-        {{- with .Values.podSecurityContext }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
+        {{- toYaml (mergeOverwrite (dict "runAsUser" 6553 "fsGroup" 65534) (.Values.podSecurityContext | default dict)) | nindent 8 }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -65,14 +63,14 @@ spec:
           secret:
             secretName: fabric-crypto-config
         {{- end }}
-        {{- if .Values.sdk.secretName }}
-        - name: config
-          secret:
-            secretName: {{ .Values.sdk.secretName }}
-        {{- else if .Values.sdk.configMapName }}
+        {{- if .Values.sdk.configMapName }}
         - name: config
           configMap:
             name: {{ .Values.sdk.configMapName }}
+        {{- else if .Values.sdk.secretName }}
+        - name: config
+          secret:
+            secretName: {{ .Values.sdk.secretName }}
         {{- end }}
       {{- if not .Values.local }}
       topologySpreadConstraints:
