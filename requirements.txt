@@ -408,7 +408,9 @@ humanfriendly==10.0
 idna==3.15
     # via requests
 invoke==2.2.1
-    # via fabric
+    # via
+    #   fabric
+    #   paramiko
 isodate==0.7.2
     # via
     #   azure-ai-agents
@@ -536,7 +538,7 @@ packaging==26.0
     #   azure-cli
     #   azure-cli-core
     #   knack
-paramiko==3.5.1
+paramiko==5.1.0
     # via
     #   azure-cli
     #   fabric
