@@ -122,6 +122,13 @@ orderer and peer versions in `version.yaml`) to the 3.x release, and run
 peers, one node at a time, and pauses the network around each node
 (`upgrade-pauser.sh`).
 
+Only an upgrade run may change the version. The orderer and peer roles read
+the image tag of each running node first (role `k8s_fabric_version_guard`) and
+stop before any change if it differs from the version the run deploys, unless
+`is_fabric_upgrade` is true. So a plain orderer or peer run with the new
+version fails until `fabric_upgrade.yaml` has run. A new network, with no node
+yet, passes.
+
 On 3.x the peer `core.yaml` from mars adds:
 
 ```yaml

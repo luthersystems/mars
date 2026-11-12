@@ -12,6 +12,14 @@
       luthersystems/mars). A 3.x orderer whose ledger still has a system
       channel stops at startup.
 
+- name: The running orderers are on this Fabric version
+  include_role:
+    name: k8s_fabric_version_guard
+  vars:
+    k8s_fabric_version_guard_namespace: "{{ k8s_fabric_orderer_namespace }}"
+    k8s_fabric_version_guard_container: fabric-orderer
+    k8s_fabric_version_guard_version: "{{ k8s_fabric_orderer_version }}"
+
 - name: K8s namespace exists
   k8s:
     name: "{{k8s_fabric_orderer_namespace}}"

@@ -1,0 +1,72 @@
+---
+# Refuses an orderer or peer run that would change the Fabric version of the
+# running nodes, unless the run is an upgrade (is_fabric_upgrade: true).
+#
+# Why: a version change is a Fabric upgrade. It needs a pre-flight check (for
+# 3.x, docs/fabric-3-upgrade.md) and the rolling restart that is_fabric_upgrade
+# turns on, which waits for each node to catch up. A plain run does neither:
+# it rolls every node at once, and a 3.x orderer on a ledger that still has a
+# system channel stops at startup (mars#348). The check reads the running
+# Deployments, so it covers a downgrade too. A namespace with no node yet
+# (a new network) passes.
+#
+# The node's image is <repository>:<Fabric version> in the chart's main
+# container, whose name is the chart name. A digest (@sha256:...) and a
+# leading v are dropped before the tag is compared. Other containers (dind,
+# awscli, the snapshot archiver) are not read.
+
+- name: Fabric version guard settings are set
+  assert:
+    that:
+      - k8s_fabric_version_guard_namespace | length > 0
+      - k8s_fabric_version_guard_container | length > 0
+      - k8s_fabric_version_guard_version | string | length > 0
+    fail_msg: >-
+      k8s_fabric_version_guard needs k8s_fabric_version_guard_namespace,
+      k8s_fabric_version_guard_container and k8s_fabric_version_guard_version.
+
+- name: Check the running Fabric version
+  when: not (is_fabric_upgrade | default(false) | bool)
+  block:
+    - name: List the Fabric deployments
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        namespace: "{{ k8s_fabric_version_guard_namespace }}"
+      environment: "{{ kubectl_env }}"
+      # Read only: it must run in check mode too, or a dry run would not
+      # show the refusal.
+      check_mode: false
+      register: k8s_fabric_version_guard_deployments
+
+    - name: No running node is on another Fabric version
+      vars:
+        want: "{{ k8s_fabric_version_guard_version | string | regex_replace('^v', '') }}"
+        running: >-
+          {%- set out = [] -%}
+          {%- for d in k8s_fabric_version_guard_deployments.resources -%}
+          {%-   for c in d.spec.template.spec.containers -%}
+          {%-     if c.name == k8s_fabric_version_guard_container -%}
+          {%-       set image = c.image.split('@') | first -%}
+          {%-       set last = image.split('/') | last -%}
+          {%-       set tag = (last.split(':') | last) if ':' in last else '' -%}
+          {%-       set _ = out.append({'node': d.metadata.namespace ~ '/' ~ d.metadata.name,
+                                        'image': c.image,
+                                        'version': tag | regex_replace('^v', '')}) -%}
+          {%-     endif -%}
+          {%-   endfor -%}
+          {%- endfor -%}
+          {{ out }}
+        mismatched: "{{ running | rejectattr('version', 'equalto', want) | list }}"
+      assert:
+        that: mismatched | length == 0
+        fail_msg: >-
+          These nodes run another Fabric version than this run deploys
+          ({{ want }}):
+          {% for m in mismatched %}{{ m.node }} runs {{ m.image }}; {% endfor %}
+          That is a Fabric upgrade (or downgrade). Run it as an upgrade, with
+          is_fabric_upgrade set to true (ui-infrastructure: fabric_upgrade.yaml),
+          after its pre-flight check (docs/fabric-3-upgrade.md for 3.x).
+        success_msg: >-
+          Running {{ k8s_fabric_version_guard_container }} nodes:
+          {{ running | map(attribute='image') | join(', ') or 'none' }}
