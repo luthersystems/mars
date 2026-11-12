@@ -16,3 +16,11 @@ k8s_fabric_channel_orgs:
 k8s_fabric_channel_domain_root: "luther.systems"
 # Orderer org domain; empty means it shares the domain root.
 k8s_fabric_channel_orderer_domain_root: "{{ k8s_fabric_network_orderer_domain_root | default('') }}"
+# true: the orderers have no system channel (channel participation on,
+# always on Fabric 3), so create-channel.sh joins them to the channel from
+# its genesis block with osnadmin (join-orderers.sh, mars#343), in place of
+# `peer channel create`. Same default as k8s_fabric_orderer.
+k8s_fabric_channel_participation: "{{ k8s_fabric_orderer_channel_participation | default(k8s_fabric_version | default('2.5') | string | regex_replace('^v', '') is version('3.0.0', '>=')) }}"
+# The orderer count and namespace, for the osnadmin joins.
+k8s_fabric_channel_orderer_count: "{{ k8s_fabric_orderer_cluster_size | default('') }}"
+k8s_fabric_channel_orderer_namespace: "{{ k8s_fabric_orderer_namespace | default('fabric-orderer') }}"

@@ -65,6 +65,18 @@ osnadmin_json() {
     sed '/^Status: /d' <<<"$out"
 }
 
+# osnadmin_status <pod> <args...>: run osnadmin in the pod and print the HTTP
+# status of its answer (for example 200, 404). It fails only when osnadmin
+# printed no status, as when it cannot reach the orderer.
+osnadmin_status() {
+    local pod="$1" out status
+    shift
+    out="$(pod_exec "$pod" osnadmin "$@" 2>/dev/null)" || true
+    status="$(sed -n 's/^Status: \([0-9]*\).*/\1/p' <<<"$out" | head -n 1)"
+    [[ -n "$status" ]] || return 1
+    echo "$status"
+}
+
 # osnadmin_list <pod> <orderer index> [channel]: the channel list, or one
 # channel's info.
 osnadmin_list() {

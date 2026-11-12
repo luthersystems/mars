@@ -175,11 +175,24 @@ test first.
 
 ## New networks
 
-This runbook is for a running network. A new network on 3.x has no system
-channel, so it must create `luther` with `osnadmin channel join` and a channel
-genesis block. `create-channel.sh` uses `peer channel create`, which needs
-the system channel. Until mars supports that ([mars#343](https://github.com/luthersystems/mars/issues/343)),
-create a new network on 2.5 and upgrade it.
+This runbook is for a running network. A new network with channel
+participation on (always on 3.x) has no system channel, so the
+`k8s_fabric_channel` role makes `luther` another way
+([mars#343](https://github.com/luthersystems/mars/issues/343)):
+
+1. `join-orderers.sh` joins each orderer to the channel with
+   `osnadmin channel join`, from the orderer CLI pod, with the channel genesis
+   block `channel-artifacts/luther.block`. fabric-network-builder v0.1.0 or
+   later writes that block (`generate`), with the orderer group and the anchor
+   peers in it. An orderer that already serves the channel is skipped.
+2. `create-channel.sh` fetches the genesis block from the orderers and the
+   peers join it, as before. `anchor-peers.sh` finds the anchor peers already
+   set.
+
+The role turns this on with `k8s_fabric_channel_participation`, which follows
+`k8s_fabric_orderer_channel_participation` (on by default for 3.x). It needs
+the orderer count, `k8s_fabric_orderer_cluster_size`. A network that has the
+channel already passes through unchanged.
 
 ## Test
 
@@ -195,6 +208,9 @@ Raft orderers and one peer, the Fabric release binaries, a fake `kubectl`):
 6. Step 3: each orderer, then the peer, on 3.1.5, with the mars 3.x
    `core.yaml`; the network commits after each.
 7. The pre-flight check says READY.
+8. A new 3.1.5 network with no system channel: `create-channel.sh` joins the
+   orderers with osnadmin and the peer to the channel, the network commits,
+   and a second run changes nothing. Then the `k8s_fabric_channel` role.
 
 ```bash
 ./scripts/test-fabric3-upgrade.sh            # FROM=2.5.7 TO=3.1.5
