@@ -95,6 +95,7 @@ MARS_SHELL=true mars <env>
 - `k8s_fabric_peer`, `k8s_fabric_orderer` - Peer and orderer nodes
 - `k8s_fabric_channel`, `k8s_fabric_chaincode` - Channel and chaincode management
 - `k8s_fabric_cli`, `k8s_fabric_scripts` - CLI tools and utilities
+- `k8s_fabric_version_guard` - Refuses an orderer or peer run that changes the running Fabric version unless `is_fabric_upgrade` is true (mars#348; test `scripts/test-fabric-version-guard.sh`)
 
 **Monitoring:**
 - `prometheus`, `fluentbit`, `journald` - Metrics and logging

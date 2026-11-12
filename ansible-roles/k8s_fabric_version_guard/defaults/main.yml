@@ -1,0 +1,9 @@
+---
+# Set by the caller (k8s_fabric_orderer, k8s_fabric_peer):
+# k8s_fabric_version_guard_namespace: the node type's namespace.
+# k8s_fabric_version_guard_container: the chart's main container name
+#   (the chart name: fabric-orderer or fabric-peer).
+# k8s_fabric_version_guard_version: the Fabric version this run deploys.
+k8s_fabric_version_guard_namespace: ""
+k8s_fabric_version_guard_container: ""
+k8s_fabric_version_guard_version: ""

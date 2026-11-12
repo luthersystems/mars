@@ -1,0 +1,134 @@
+{{/*
+The gateway config files, written to the config Secret (or the deprecated
+ConfigMap) by config.yaml.
+*/}}
+{{- define "shiroclient.shiroclientYaml" -}}
+{{- $n := .Values.sdk.network }}
+{{- $orgDomain := printf "%s.%s" $n.org $n.domain }}
+{{- $ordererDomain := $n.ordererDomain | default $n.domain }}
+{{- $peer := printf "%s.%s" $n.peer $orgDomain }}
+{{- $orderer := printf "%s.%s" $n.orderer $ordererDomain }}
+{{- $ca := printf "ca.%s" $orgDomain }}
+{{- $crypto := "/tmp/fabric/crypto-config" }}
+phylum:
+  version: local
+chaincode:
+  id: {{ .Values.sdk.chaincodeID }}
+channel:
+  id: {{ .Values.sdk.channel }}
+  min-endorsers: {{ .Values.sdk.minEndorsers }}
+enroll:
+  org: {{ $n.org }}
+fabric:
+  client-config: fabric-client.yaml
+peer:
+  username: {{ .Values.sdk.peerUsername }}
+{{ end }}
+
+{{- define "shiroclient.fabricClientYaml" -}}
+{{- $n := .Values.sdk.network }}
+{{- $orgDomain := printf "%s.%s" $n.org $n.domain }}
+{{- $ordererDomain := $n.ordererDomain | default $n.domain }}
+{{- $peer := printf "%s.%s" $n.peer $orgDomain }}
+{{- $orderer := printf "%s.%s" $n.orderer $ordererDomain }}
+{{- $ca := printf "ca.%s" $orgDomain }}
+{{- $crypto := "/tmp/fabric/crypto-config" }}
+client:
+  #organization: {{ $n.org }}
+  logging:
+    level: {{ .Values.sdk.logLevel }}
+  cryptoconfig:
+    path: "{{ $crypto }}"
+  peer:
+    timeout:
+      connection: 2s
+      # this timeout must be set to be longer than the longest execution time
+      # of any query/transaction (including OTA upgrades and migrations). after
+      # this time, the peer is assumed to be down rather than working.
+      response: {{ .Values.sdk.peerResponseTimeout }}
+      discovery:
+        greylistExpiry: 10s
+  BCCSP:
+    security:
+     enabled: true
+     default:
+      provider: "SW"
+     hashAlgorithm: "SHA2"
+     softVerify: true
+     level: 256
+  credentialStore:
+    path: "/tmp/state-store"
+    cryptoStore:
+      path: /tmp/msp
+channels:
+  {{ .Values.sdk.channel }}:
+    peers:
+      {{ $peer }}:
+        endorsingPeer: true
+        chaincodeQuery: true
+        ledgerQuery: true
+        eventSource: true
+      policies:
+      queryChannelConfig:
+        minResponses: 1
+        maxTargets: 1
+        retryOpts:
+          attempts: 5
+          initialBackoff: 500ms
+          maxBackoff: 5s
+          backoffFactor: 2.0
+organizations:
+  {{ $n.org }}:
+    mspid: {{ $n.mspID }}
+    cryptoPath: peerOrganizations/{{ $orgDomain }}/users/{username}@{{ $orgDomain }}/msp
+    peers:
+      - {{ $peer }}
+    certificateAuthorities:
+      - {{ $ca }}
+  ordererorg:
+    mspID: "OrdererOrg"
+    cryptoPath: ordererOrganizations/{{ $ordererDomain }}/users/{username}@{{ $ordererDomain }}/msp
+orderers:
+  _default:
+    grpcOptions:
+      keep-alive-time: 30s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      allow-insecure: false
+  {{ $orderer }}:
+    url: {{ $orderer }}:{{ $n.ordererPort }}
+    grpcOptions:
+      ssl-target-name-override: {{ $orderer }}
+    tlsCACerts:
+      path: "{{ $crypto }}/ordererOrganizations/{{ $ordererDomain }}/tlsca/tlsca.{{ $ordererDomain }}-cert.pem"
+peers:
+  _default:
+    grpcOptions:
+      keep-alive-time: 30s
+      keep-alive-timeout: 20s
+      keep-alive-permit: false
+      fail-fast: false
+      allow-insecure: false
+  {{ $peer }}:
+    url: {{ $peer }}:{{ $n.peerPort }}
+    eventUrl: {{ $peer }}:{{ $n.peerEventPort }}
+    grpcOptions:
+      ssl-target-name-override: {{ $peer }}
+    tlsCACerts:
+      path: "{{ $crypto }}/peerOrganizations/{{ $orgDomain }}/tlsca/tlsca.{{ $orgDomain }}-cert.pem"
+certificateAuthorities:
+ {{ $ca }}:
+   url: https://{{ $ca }}:{{ $n.caPort }}
+   tlsCACerts:
+    path: "{{ $crypto }}/peerOrganizations/{{ $orgDomain }}/ca/{{ $ca }}-cert.pem"
+    client:
+      key:
+        path: "{{ $crypto }}/peerOrganizations/{{ $orgDomain }}/users/{{ .Values.sdk.peerUsername }}@{{ $orgDomain }}/tls/client.key"
+      cert:
+        path: "{{ $crypto }}/peerOrganizations/{{ $orgDomain }}/users/{{ .Values.sdk.peerUsername }}@{{ $orgDomain }}/tls/client.crt"
+   registrar:
+     enrollId: {{ $n.caRegistrar.enrollID }}
+     enrollSecret: {{ $n.caRegistrar.enrollSecret }}
+   caName: {{ $ca }}
+{{ end }}

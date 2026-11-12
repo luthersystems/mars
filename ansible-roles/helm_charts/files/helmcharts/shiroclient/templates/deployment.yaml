@@ -30,9 +30,10 @@ spec:
         checksum/crypto-config: {{ include (print $.Template.BasePath "/crypto-config.yaml") . | sha256sum }}
         rollout-nonce: {{ .Values.global.forceRedeployNonce | default "" | quote }}
     spec:
+      # runAsUser and fsGroup (65534 chowns the mounts) are the chart's;
+      # podSecurityContext adds to them and can override them.
       securityContext:
-        runAsUser: 6553
-        fsGroup: 65534 # chown mounts
+        {{- toYaml (mergeOverwrite (dict "runAsUser" 6553 "fsGroup" 65534) (.Values.podSecurityContext | default dict)) | nindent 8 }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -62,10 +63,14 @@ spec:
           secret:
             secretName: fabric-crypto-config
         {{- end }}
-        {{ if .Values.sdk.configMapName }}
+        {{- if .Values.sdk.configMapName }}
         - name: config
           configMap:
             name: {{ .Values.sdk.configMapName }}
+        {{- else if .Values.sdk.secretName }}
+        - name: config
+          secret:
+            secretName: {{ .Values.sdk.secretName }}
         {{- end }}
       {{- if not .Values.local }}
       topologySpreadConstraints:
@@ -81,6 +86,8 @@ spec:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
           {{- if eq .Values.runMode "gateway" }}
           args:
             - --config=shiroclient.yaml
@@ -138,7 +145,7 @@ spec:
             - name: license-state
               mountPath: {{ .Values.licenseState.mountPath }}
             {{- end }}
-            {{ if .Values.sdk.configMapName }}
+            {{ if include "shiroclient.configName" . }}
             - name: config
               subPath: shiroclient.yaml
               mountPath: /tmp/fabric/shiroclient.yaml
@@ -189,9 +196,11 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       initContainers:
-        {{ if or (and (ne .Values.runMode "gateway") (not .Values.sdk.phylumZipBase64)) (not .Values.sdk.configMapName) (not .Values.dlt.cryptoConfigSecret) }}
+        {{ if or (and (ne .Values.runMode "gateway") (not .Values.sdk.phylumZipBase64)) (not (include "shiroclient.configName" .)) (not .Values.dlt.cryptoConfigSecret) }}
         - name: config-fetch
           image: "luthersystems/awscli:{{ .Values.awsCLIVersion }}"
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
           env:
             - name: AWS_REGION
               value: {{ .Values.aws.region }}
@@ -214,7 +223,7 @@ spec:
               aws s3 cp s3://$PHYLUM_BUCKET/phyla/$APP_NAME-$APP_VERSION/$APP_NAME.zip /opt/phylum/phylum.zip;
               {{- end }}
 
-              {{ if not .Values.sdk.configMapName }}
+              {{ if not (include "shiroclient.configName" .) }}
               aws s3 cp s3://$ENV_BUCKET/$LUTHER_ENV/config/config.json.b64 /opt/phylum/config.json.b64
               {{- end }}
 
@@ -223,7 +232,7 @@ spec:
               sed 's/PEER_RESPONSE_TIMEOUT/{{.Values.sdk.peerResponseTimeout}}/' /fabric/fabric-client_template.yaml > /fabric/fabric-client.yaml
               {{- end }}
           volumeMounts:
-            {{ if or (not .Values.sdk.phylumZipBase64) (not .Values.sdk.configMapName) }}
+            {{ if or (not .Values.sdk.phylumZipBase64) (not (include "shiroclient.configName" .)) }}
             - name: phylum
               mountPath: /opt/phylum
             {{- end }}
@@ -235,6 +244,8 @@ spec:
         {{- if .Values.dlt.cryptoConfigSecret }}
         - name: config-setup
           image: busybox:1.35.0
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
           args:
             - sh
             - -c

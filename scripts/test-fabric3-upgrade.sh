@@ -18,6 +18,9 @@
 #   3. orderers then the peer on the new release, one at a time
 # then runs the k8s_fabric_upgrade_v3 role (when ansible-playbook is on
 # PATH), and checks after each step that the channel orders and the peer commits.
+# Last, it starts a new network on the new release, with no system channel,
+# and makes its channel with create-channel.sh (osnadmin channel join,
+# mars#343) and the k8s_fabric_channel role.
 # It also checks the two failures the runbook warns of: a 3.x orderer stops at
 # startup on a ledger with a system channel, and with BootstrapMethod "file".
 #
@@ -130,6 +133,12 @@ Organizations:
       Writers: {Type: Signature, Rule: "OR('Org1MSP.admin', 'Org1MSP.client')"}
       Admins: {Type: Signature, Rule: "OR('Org1MSP.admin')"}
       Endorsement: {Type: Signature, Rule: "OR('Org1MSP.peer')"}
+  # Org1 with its anchor peer, as fabric-network-builder puts it in the
+  # channel genesis block of a network with no system channel.
+  - &Org1Anchored
+    <<: *Org1
+    AnchorPeers:
+      - {Host: localhost, Port: 7051}
 Orderer: &OrdererDefaults
   OrdererType: etcdraft
   Addresses: [${addresses%, }]
@@ -165,6 +174,23 @@ Profiles:
     <<: *ChannelDefaults
     Application:
       Organizations: [*Org1]
+      Capabilities: {V2_0: true}
+      Policies:
+        Readers: {Type: ImplicitMeta, Rule: "ANY Readers"}
+        Writers: {Type: ImplicitMeta, Rule: "ANY Writers"}
+        Admins: {Type: ImplicitMeta, Rule: "MAJORITY Admins"}
+        LifecycleEndorsement: {Type: ImplicitMeta, Rule: "MAJORITY Endorsement"}
+        Endorsement: {Type: ImplicitMeta, Rule: "MAJORITY Endorsement"}
+  # The application channel's genesis block, with the orderer group: what
+  # each orderer joins with osnadmin on a network with no system channel.
+  AppGenesis:
+    <<: *ChannelDefaults
+    Orderer:
+      <<: *OrdererDefaults
+      Organizations: [*OrdererOrg]
+      Capabilities: {V2_0: true}
+    Application:
+      Organizations: [*Org1Anchored]
       Capabilities: {V2_0: true}
       Policies:
         Readers: {Type: ImplicitMeta, Rule: "ANY Readers"}
@@ -376,7 +402,36 @@ while [[ $# -gt 0 ]]; do
 done
 set -- "${args[@]}"
 verb="$1"; shift
+# rewrite <pod dir> <arg>: point a pod's paths and host names at this machine.
+# /etc/hyperledger/fabric and /opt/blocks are the pod's own directories, and
+# the CLI pods' working directory has the channel artifacts.
+rewrite() {
+    local pdir="$1" s="$2" i
+    s="${s//\/etc\/hyperledger\/fabric/$pdir}"
+    s="${s//\/opt\/blocks/$pdir/opt-blocks}"
+    s="${s//.\/channel-artifacts/$FAKE_WORK/art}"
+    for i in 0 1 2; do
+        s="${s//orderer$i.luther.systems:7050/localhost:$((7050 + 100 * i))}"
+        s="${s//orderer$i:7053/127.0.0.1:$((7053 + 100 * i))}"
+    done
+    printf '%s' "$s"
+}
+# cp_path <[ns/]pod:path or local path>: the path on this machine.
+cp_path() {
+    local a="$1" pod
+    if [[ "$a" == *:* ]]; then
+        pod="${a%%:*}"
+        pod="${pod##*/}"
+        [[ -d "$FAKE_WORK/pods/$pod" ]] || { echo "fake kubectl: no pod $pod" >&2; exit 1; }
+        rewrite "$FAKE_WORK/pods/$pod" "${a#*:}"
+    else
+        printf '%s' "$a"
+    fi
+}
 case "$verb" in
+cp)
+    cp "$(cp_path "$1")" "$(cp_path "$2")"
+    ;;
 get)
     kind="$1"; shift
     sel=""; out=""; name=""
@@ -426,18 +481,8 @@ exec)
     [[ "$1" == -- ]] && shift
     pdir="$FAKE_WORK/pods/$pod"
     [[ -d "$pdir" ]] || { echo "fake kubectl: no pod $pod" >&2; exit 1; }
-    # Point the pod's paths and host names at this machine.
-    rewrite() {
-        local s="$1" i
-        s="${s//\/etc\/hyperledger\/fabric/$pdir}"
-        for i in 0 1 2; do
-            s="${s//orderer$i.luther.systems:7050/localhost:$((7050 + 100 * i))}"
-            s="${s//orderer$i:7053/127.0.0.1:$((7053 + 100 * i))}"
-        done
-        printf '%s' "$s"
-    }
     cmd=()
-    for a in "$@"; do cmd+=("$(rewrite "$a")"); done
+    for a in "$@"; do cmd+=("$(rewrite "$pdir" "$a")"); done
     # Refuse the next $FAKE_WORK/fetch-fails config fetches, as an orderer
     # with no Raft leader for the channel yet does.
     if [[ "$*" == *"channel fetch config"* && -s "$FAKE_WORK/fetch-fails" ]]; then
@@ -600,6 +645,15 @@ done
 
 preflight remove-system-channel || { cat "$WORK/preflight.out"; fail "pre-flight for step 2 failed"; }
 ok "pre-flight READY for step 2"
+# join-orderers.sh (mars#343) refuses an orderer that has a system channel,
+# and skips one that serves the channel already.
+CHANNEL=other bash "$SCRIPTS/join-orderers.sh" >"$WORK/logs/join-sys.log" 2>&1 &&
+    fail "join-orderers.sh joined an orderer that has a system channel"
+grep -q "has the system channel $SYS" "$WORK/logs/join-sys.log" ||
+    { cat "$WORK/logs/join-sys.log"; fail "join-orderers.sh did not name the system channel"; }
+bash "$SCRIPTS/join-orderers.sh" >"$WORK/logs/join-existing.log" 2>&1 ||
+    { cat "$WORK/logs/join-existing.log"; fail "join-orderers.sh failed on orderers that serve $CH"; }
+ok "join-orderers.sh refuses a system channel orderer and skips one that serves $CH"
 if preflight upgrade; then cat "$WORK/preflight.out"; fail "pre-flight for step 3 passed with a system channel"; fi
 row 'orderer0 system channel' | grep -q "$SYS" || fail "pre-flight does not name the system channel"
 ok "pre-flight blocks step 3 while $SYS exists"
@@ -687,4 +741,68 @@ else
     echo "SKIP: ansible-playbook is not installed: the role is not tested"
 fi
 
-echo "PASS: Fabric $FROM to $TO upgrade path"
+# ---- a new network on $TO: no system channel (mars#343) --------------------
+# The orderers start with channel participation and an empty ledger, as the
+# fabric-orderer chart starts them on 3.x. create-channel.sh joins each one
+# to the channel from its genesis block with osnadmin, then the peer joins.
+
+for i in $(seq 0 $((N - 1))); do stop_node "o$i"; done
+stop_node peer
+rm -rf "$WORK"/data/o[0-9] "$WORK/data/peer"
+"$B_TO/configtxgen" -configPath . -profile AppGenesis -channelID "$CH" -outputBlock "$WORK/art/$CH.block" 2>/dev/null ||
+    fail "configtxgen -outputBlock for $CH"
+for i in $(seq 0 $((N - 1))); do start_orderer "$i" "$TO" true; done
+start_peer "$TO"
+newnet() { # newnet <log> <script> <args...>: run a channel script as the role does
+    local log="$1"
+    shift
+    CHANNEL_PARTICIPATION=true CHANNEL_FETCH_WAIT=1 bash "$@" >"$WORK/logs/$log.log" 2>&1 ||
+        { tail -n 40 "$WORK/logs/$log.log"; fail "$log"; }
+}
+newnet new-create "$SCRIPTS/create-channel.sh"
+for i in $(seq 0 $((N - 1))); do
+    grep -q "orderer$i joined $CH" "$WORK/logs/new-create.log" || fail "orderer$i did not join $CH with osnadmin"
+done
+grep -q "Creating channel" "$WORK/logs/new-create.log" && fail "create-channel.sh ran peer channel create"
+[[ -s "$WORK/$CH.block" ]] || fail "create-channel.sh did not copy out $CH.block"
+newnet new-sync "$SCRIPTS/sync-channel.sh" org1
+newnet new-anchor "$SCRIPTS/anchor-peers.sh" org1 Org1MSP
+grep -q "Anchor peers have already been initialized" "$WORK/logs/new-anchor.log" ||
+    fail "anchor-peers.sh did not find the anchor peers of the genesis block"
+expect_commit "new $TO network: channel $CH made with osnadmin"
+newnet new-create-again "$SCRIPTS/create-channel.sh"
+[[ "$(grep -c "already serves $CH" "$WORK/logs/new-create-again.log")" == "$N" ]] ||
+    fail "create-channel.sh run again did not skip the joined orderers"
+grep -q "Channel previously joined" "$WORK/logs/new-create-again.log" || fail "the peer joined again"
+ok "create-channel.sh makes the channel of a new $TO network and is safe to run again"
+preflight upgrade || { cat "$WORK/preflight.out"; fail "pre-flight on the new $TO network failed"; }
+ok "pre-flight READY on the new $TO network"
+
+if command -v ansible-playbook >/dev/null; then
+    cat >"$WORK/channel-role.yml" <<'YAML'
+- hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - role: k8s_fabric_channel
+      k8s_fabric_channel_orgs:
+        - name: org1
+          msp: Org1MSP
+YAML
+    channel_role() { # channel_role <log> <extra vars as JSON>
+        ANSIBLE_ROLES_PATH="$ROOT/ansible-roles" ansible-playbook -v -i localhost, "$WORK/channel-role.yml" -e "$2" \
+            -e "{\"kubectl_configured\": true, \"mars_local\": true, \"kubectl_env\": {},
+                \"k8s_fabric_scripts_dir\": \"$SCRIPTS\", \"k8s_fabric_scripts_workdir\": \"$WORK\",
+                \"k8s_fabric_version\": \"$TO\"}" \
+            >"$WORK/logs/$1.log" 2>&1
+    }
+    channel_role channel-role-no-count '{}' && fail "the channel role ran on $TO with no orderer count"
+    grep -q "Set k8s_fabric_orderer_cluster_size" "$WORK/logs/channel-role-no-count.log" ||
+        { cat "$WORK/logs/channel-role-no-count.log"; fail "the channel role failed for another reason"; }
+    channel_role channel-role "{\"k8s_fabric_orderer_cluster_size\": $N}" ||
+        { cat "$WORK/logs/channel-role.log"; fail "the channel role failed on the new $TO network"; }
+    grep -q "already serves $CH" "$WORK/logs/channel-role.log" || fail "the channel role did not run join-orderers.sh"
+    ok "the k8s_fabric_channel role uses osnadmin on $TO (channel participation by version)"
+fi
+
+echo "PASS: Fabric $FROM to $TO upgrade path, and a new $TO network"

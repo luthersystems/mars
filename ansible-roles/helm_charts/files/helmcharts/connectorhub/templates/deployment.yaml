@@ -29,9 +29,10 @@ spec:
         checksum/crypto-config: {{ include (print $.Template.BasePath "/crypto-config.yaml") . | sha256sum }}
         rollout-nonce: {{ .Values.global.forceRedeployNonce | default "" | quote }}
     spec:
+      # runAsUser and fsGroup (65534 chowns the mounts) are the chart's;
+      # podSecurityContext adds to them and can override them.
       securityContext:
-        runAsUser: 6553
-        fsGroup: 65534 # chown pvc mounts
+        {{- toYaml (mergeOverwrite (dict "runAsUser" 6553 "fsGroup" 65534) (.Values.podSecurityContext | default dict)) | nindent 8 }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -93,6 +94,8 @@ spec:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
           args:
             - start
             - --config-file=/tmp/fabric/connectorhub.yaml
@@ -217,6 +220,8 @@ spec:
         {{- if .Values.dlt.cryptoConfigSecret }}
         - name: config-setup
           image: busybox:1.35.0
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
           args:
             - sh
             - -c

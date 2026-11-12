@@ -1,136 +1,43 @@
-{{ if .Values.sdk.configMapName }}
+{{- /*
+The gateway config: shiroclient.yaml, fabric-client.yaml (with the CA
+registrar's enrollSecret), and config.json.b64 and phylum.zip when set.
+A Secret by default, sdk.secretName (Trivy KSV-0109, mars#322). Every key is
+under data, base64, so a key dropped in an upgrade leaves the live Secret
+too. sdk.configMapName renders the old ConfigMap instead, with the same keys.
+*/}}
+{{- $name := include "shiroclient.configName" . }}
+{{- if $name }}
+{{- $secret := not .Values.sdk.configMapName }}
 apiVersion: v1
+{{- if $secret }}
+kind: Secret
+type: Opaque
+{{- else }}
 kind: ConfigMap
+{{- end }}
 metadata:
-  name: {{ .Values.sdk.configMapName }}
-{{ if .Values.sdk.phylumZipBase64 }}
+  name: {{ $name }}
+{{- if and .Values.sdk.phylumZipBase64 (not $secret) }}
 binaryData:
   phylum.zip: {{ .Values.sdk.phylumZipBase64 }}
 {{- end }}
 data:
-  {{ if .Values.sdk.bootstrapBase64 }}
-  config.json.b64: {{ .Values.sdk.bootstrapBase64 }}
+  {{- if $secret }}
+  {{- with .Values.sdk.phylumZipBase64 }}
+  phylum.zip: {{ . }}
   {{- end }}
-
-  {{- $n := .Values.sdk.network }}
-  {{- $orgDomain := printf "%s.%s" $n.org $n.domain }}
-  {{- $ordererDomain := $n.ordererDomain | default $n.domain }}
-  {{- $peer := printf "%s.%s" $n.peer $orgDomain }}
-  {{- $orderer := printf "%s.%s" $n.orderer $ordererDomain }}
-  {{- $ca := printf "ca.%s" $orgDomain }}
-  {{- $crypto := "/tmp/fabric/crypto-config" }}
+  {{- with .Values.sdk.bootstrapBase64 }}
+  config.json.b64: {{ . | b64enc }}
+  {{- end }}
+  shiroclient.yaml: {{ include "shiroclient.shiroclientYaml" . | b64enc }}
+  fabric-client.yaml: {{ include "shiroclient.fabricClientYaml" . | b64enc }}
+  {{- else }}
+  {{- with .Values.sdk.bootstrapBase64 }}
+  config.json.b64: {{ . }}
+  {{- end }}
   shiroclient.yaml: |
-    phylum:
-      version: local
-    chaincode:
-      id: {{ .Values.sdk.chaincodeID }}
-    channel:
-      id: {{ .Values.sdk.channel }}
-      min-endorsers: {{ .Values.sdk.minEndorsers }}
-    enroll:
-      org: {{ $n.org }}
-    fabric:
-      client-config: fabric-client.yaml
-    peer:
-      username: {{ .Values.sdk.peerUsername }}
-
+    {{- include "shiroclient.shiroclientYaml" . | nindent 4 }}
   fabric-client.yaml: |
-    client:
-      #organization: {{ $n.org }}
-      logging:
-        level: {{ .Values.sdk.logLevel }}
-      cryptoconfig:
-        path: "{{ $crypto }}"
-      peer:
-        timeout:
-          connection: 2s
-          # this timeout must be set to be longer than the longest execution time
-          # of any query/transaction (including OTA upgrades and migrations). after
-          # this time, the peer is assumed to be down rather than working.
-          response: {{ .Values.sdk.peerResponseTimeout }}
-          discovery:
-            greylistExpiry: 10s
-      BCCSP:
-        security:
-         enabled: true
-         default:
-          provider: "SW"
-         hashAlgorithm: "SHA2"
-         softVerify: true
-         level: 256
-      credentialStore:
-        path: "/tmp/state-store"
-        cryptoStore:
-          path: /tmp/msp
-    channels:
-      {{ .Values.sdk.channel }}:
-        peers:
-          {{ $peer }}:
-            endorsingPeer: true
-            chaincodeQuery: true
-            ledgerQuery: true
-            eventSource: true
-          policies:
-          queryChannelConfig:
-            minResponses: 1
-            maxTargets: 1
-            retryOpts:
-              attempts: 5
-              initialBackoff: 500ms
-              maxBackoff: 5s
-              backoffFactor: 2.0
-    organizations:
-      {{ $n.org }}:
-        mspid: {{ $n.mspID }}
-        cryptoPath: peerOrganizations/{{ $orgDomain }}/users/{username}@{{ $orgDomain }}/msp
-        peers:
-          - {{ $peer }}
-        certificateAuthorities:
-          - {{ $ca }}
-      ordererorg:
-        mspID: "OrdererOrg"
-        cryptoPath: ordererOrganizations/{{ $ordererDomain }}/users/{username}@{{ $ordererDomain }}/msp
-    orderers:
-      _default:
-        grpcOptions:
-          keep-alive-time: 30s
-          keep-alive-timeout: 20s
-          keep-alive-permit: false
-          fail-fast: false
-          allow-insecure: false
-      {{ $orderer }}:
-        url: {{ $orderer }}:{{ $n.ordererPort }}
-        grpcOptions:
-          ssl-target-name-override: {{ $orderer }}
-        tlsCACerts:
-          path: "{{ $crypto }}/ordererOrganizations/{{ $ordererDomain }}/tlsca/tlsca.{{ $ordererDomain }}-cert.pem"
-    peers:
-      _default:
-        grpcOptions:
-          keep-alive-time: 30s
-          keep-alive-timeout: 20s
-          keep-alive-permit: false
-          fail-fast: false
-          allow-insecure: false
-      {{ $peer }}:
-        url: {{ $peer }}:{{ $n.peerPort }}
-        eventUrl: {{ $peer }}:{{ $n.peerEventPort }}
-        grpcOptions:
-          ssl-target-name-override: {{ $peer }}
-        tlsCACerts:
-          path: "{{ $crypto }}/peerOrganizations/{{ $orgDomain }}/tlsca/tlsca.{{ $orgDomain }}-cert.pem"
-    certificateAuthorities:
-     {{ $ca }}:
-       url: https://{{ $ca }}:{{ $n.caPort }}
-       tlsCACerts:
-        path: "{{ $crypto }}/peerOrganizations/{{ $orgDomain }}/ca/{{ $ca }}-cert.pem"
-        client:
-          key:
-            path: "{{ $crypto }}/peerOrganizations/{{ $orgDomain }}/users/{{ .Values.sdk.peerUsername }}@{{ $orgDomain }}/tls/client.key"
-          cert:
-            path: "{{ $crypto }}/peerOrganizations/{{ $orgDomain }}/users/{{ .Values.sdk.peerUsername }}@{{ $orgDomain }}/tls/client.crt"
-       registrar:
-         enrollId: {{ $n.caRegistrar.enrollID }}
-         enrollSecret: {{ $n.caRegistrar.enrollSecret }}
-       caName: {{ $ca }}
+    {{- include "shiroclient.fabricClientYaml" . | nindent 4 }}
+  {{- end }}
 {{- end }}

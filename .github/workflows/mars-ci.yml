@@ -51,6 +51,10 @@ jobs:
       - name: Tasks give each Fabric script the NAMESPACE it needs
         run: |
           "$(pipx environment --value PIPX_LOCAL_VENVS)/ansible/bin/python" scripts/check-script-env.py
+      # The orderer and peer roles refuse a Fabric version change outside an
+      # upgrade run (mars#348). A fake k8s_info stands in for the cluster.
+      - name: Test the Fabric version guard
+        run: ./scripts/test-fabric-version-guard.sh
       - name: Test the upgrade path
         env:
           FABRIC_BIN_CACHE: ${{ runner.temp }}/fabric-bin

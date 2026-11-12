@@ -43,6 +43,14 @@
       archiver with archive-blocks); the version is
       {{ k8s_fabric_peer_snapshot_archiver_version }}.
 
+- name: The running peers are on this Fabric version
+  include_role:
+    name: k8s_fabric_version_guard
+  vars:
+    k8s_fabric_version_guard_namespace: "{{ k8s_fabric_peer_namespace }}"
+    k8s_fabric_version_guard_container: fabric-peer
+    k8s_fabric_version_guard_version: "{{ k8s_fabric_peer_version }}"
+
 - name: K8s namespace exists
   k8s:
     name: "{{k8s_fabric_peer_namespace}}"
