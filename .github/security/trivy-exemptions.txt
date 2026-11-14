@@ -6,6 +6,5 @@
 # change; issue #322, short expiry so the gate asks again). Fix a deferred
 # finding and delete its row. A new row needs a real reason, not the Trivy
 # title.
-DS-0002 | Dockerfile | 2027-01-31 | luthersystems/mars#322 | Deferred: mars-entrypoint starts as root to write the caller's passwd entry, then setuids to USER_ID. Only mars_macos.sh sets USER_ID, so CI callers (ui-core Argo jobs, the sandbox template) still run commands as root.
 KSV-0053 | ansible-roles/helm_charts/files/helmcharts/connectorhub/templates/rbac.yaml | 2027-10-31 | luthersystems/mars#317 | Kept on purpose: connectorhub launches each MCP connector as a pod and talks to it over pods/exec and attach, scoped to its own namespace by a Role.
 KSV-0056 | ansible-roles/helm_charts/files/helmcharts/connectorhub/templates/rbac.yaml | 2027-10-31 | luthersystems/mars#317 | Kept on purpose: connectorhub creates one NetworkPolicy per MCP connector to block cloud metadata egress (connectorhub#190), scoped to its namespace by a Role.

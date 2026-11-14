@@ -304,6 +304,18 @@ ENV HELM_DIFF_VERSION=$HELM_DIFF_VERSION
 
 RUN helm plugin install https://github.com/databus23/helm-diff --version ${HELM_DIFF_VERSION} --verify=false
 
+# The image runs as the non-root user mars (uid and gid 10001, HOME
+# /opt/home; Trivy DS-0002, mars#322). A caller that needs root, or wants
+# mars-entrypoint to run as its own user through USER_ID, starts the
+# container as root: docker run --user 0:0, or runAsUser: 0 in Kubernetes.
+# mars_macos.sh, ui-infrastructure's mars wrapper, ui-core's Argo steps and
+# common-infrastructure's aws-terraform-ci.sh do. /opt/home was filled as
+# root above (ansible collections, the helm-diff plugin), so it is chowned
+# here, after the last step that writes it.
+RUN groupadd --gid 10001 mars && \
+  useradd --uid 10001 --gid 10001 --home-dir /opt/home --no-create-home --shell /usr/sbin/nologin mars && \
+  chown -R 10001:10001 /opt/home /marsproject
+
 # Run the build-harden kit last. It removes the distrusted root CAs (the
 # eMudhra/emSign roots, CVE-2026-111943) from every trust store in the image:
 # the system bundle, the Python venv (certifi, botocore), the AWS CLI and
@@ -313,3 +325,6 @@ RUN helm plugin install https://github.com/databus23/helm-diff --version ${HELM_
 # architectures with the shared action luthersystems/.github/actions/
 # harden-check. The image has no Node.js and no Java.
 RUN --mount=type=bind,from=harden,source=/harden,target=/harden sh /harden/harden.sh
+
+# Last, after the kit: the default user (see the user step above).
+USER 10001:10001

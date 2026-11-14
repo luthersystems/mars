@@ -128,7 +128,10 @@ fi
 
 docker volume create "$ANSIBLE_INVENTORY_CACHE_VOL" >/dev/null
 
+# Start as root: mars-entrypoint needs root to add USER_ID's passwd entry,
+# then runs mars as that user. The image's default user is mars (mars#322).
 docker run --rm $DOCKER_TERM_VARS \
+	--user 0:0 \
 	-e USER_ID=$(id -u $USER) \
 	-e GROUP_ID=$(id -g $USER) \
 	-e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY \
