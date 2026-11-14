@@ -1,6 +1,0 @@
-apiVersion: v1
-name: agentbuilder
-description: "Agent Builder Server (SSE mode)"
-version: 0.1.0
-appVersion: "latest"
-

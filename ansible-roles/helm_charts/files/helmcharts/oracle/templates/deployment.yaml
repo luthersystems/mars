@@ -17,6 +17,13 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       serviceAccountName: {{ include "oracle.serviceAccountName" . }}
+      # The image's only writable paths, /tmp and /var/tmp, as emptyDirs: the
+      # root filesystem is read-only (securityContext, mars#322).
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: var-tmp
+          emptyDir: {}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -50,5 +57,10 @@ spec:
             timeoutSeconds: 3
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: var-tmp
+              mountPath: /var/tmp
           resources:
             {{- toYaml .Values.resources | nindent 12 }}

@@ -65,5 +65,12 @@ podSecurityContext:
 # process from gaining more rights than it started with (setuid binaries,
 # file capabilities); the server needs neither. Trivy KSV-0118 flags a
 # container with no security context.
+#
+# readOnlyRootFilesystem: true (Trivy KSV-0014, mars#322): the image runs as
+# nobody, and the only image paths nobody can write are /tmp and /var/tmp.
+# The pod mounts an emptyDir on each, so the server writes where it did
+# before and nothing else in the image can change. An image that runs as
+# root and writes elsewhere needs readOnlyRootFilesystem: false here.
 securityContext:
   allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true

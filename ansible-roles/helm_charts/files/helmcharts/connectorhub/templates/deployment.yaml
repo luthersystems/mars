@@ -50,6 +50,14 @@ spec:
           emptyDir: {}
         - name: state-store
           emptyDir: {}
+        # /tmp and /var/tmp of the main container, and /tmp of the init
+        # containers: the root filesystem is read-only (mars#322).
+        - name: tmp
+          emptyDir: {}
+        - name: var-tmp
+          emptyDir: {}
+        - name: init-tmp
+          emptyDir: {}
         {{- if .Values.dlt.cryptoConfigSecret }}
         - name: connectorhub-crypto-config
           secret:
@@ -164,6 +172,10 @@ spec:
             {{- end }}
           workingDir: /tmp/fabric
           volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: var-tmp
+              mountPath: /var/tmp
             - name: fabric-artifacts
               mountPath: /tmp/fabric
             {{- if not .Values.leaderElection.enabled }}
@@ -237,6 +249,8 @@ spec:
               find /fabric/crypto-config -type f \( -name '*_sk' -o -name '*.key' -o -path '*/keystore/*' \) ! -path '/fabric/crypto-config/peerOrganizations/{{ . }}/users/*' -print -delete
               {{- end }}
           volumeMounts:
+            - name: init-tmp
+              mountPath: /tmp
             - name: fabric-artifacts
               mountPath: /fabric
             - name: connectorhub-crypto-config
