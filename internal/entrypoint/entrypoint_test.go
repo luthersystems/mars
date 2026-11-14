@@ -73,3 +73,45 @@ func TestEnsureLineAppendsOnlyWhenMissing(t *testing.T) {
 		t.Fatalf("passwd content = %s", data)
 	}
 }
+
+func TestCheckStartUser(t *testing.T) {
+	cases := []struct {
+		name    string
+		cfg     Config
+		euid    int
+		wantErr bool
+	}{
+		{"root, no USER_ID", Config{}, 0, false},
+		{"root, USER_ID=0", Config{UserIDSet: true}, 0, false},
+		{"root, USER_ID=501", Config{UserID: 501, UserIDSet: true}, 0, false},
+		{"non-root, no USER_ID", Config{}, 10001, false},
+		{"non-root, USER_ID is itself", Config{UserID: 10001, UserIDSet: true}, 10001, false},
+		{"non-root, USER_ID=0", Config{UserIDSet: true}, 10001, true},
+		{"non-root, other USER_ID", Config{UserID: 501, UserIDSet: true}, 10001, true},
+	}
+	for _, tc := range cases {
+		err := CheckStartUser(tc.euid, tc.cfg)
+		if (err != nil) != tc.wantErr {
+			t.Errorf("%s: err = %v, want error %v", tc.name, err, tc.wantErr)
+		}
+		if err != nil && !strings.Contains(err.Error(), "--user 0:0") {
+			t.Errorf("%s: error %q does not say how to start as root", tc.name, err)
+		}
+	}
+}
+
+func TestConfigFromEnvUserIDSet(t *testing.T) {
+	cfg, err := ConfigFromEnv(func(key string) string {
+		if key == "USER_ID" {
+			return "0"
+		}
+		return ""
+	})
+	if err != nil || !cfg.UserIDSet {
+		t.Fatalf("USER_ID=0: cfg = %#v, err = %v, want UserIDSet", cfg, err)
+	}
+	cfg, err = ConfigFromEnv(func(string) string { return "" })
+	if err != nil || cfg.UserIDSet {
+		t.Fatalf("no USER_ID: cfg = %#v, err = %v, want UserIDSet false", cfg, err)
+	}
+}

@@ -23,6 +23,13 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "supergateway.serviceAccountName" . }}
+      # The root filesystem is read-only (mars#322): the MCP server writes its
+      # temp files and its uvx or npx caches to these emptyDirs.
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: home
+          emptyDir: {}
       containers:
         - name: supergateway
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -58,6 +65,10 @@ spec:
             - "{{ $h }}"
             {{- end }}
           env:
+            {{- if not (hasKey (.Values.env | default dict) "HOME") }}
+            - name: HOME
+              value: /home/mcp
+            {{- end }}
             {{- range $k, $v := .Values.env }}
             - name: {{ $k }}
               value: {{ $v | quote }}
@@ -80,5 +91,10 @@ spec:
             periodSeconds: 20
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: home
+              mountPath: /home/mcp
           resources:
             {{- toYaml .Values.resources | nindent 12 }}

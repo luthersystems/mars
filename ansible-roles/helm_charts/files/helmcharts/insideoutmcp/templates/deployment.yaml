@@ -23,6 +23,13 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "insideoutmcp.serviceAccountName" . }}
+      # The image's only writable paths, /tmp and /var/tmp, as emptyDirs: the
+      # root filesystem is read-only (securityContext, mars#322).
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: var-tmp
+          emptyDir: {}
       containers:
         - name: insideoutmcp
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -63,6 +70,11 @@ spec:
             periodSeconds: 20
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: var-tmp
+              mountPath: /var/tmp
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
 

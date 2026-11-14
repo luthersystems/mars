@@ -35,8 +35,13 @@
 #     or one for an empty entry
 #   - shiroclient, connectorhub: a pod checksum that does not change when
 #     the license or crypto-config Secret in the chart changes (#346)
-#   - shiroclient, connectorhub: a container without allowPrivilegeEscalation:
-#     false, or a pod without seccomp RuntimeDefault and runAsUser (#322)
+#   - shiroclient, connectorhub, oracle, insideoutmcp, supergateway,
+#     mcp-inspector: a container without allowPrivilegeEscalation: false, a
+#     read-only root filesystem or an emptyDir on /tmp, or a pod without
+#     seccomp RuntimeDefault; shiroclient and connectorhub without runAsUser
+#     6553 (#322)
+#   - supergateway, mcp-inspector: HOME not the /home/mcp emptyDir, or not
+#     replaced by env.HOME
 #   - shiroclient: the gateway config not in a Secret by default, or the
 #     old ConfigMap gone when sdk.configMapName asks for it (#322)
 #   - shiroclient: the license state volume, mount or env when off (the
@@ -674,13 +679,15 @@ want_sc_render "shiroclient license state mountPath moves the env" yes "value: \
 want_sc_render "shiroclient license state sizeLimit renders" yes "sizeLimit: 1Mi" \
   ${LS} --set licenseState.sizeLimit=1Mi
 
-# shiroclient, connectorhub security contexts (mars#322): the pod keeps its
-# runAsUser and fsGroup and adds seccomp RuntimeDefault, and every container,
-# the init containers too, has allowPrivilegeEscalation: false. The args
-# render each init container (no crypto-config Secret: config-fetch; with
-# one: config-setup).
+# Chart security contexts (mars#322): the pod has seccomp RuntimeDefault,
+# and every container, the init containers too, has
+# allowPrivilegeEscalation: false, a read-only root filesystem (Trivy
+# KSV-0014) and an emptyDir on /tmp. shiroclient and connectorhub keep their
+# runAsUser 6553. The args render each init container (no crypto-config
+# Secret: config-fetch; with one: config-setup).
+# (description, chart, runAsUser to want or "-", helm args...)
 want_hardened() {
-  desc="$1"; chart="$2"; shift 2
+  desc="$1"; chart="$2"; want_user="$3"; shift 3
   if ! out=$(helm template h "${CHARTS}/${chart}" --show-only templates/deployment.yaml "$@" 2>&1); then
     echo "FAIL: ${desc}: helm template failed:"
     echo "${out}"
@@ -690,19 +697,49 @@ want_hardened() {
   lines=$(printf "%s\n" "${out}" | sed "s/^ *//")
   images=$(printf "%s\n" "${lines}" | grep -c "^image: " || true)
   noesc=$(printf "%s\n" "${lines}" | grep -cx "allowPrivilegeEscalation: false" || true)
+  rofs=$(printf "%s\n" "${lines}" | grep -cx "readOnlyRootFilesystem: true" || true)
+  tmp=$(printf "%s\n" "${lines}" | grep -cx "mountPath: /tmp" || true)
   seccomp=$(printf "%s\n" "${lines}" | grep -cx "type: RuntimeDefault" || true)
-  user=$(printf "%s\n" "${lines}" | grep -cx "runAsUser: 6553" || true)
-  if [ "${images}" -gt 0 ] && [ "${noesc}" = "${images}" ] && [ "${seccomp}" = 1 ] && [ "${user}" = 1 ]; then
+  user=1
+  if [ "${want_user}" != - ]; then
+    user=$(printf "%s\n" "${lines}" | grep -cx "runAsUser: ${want_user}" || true)
+  fi
+  if [ "${images}" -gt 0 ] && [ "${noesc}" = "${images}" ] && [ "${rofs}" = "${images}" ] &&
+    [ "${tmp}" = "${images}" ] && [ "${seccomp}" = 1 ] && [ "${user}" = 1 ]; then
     echo "OK:   ${desc} (${images} containers)"
   else
-    echo "FAIL: ${desc}: ${images} containers, ${noesc} with allowPrivilegeEscalation: false, ${seccomp} seccomp RuntimeDefault, ${user} runAsUser 6553"
+    echo "FAIL: ${desc}: ${images} containers, ${noesc} with allowPrivilegeEscalation: false, ${rofs} with readOnlyRootFilesystem: true, ${tmp} with /tmp mounted, ${seccomp} seccomp RuntimeDefault, ${user} runAsUser ${want_user}"
     fail=1
   fi
 }
-want_hardened "shiroclient gateway is hardened" shiroclient
-want_hardened "shiroclient with crypto-config is hardened" shiroclient --set dlt.cryptoConfigSecret=fabric-crypto-config
-want_hardened "connectorhub is hardened" connectorhub
-want_hardened "connectorhub with crypto-config is hardened" connectorhub --set dlt.cryptoConfigSecret=fabric-crypto-config
+want_hardened "shiroclient gateway is hardened" shiroclient 6553
+want_hardened "shiroclient with crypto-config is hardened" shiroclient 6553 --set dlt.cryptoConfigSecret=fabric-crypto-config
+want_hardened "connectorhub is hardened" connectorhub 6553
+want_hardened "connectorhub with crypto-config is hardened" connectorhub 6553 --set dlt.cryptoConfigSecret=fabric-crypto-config
+want_hardened "oracle is hardened" oracle - --set image.repository=o --set image.tag=t
+want_hardened "insideoutmcp is hardened" insideoutmcp -
+want_hardened "supergateway is hardened" supergateway -
+want_hardened "mcp-inspector is hardened" mcp-inspector -
+
+# supergateway, mcp-inspector: HOME is the /home/mcp emptyDir, where uvx and
+# npx keep their caches, unless env sets HOME.
+for c in supergateway mcp-inspector; do
+  out=$(helm template h "${CHARTS}/${c}" --show-only templates/deployment.yaml | sed "s/^ *//")
+  if printf "%s\n" "${out}" | grep -A1 -x -- "- name: HOME" | grep -qx "value: /home/mcp" &&
+    printf "%s\n" "${out}" | grep -qx "mountPath: /home/mcp"; then
+    echo "OK:   ${c} HOME is the /home/mcp emptyDir"
+  else
+    echo "FAIL: ${c}: HOME is not the /home/mcp emptyDir"
+    fail=1
+  fi
+  homes=$(helm template h "${CHARTS}/${c}" --show-only templates/deployment.yaml --set env.HOME=/data | grep -c "name: HOME" || true)
+  if [ "${homes}" = 1 ]; then
+    echo "OK:   ${c} env.HOME replaces the default HOME"
+  else
+    echo "FAIL: ${c}: env.HOME renders ${homes} HOME entries, want 1"
+    fail=1
+  fi
+done
 
 # shiroclient gateway config (mars#322, Trivy KSV-0109): a Secret by default,
 # mounted as one; the old ConfigMap when sdk.configMapName is set, which

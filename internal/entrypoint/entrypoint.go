@@ -13,9 +13,12 @@ import (
 const defaultUser = "default"
 
 type Config struct {
+	Home    string
 	UserID  int
 	GroupID int
-	Home    string
+	// UserIDSet is true when USER_ID is in the environment, so USER_ID=0
+	// (ask for root) differs from no USER_ID.
+	UserIDSet bool
 }
 
 func ConfigFromEnv(getenv func(string) string) (Config, error) {
@@ -28,9 +31,10 @@ func ConfigFromEnv(getenv func(string) string) (Config, error) {
 		return Config{}, err
 	}
 	return Config{
-		UserID:  uid,
-		GroupID: gid,
-		Home:    getenv("HOME"),
+		UserID:    uid,
+		GroupID:   gid,
+		Home:      getenv("HOME"),
+		UserIDSet: getenv("USER_ID") != "",
 	}, nil
 }
 
@@ -39,7 +43,10 @@ func Run(marsPath string, args []string, env []string) error {
 	if err != nil {
 		return err
 	}
-	if cfg.UserID != 0 {
+	if err := CheckStartUser(os.Geteuid(), cfg); err != nil {
+		return err
+	}
+	if os.Geteuid() == 0 && cfg.UserID != 0 {
 		if cfg.Home == "" {
 			return errors.New("HOME must be set when USER_ID is non-zero")
 		}
@@ -51,6 +58,20 @@ func Run(marsPath string, args []string, env []string) error {
 		}
 	}
 	return syscall.Exec(marsPath, append([]string{marsPath}, args...), env) //nolint:gosec // G204: execs the mars binary itself with the container's own args
+}
+
+// CheckStartUser fails when USER_ID asks for a user the container cannot
+// become. The image starts as the non-root user mars (mars#322). A caller
+// that sets USER_ID to switch users, or USER_ID=0 for root, must start the
+// container as root (docker run --user 0:0, or runAsUser: 0 in Kubernetes):
+// only root can write the passwd entry and switch. Without USER_ID, or with
+// USER_ID equal to the user the container started as, mars runs as that
+// user.
+func CheckStartUser(euid int, cfg Config) error {
+	if euid == 0 || !cfg.UserIDSet || cfg.UserID == euid {
+		return nil
+	}
+	return fmt.Errorf("USER_ID=%d needs the container to start as root, but it started as uid %d: run it with --user 0:0 (docker) or runAsUser: 0 (Kubernetes), or leave USER_ID unset to run as uid %d", cfg.UserID, euid, euid)
 }
 
 func PrepareUser(cfg Config) error {

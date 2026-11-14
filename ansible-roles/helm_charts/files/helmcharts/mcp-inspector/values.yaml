@@ -49,15 +49,24 @@ serviceAccount:
   annotations: {}
   name: ""
 
-# Pod and container security contexts. They are empty here on purpose: this
-# chart runs whatever MCP server it is pointed at as a child process, and a
-# browser-based server (Playwright, Puppeteer) needs the user namespaces
-# that seccomp RuntimeDefault blocks, or a setuid sandbox that
-# allowPrivilegeEscalation: false blocks. Set them per deploy once its
-# servers are known to run under them, for example:
-#   podSecurityContext: {seccompProfile: {type: RuntimeDefault}}
-#   securityContext: {allowPrivilegeEscalation: false}
-# Trivy KSV-0118 flags the empty contexts; the exemption row says why.
-podSecurityContext: {}
+# Pod and container security contexts (mars#322). seccomp RuntimeDefault
+# applies the container runtime's seccomp profile, allowPrivilegeEscalation:
+# false stops setuid binaries and file capabilities from adding rights, and
+# readOnlyRootFilesystem: true keeps the image as built (Trivy KSV-0014,
+# KSV-0118). The MCP server that stdioCommand starts writes only its
+# package caches and temp files: the pod mounts an emptyDir on /tmp and on
+# the HOME it sets, /home/mcp, where uvx and npx keep their caches. A uvx
+# server (awslabs.aws-pricing-mcp-server) starts and lists its tools under
+# these settings.
+#
+# A browser-based server (Playwright, Puppeteer) can need the user
+# namespaces that RuntimeDefault blocks, or a setuid sandbox that
+# allowPrivilegeEscalation: false blocks. Loosen these for that deploy only,
+# for example podSecurityContext: {} and securityContext: {}.
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
 
-securityContext: {}
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true

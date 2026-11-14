@@ -191,5 +191,12 @@ podSecurityContext:
 # allowPrivilegeEscalation: false stops a process from gaining more rights
 # than it started with (setuid binaries, file capabilities); none of these
 # containers needs them.
+#
+# readOnlyRootFilesystem: true (Trivy KSV-0014, mars#322): every container
+# runs as the chart's runAsUser, and the only image paths that user can
+# write are /tmp and /var/tmp. The main container gets an emptyDir on each,
+# and the init containers share their own /tmp, so the unzipped
+# crypto-config never reaches the main container's /tmp.
 securityContext:
   allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
