@@ -128,12 +128,10 @@ fi
 
 docker volume create "$ANSIBLE_INVENTORY_CACHE_VOL" >/dev/null
 
-# Start as root: mars-entrypoint needs root to add USER_ID's passwd entry,
-# then runs mars as that user. The image's default user is mars (mars#322).
+# Run as the caller, so files written to the checkout and the mounted
+# caches stay theirs. The image runs as any uid (mars#363).
 docker run --rm $DOCKER_TERM_VARS \
-	--user 0:0 \
-	-e USER_ID=$(id -u $USER) \
-	-e GROUP_ID=$(id -g $USER) \
+	--user "$(id -u):$(id -g)" \
 	-e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY \
 	-e AWS_SESSION_TOKEN \
 	-e TF_PLUGIN_CACHE_DIR=/opt/tf-plugin-cache-dir \

@@ -184,6 +184,7 @@ RUN apt update -y && apt install --no-install-recommends -yq \
   curl \
   git \
   jq \
+  libnss-wrapper \
   openssh-client \
   perl \
   python3 \
@@ -305,20 +306,25 @@ ENV HELM_DIFF_VERSION=$HELM_DIFF_VERSION
 RUN helm plugin install https://github.com/databus23/helm-diff --version ${HELM_DIFF_VERSION} --verify=false
 
 # The image runs as the non-root user mars (uid and gid 10001, HOME
-# /opt/home; Trivy DS-0002, mars#322). A caller that needs root, or wants
-# mars-entrypoint to run as its own user through USER_ID, starts the
-# container as root: docker run --user 0:0, or runAsUser: 0 in Kubernetes.
-# mars_macos.sh, ui-infrastructure's mars wrapper, ui-core's Argo steps and
-# common-infrastructure's aws-terraform-ci.sh do. /opt/home was filled as
-# root above (ansible collections, the helm-diff plugin), so it is chowned
-# here, after the last step that writes it. /opt/k8s and
-# /opt/hyperledger/fabric are where the kubectl, k8s_static_resources,
-# k8s_external_dns and k8s_fabric_scripts roles write; /opt itself is
-# root-owned, so they are made here for mars.
+# /opt/home; Trivy DS-0002, mars#322). It also runs as any other uid
+# (mars#363): docker run --user "$(id -u):$(id -g)" keeps the caller's
+# ownership of files written to the mounted checkout. For that, HOME and
+# the directories mars writes are writable by every uid, and mars-entrypoint
+# gives the uid a passwd entry with HOME as its home through nss_wrapper
+# (ssh refuses to run without one, and reads ~/.ssh from it). /marsproject
+# stays writable by mars only: a caller mounts its checkout there, and
+# ansible ignores the ansible.cfg of a world-writable working directory. A caller that wants mars-entrypoint to switch to USER_ID
+# starts the container as root instead: docker run --user 0:0, or
+# runAsUser: 0 in Kubernetes. /opt/home was filled as root above (ansible
+# collections, the helm-diff plugin), so it is chowned here, after the last
+# step that writes it. /opt/k8s and /opt/hyperledger/fabric are where the
+# kubectl, k8s_static_resources, k8s_external_dns and k8s_fabric_scripts
+# roles write; /opt itself is root-owned, so they are made here.
 RUN groupadd --gid 10001 mars && \
   useradd --uid 10001 --gid 10001 --home-dir /opt/home --no-create-home --shell /usr/sbin/nologin mars && \
   mkdir -p /opt/k8s /opt/hyperledger/fabric && \
-  chown -R 10001:10001 /opt/home /marsproject /opt/k8s /opt/hyperledger
+  chown -R 10001:10001 /opt/home /marsproject /opt/k8s /opt/hyperledger && \
+  chmod -R a+rwX /opt/home /opt/k8s /opt/hyperledger
 
 # Run the build-harden kit last. It removes the distrusted root CAs (the
 # eMudhra/emSign roots, CVE-2026-111943) from every trust store in the image:

@@ -91,6 +91,10 @@ jobs:
         if: matrix.image == 'mars'
         shell: bash
         run: ./scripts/smoke-helm-charts.sh "luthersystems/mars:${GITHUB_SHA}"
+      - name: Verify the image runs as any uid
+        if: matrix.image == 'mars'
+        shell: bash
+        run: ./scripts/smoke-any-uid.sh "luthersystems/mars:${GITHUB_SHA}"
       # The Dockerfile runs the build-harden kit last, so no distrusted root
       # CA (such as the eMudhra/emSign roots) is trusted. This proves it on
       # the Dockerfile and on the image built for each arch. The shared
