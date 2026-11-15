@@ -57,6 +57,12 @@ func Run(marsPath string, args []string, env []string) error {
 			return err
 		}
 	}
+	if euid := os.Geteuid(); euid != 0 {
+		env, err = UnknownUserEnv(env, euid, os.Getegid(), "/etc/passwd", "/etc/group", NSSWrapperLib())
+		if err != nil {
+			return err
+		}
+	}
 	return syscall.Exec(marsPath, append([]string{marsPath}, args...), env) //nolint:gosec // G204: execs the mars binary itself with the container's own args
 }
 
@@ -66,7 +72,7 @@ func Run(marsPath string, args []string, env []string) error {
 // container as root (docker run --user 0:0, or runAsUser: 0 in Kubernetes):
 // only root can write the passwd entry and switch. Without USER_ID, or with
 // USER_ID equal to the user the container started as, mars runs as that
-// user.
+// user, which can be any uid (mars#363, see UnknownUserEnv).
 func CheckStartUser(euid int, cfg Config) error {
 	if euid == 0 || !cfg.UserIDSet || cfg.UserID == euid {
 		return nil
@@ -82,6 +88,116 @@ func PrepareUser(cfg Config) error {
 		return err
 	}
 	return ChownTree(cfg.Home, cfg.UserID, cfg.GroupID)
+}
+
+// NSSWrapperLibGlob finds the nss_wrapper library of the image's
+// libnss-wrapper package on either architecture.
+const NSSWrapperLibGlob = "/usr/lib/*-linux-gnu/libnss_wrapper.so"
+
+// NSSWrapperLib returns the path of the nss_wrapper library, or "" when the
+// image has none.
+func NSSWrapperLib() string {
+	matches, _ := filepath.Glob(NSSWrapperLibGlob)
+	if len(matches) == 0 {
+		return ""
+	}
+	return matches[0]
+}
+
+// UnknownUserEnv gives a uid that has no passwd entry one, without root
+// (mars#363). The image runs as any uid, for example docker run --user
+// "$(id -u):$(id -g)", and ssh (git over ssh, ansible) fails with "No user
+// exists for uid" when the uid has no entry. Only root can write
+// /etc/passwd, so this copies /etc/passwd and /etc/group to a new temporary
+// directory, adds the uid and gid as the user default with HOME as its
+// home, and returns env with nss_wrapper preloaded to read the copies. env
+// is returned unchanged when the uid has an entry, and, with a warning on
+// stderr, when lib is "" (no nss_wrapper in the image).
+func UnknownUserEnv(env []string, uid int, gid int, passwdPath string, groupPath string, lib string) ([]string, error) {
+	passwd, err := os.ReadFile(passwdPath) //nolint:gosec // G304: passwdPath is /etc/passwd, set by Run
+	if err != nil {
+		return nil, err
+	}
+	if hasID(passwd, uid) {
+		return env, nil
+	}
+	if lib == "" {
+		fmt.Fprintf(os.Stderr, "mars-entrypoint: uid %d has no passwd entry and the image has no nss_wrapper; ssh may fail\n", uid)
+		return env, nil
+	}
+	group, err := os.ReadFile(groupPath) //nolint:gosec // G304: groupPath is /etc/group, set by Run
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+	home := lookupEnv(env, "HOME")
+	if home == "" {
+		home = "/"
+	}
+	dir, err := os.MkdirTemp("", "mars-nss-")
+	if err != nil {
+		return nil, err
+	}
+	passwdCopy := filepath.Join(dir, "passwd")
+	if err := os.WriteFile(passwdCopy, appendLine(passwd, PasswdEntry(uid, gid, home)), 0o644); err != nil { //nolint:gosec // G306: a passwd file is world-readable
+		return nil, err
+	}
+	groupCopy := filepath.Join(dir, "group")
+	if !hasID(group, gid) {
+		group = appendLine(group, GroupEntry(gid))
+	}
+	if err := os.WriteFile(groupCopy, group, 0o644); err != nil { //nolint:gosec // G306: a group file is world-readable
+		return nil, err
+	}
+	preload := lib
+	if existing := lookupEnv(env, "LD_PRELOAD"); existing != "" {
+		preload = existing + " " + lib
+	}
+	env = setEnv(env, "LD_PRELOAD", preload)
+	env = setEnv(env, "NSS_WRAPPER_PASSWD", passwdCopy)
+	env = setEnv(env, "NSS_WRAPPER_GROUP", groupCopy)
+	return env, nil
+}
+
+// hasID reports whether a passwd or group file has an entry whose third
+// field (the uid or gid) is id.
+func hasID(data []byte, id int) bool {
+	want := strconv.Itoa(id)
+	for _, line := range strings.Split(string(data), "\n") {
+		fields := strings.Split(line, ":")
+		if len(fields) > 2 && fields[2] == want {
+			return true
+		}
+	}
+	return false
+}
+
+func appendLine(data []byte, line string) []byte {
+	out := append([]byte{}, data...)
+	if len(out) > 0 && out[len(out)-1] != '\n' {
+		out = append(out, '\n')
+	}
+	return append(out, line+"\n"...)
+}
+
+func lookupEnv(env []string, key string) string {
+	value := ""
+	for _, kv := range env {
+		if k, v, ok := strings.Cut(kv, "="); ok && k == key {
+			value = v
+		}
+	}
+	return value
+}
+
+func setEnv(env []string, key string, value string) []string {
+	out := make([]string, 0, len(env)+1)
+	for _, kv := range env {
+		if k, _, ok := strings.Cut(kv, "="); ok && k == key {
+			continue
+		}
+		out = append(out, kv)
+	}
+	return append(out, key+"="+value)
 }
 
 func PasswdEntry(uid int, gid int, home string) string {

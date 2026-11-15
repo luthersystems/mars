@@ -115,3 +115,92 @@ func TestConfigFromEnvUserIDSet(t *testing.T) {
 		t.Fatalf("no USER_ID: cfg = %#v, err = %v, want UserIDSet false", cfg, err)
 	}
 }
+
+func writeIDFiles(t *testing.T) (string, string) {
+	t.Helper()
+	dir := t.TempDir()
+	passwd := filepath.Join(dir, "passwd")
+	group := filepath.Join(dir, "group")
+	if err := os.WriteFile(passwd, []byte("root:x:0:0:root:/root:/bin/bash\nmars:x:10001:10001::/opt/home:/usr/sbin/nologin\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(group, []byte("root:x:0:\nmars:x:10001:"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return passwd, group
+}
+
+func TestUnknownUserEnvKnownUIDUnchanged(t *testing.T) {
+	passwd, group := writeIDFiles(t)
+	env := []string{"HOME=/opt/home"}
+	got, err := UnknownUserEnv(env, 10001, 10001, passwd, group, "/lib/libnss_wrapper.so")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(got, ",") != "HOME=/opt/home" {
+		t.Fatalf("env = %v, want unchanged", got)
+	}
+}
+
+func TestUnknownUserEnvWithoutLibUnchanged(t *testing.T) {
+	passwd, group := writeIDFiles(t)
+	got, err := UnknownUserEnv([]string{"HOME=/opt/home"}, 1234, 1234, passwd, group, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("env = %v, want unchanged", got)
+	}
+}
+
+func TestUnknownUserEnvAddsEntries(t *testing.T) {
+	t.Setenv("TMPDIR", t.TempDir())
+	passwd, group := writeIDFiles(t)
+	env := []string{"HOME=/opt/home", "LD_PRELOAD=/lib/other.so", "PATH=/bin"}
+	got, err := UnknownUserEnv(env, 1234, 5678, passwd, group, "/lib/libnss_wrapper.so")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v := lookupEnv(got, "LD_PRELOAD"); v != "/lib/other.so /lib/libnss_wrapper.so" {
+		t.Fatalf("LD_PRELOAD = %q", v)
+	}
+	if lookupEnv(got, "PATH") != "/bin" || lookupEnv(got, "HOME") != "/opt/home" {
+		t.Fatalf("env lost a value: %v", got)
+	}
+	p, err := os.ReadFile(lookupEnv(got, "NSS_WRAPPER_PASSWD"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasSuffix(string(p), "mars:x:10001:10001::/opt/home:/usr/sbin/nologin\n"+PasswdEntry(1234, 5678, "/opt/home")+"\n") {
+		t.Fatalf("passwd copy = %q", p)
+	}
+	g, err := os.ReadFile(lookupEnv(got, "NSS_WRAPPER_GROUP"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(g) != "root:x:0:\nmars:x:10001:\n"+GroupEntry(5678)+"\n" {
+		t.Fatalf("group copy = %q", g)
+	}
+	// A known gid is not added again.
+	got, err = UnknownUserEnv(env, 1234, 10001, passwd, group, "/lib/libnss_wrapper.so")
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, err = os.ReadFile(lookupEnv(got, "NSS_WRAPPER_GROUP"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(g) != "root:x:0:\nmars:x:10001:" {
+		t.Fatalf("group copy = %q, want the original", g)
+	}
+}
+
+func TestHasIDMatchesOnlyTheIDField(t *testing.T) {
+	data := []byte("user1234:x:1:1::/home/user1234:/bin/sh\n")
+	if hasID(data, 1234) {
+		t.Fatal("hasID matched a name, not the uid field")
+	}
+	if !hasID(data, 1) {
+		t.Fatal("hasID missed uid 1")
+	}
+}
