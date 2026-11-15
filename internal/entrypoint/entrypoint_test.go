@@ -121,19 +121,34 @@ func writeIDFiles(t *testing.T) (string, string) {
 	dir := t.TempDir()
 	passwd := filepath.Join(dir, "passwd")
 	group := filepath.Join(dir, "group")
-	if err := os.WriteFile(passwd, []byte("root:x:0:0:root:/root:/bin/bash\nmars:x:10001:10001::/opt/home:/usr/sbin/nologin\n"), 0o644); err != nil {
+	if err := os.WriteFile(passwd, []byte("root:x:0:0:root:/root:/bin/bash\nubuntu:x:1000:1000:Ubuntu:/home/ubuntu:/bin/bash\nmars:x:10001:10001::/opt/home:/usr/sbin/nologin\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(group, []byte("root:x:0:\nmars:x:10001:"), 0o644); err != nil {
+	if err := os.WriteFile(group, []byte("root:x:0:\nubuntu:x:1000:\nmars:x:10001:"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	return passwd, group
 }
 
-func TestUnknownUserEnvKnownUIDUnchanged(t *testing.T) {
+const testLib = "/lib/libnss_wrapper.so"
+
+func readEnvFile(t *testing.T, env []string, key string) string {
+	t.Helper()
+	path := lookupEnv(env, key)
+	if path == "" {
+		t.Fatalf("%s not set in %v", key, env)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
+}
+
+func TestUserEntryEnvKnownUserUnchanged(t *testing.T) {
 	passwd, group := writeIDFiles(t)
 	env := []string{"HOME=/opt/home"}
-	got, err := UnknownUserEnv(env, 10001, 10001, passwd, group, "/lib/libnss_wrapper.so")
+	got, err := UserEntryEnv(env, 10001, 10001, passwd, group, testLib)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,9 +157,9 @@ func TestUnknownUserEnvKnownUIDUnchanged(t *testing.T) {
 	}
 }
 
-func TestUnknownUserEnvWithoutLibUnchanged(t *testing.T) {
+func TestUserEntryEnvWithoutLibUnchanged(t *testing.T) {
 	passwd, group := writeIDFiles(t)
-	got, err := UnknownUserEnv([]string{"HOME=/opt/home"}, 1234, 1234, passwd, group, "")
+	got, err := UserEntryEnv([]string{"HOME=/opt/home"}, 1234, 1234, passwd, group, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,45 +168,86 @@ func TestUnknownUserEnvWithoutLibUnchanged(t *testing.T) {
 	}
 }
 
-func TestUnknownUserEnvAddsEntries(t *testing.T) {
+func TestUserEntryEnvNoTempDirStillRuns(t *testing.T) {
+	t.Setenv("TMPDIR", filepath.Join(t.TempDir(), "missing"))
+	passwd, group := writeIDFiles(t)
+	got, err := UserEntryEnv([]string{"HOME=/opt/home"}, 1234, 1234, passwd, group, testLib)
+	if err != nil {
+		t.Fatalf("err = %v, want a warning only", err)
+	}
+	if lookupEnv(got, "LD_PRELOAD") != "" {
+		t.Fatalf("env = %v, want unchanged", got)
+	}
+}
+
+func TestUserEntryEnvAddsEntries(t *testing.T) {
 	t.Setenv("TMPDIR", t.TempDir())
 	passwd, group := writeIDFiles(t)
 	env := []string{"HOME=/opt/home", "LD_PRELOAD=/lib/other.so", "PATH=/bin"}
-	got, err := UnknownUserEnv(env, 1234, 5678, passwd, group, "/lib/libnss_wrapper.so")
+	got, err := UserEntryEnv(env, 1234, 5678, passwd, group, testLib)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v := lookupEnv(got, "LD_PRELOAD"); v != "/lib/other.so /lib/libnss_wrapper.so" {
+	if v := lookupEnv(got, "LD_PRELOAD"); v != "/lib/other.so "+testLib {
 		t.Fatalf("LD_PRELOAD = %q", v)
 	}
 	if lookupEnv(got, "PATH") != "/bin" || lookupEnv(got, "HOME") != "/opt/home" {
 		t.Fatalf("env lost a value: %v", got)
 	}
-	p, err := os.ReadFile(lookupEnv(got, "NSS_WRAPPER_PASSWD"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.HasSuffix(string(p), "mars:x:10001:10001::/opt/home:/usr/sbin/nologin\n"+PasswdEntry(1234, 5678, "/opt/home")+"\n") {
+	if p := readEnvFile(t, got, "NSS_WRAPPER_PASSWD"); !strings.HasSuffix(p, "mars:x:10001:10001::/opt/home:/usr/sbin/nologin\n"+PasswdEntry(1234, 5678, "/opt/home")+"\n") {
 		t.Fatalf("passwd copy = %q", p)
 	}
-	g, err := os.ReadFile(lookupEnv(got, "NSS_WRAPPER_GROUP"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(g) != "root:x:0:\nmars:x:10001:\n"+GroupEntry(5678)+"\n" {
+	if g := readEnvFile(t, got, "NSS_WRAPPER_GROUP"); g != "root:x:0:\nubuntu:x:1000:\nmars:x:10001:\n"+GroupEntry(5678)+"\n" {
 		t.Fatalf("group copy = %q", g)
 	}
-	// A known gid is not added again.
-	got, err = UnknownUserEnv(env, 1234, 10001, passwd, group, "/lib/libnss_wrapper.so")
+}
+
+func TestUserEntryEnvKnownGIDNotAdded(t *testing.T) {
+	t.Setenv("TMPDIR", t.TempDir())
+	passwd, group := writeIDFiles(t)
+	got, err := UserEntryEnv([]string{"HOME=/opt/home"}, 1234, 10001, passwd, group, testLib)
 	if err != nil {
 		t.Fatal(err)
 	}
-	g, err = os.ReadFile(lookupEnv(got, "NSS_WRAPPER_GROUP"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(g) != "root:x:0:\nmars:x:10001:" {
+	if g := readEnvFile(t, got, "NSS_WRAPPER_GROUP"); g != "root:x:0:\nubuntu:x:1000:\nmars:x:10001:" {
 		t.Fatalf("group copy = %q, want the original", g)
+	}
+}
+
+func TestUserEntryEnvKnownUIDUnknownGID(t *testing.T) {
+	t.Setenv("TMPDIR", t.TempDir())
+	passwd, group := writeIDFiles(t)
+	got, err := UserEntryEnv([]string{"HOME=/opt/home"}, 10001, 4321, passwd, group, testLib)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g := readEnvFile(t, got, "NSS_WRAPPER_GROUP"); !strings.HasSuffix(g, GroupEntry(4321)+"\n") {
+		t.Fatalf("group copy = %q, want gid 4321 added", g)
+	}
+}
+
+func TestUserEntryEnvMovesAnExistingEntryHome(t *testing.T) {
+	t.Setenv("TMPDIR", t.TempDir())
+	passwd, group := writeIDFiles(t)
+	got, err := UserEntryEnv([]string{"HOME=/opt/home"}, 1000, 1000, passwd, group, testLib)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := readEnvFile(t, got, "NSS_WRAPPER_PASSWD")
+	if !strings.Contains(p, "\nubuntu:x:1000:1000:Ubuntu:/opt/home:/bin/bash\n") || strings.Contains(p, "/home/ubuntu") || strings.Contains(p, "default:") {
+		t.Fatalf("passwd copy = %q, want ubuntu's home moved to /opt/home", p)
+	}
+}
+
+func TestUserEntryEnvSetsHOMEWhenUnset(t *testing.T) {
+	t.Setenv("TMPDIR", t.TempDir())
+	passwd, group := writeIDFiles(t)
+	got, err := UserEntryEnv(nil, 1234, 1234, passwd, group, testLib)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if lookupEnv(got, "HOME") != "/" || !strings.HasSuffix(readEnvFile(t, got, "NSS_WRAPPER_PASSWD"), PasswdEntry(1234, 1234, "/")+"\n") {
+		t.Fatalf("env = %v, want HOME and the entry's home to agree", got)
 	}
 }
 

@@ -24,7 +24,9 @@ if [ "${RUN_UID}" = 0 ] || [ "${RUN_UID}" = 10001 ]; then
 fi
 
 work=$(mktemp -d)
-trap 'docker run --rm --user 0:0 --entrypoint /bin/rm -v "${work}:/w" "${IMAGE}" -rf /w/project >/dev/null 2>&1 || true; rmdir "${work}" 2>/dev/null || true' EXIT
+# The container writes as RUN_UID, which may not be this script's uid, so
+# a root container removes what is in the work directory.
+trap 'docker run --rm --user 0:0 --entrypoint /bin/sh -v "${work}:/w" "${IMAGE}" -c "rm -rf /w/* /w/.[!.]*" >/dev/null 2>&1 || true; rmdir "${work}" 2>/dev/null || true' EXIT
 project="${work}/project"
 mkdir -p "${project}/vars/default"
 echo 1.9.8 >"${project}/.terraform-version"
@@ -85,6 +87,11 @@ in_mars_env() {
 
 check "uid ${RUN_UID} has a passwd entry" in_mars_env 'getent passwd "$(id -u)" >/dev/null'
 check "ssh runs as uid ${RUN_UID}" in_mars_env 'ssh -G github.com >/dev/null'
+# The image already has an entry for uid 1000 (ubuntu, home /home/ubuntu);
+# ssh reads ~/.ssh from the entry's home, so it must be HOME.
+check "uid 1000's passwd home is HOME" docker run --rm --user 1000:1000 \
+  -v "${work}/passthru:/opt/mars/mars:ro" "${IMAGE}" \
+  sh -c 'test "$(getent passwd 1000 | cut -d: -f6)" = "$HOME"'
 check "HOME is writable" in_mars_env 'touch "$HOME/.smoke" && mkdir -p "$HOME/.kube" "$HOME/.config/gcloud" "$HOME/.terraform.d"'
 check "helm finds the helm-diff plugin" in_mars_env 'helm plugin list | grep -q "^diff"'
 check "ansible finds the installed collections" in_mars_env 'ansible-galaxy collection list 2>/dev/null | grep -q "^kubernetes.core"'

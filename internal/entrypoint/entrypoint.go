@@ -58,7 +58,7 @@ func Run(marsPath string, args []string, env []string) error {
 		}
 	}
 	if euid := os.Geteuid(); euid != 0 {
-		env, err = UnknownUserEnv(env, euid, os.Getegid(), "/etc/passwd", "/etc/group", NSSWrapperLib())
+		env, err = UserEntryEnv(env, euid, os.Getegid(), "/etc/passwd", "/etc/group", NSSWrapperLib())
 		if err != nil {
 			return err
 		}
@@ -72,7 +72,7 @@ func Run(marsPath string, args []string, env []string) error {
 // container as root (docker run --user 0:0, or runAsUser: 0 in Kubernetes):
 // only root can write the passwd entry and switch. Without USER_ID, or with
 // USER_ID equal to the user the container started as, mars runs as that
-// user, which can be any uid (mars#363, see UnknownUserEnv).
+// user, which can be any uid (mars#363, see UserEntryEnv).
 func CheckStartUser(euid int, cfg Config) error {
 	if euid == 0 || !cfg.UserIDSet || cfg.UserID == euid {
 		return nil
@@ -104,26 +104,23 @@ func NSSWrapperLib() string {
 	return matches[0]
 }
 
-// UnknownUserEnv gives a uid that has no passwd entry one, without root
+// UserEntryEnv gives the uid a passwd entry whose home is HOME, without root
 // (mars#363). The image runs as any uid, for example docker run --user
-// "$(id -u):$(id -g)", and ssh (git over ssh, ansible) fails with "No user
-// exists for uid" when the uid has no entry. Only root can write
+// "$(id -u):$(id -g)". ssh (git over ssh, ansible) fails with "No user
+// exists for uid" when the uid has no entry, and it reads ~/.ssh from the
+// entry's home, not HOME, so an entry the image already has for the uid
+// (ubuntu, uid 1000) must point at HOME too. Only root can write
 // /etc/passwd, so this copies /etc/passwd and /etc/group to a new temporary
-// directory, adds the uid and gid as the user default with HOME as its
-// home, and returns env with nss_wrapper preloaded to read the copies. env
-// is returned unchanged when the uid has an entry, and, with a warning on
-// stderr, when lib is "" (no nss_wrapper in the image).
-func UnknownUserEnv(env []string, uid int, gid int, passwdPath string, groupPath string, lib string) ([]string, error) {
+// directory, adds or fixes the uid's entry (as the user default when it is
+// new) and the gid's group, and returns env with nss_wrapper preloaded to
+// read the copies. env is returned unchanged when both entries are already
+// right. When the copies cannot be made (no nss_wrapper in the image, no
+// writable temporary directory), mars still runs: it prints a warning and
+// returns env unchanged.
+func UserEntryEnv(env []string, uid int, gid int, passwdPath string, groupPath string, lib string) ([]string, error) {
 	passwd, err := os.ReadFile(passwdPath) //nolint:gosec // G304: passwdPath is /etc/passwd, set by Run
 	if err != nil {
 		return nil, err
-	}
-	if hasID(passwd, uid) {
-		return env, nil
-	}
-	if lib == "" {
-		fmt.Fprintf(os.Stderr, "mars-entrypoint: uid %d has no passwd entry and the image has no nss_wrapper; ssh may fail\n", uid)
-		return env, nil
 	}
 	group, err := os.ReadFile(groupPath) //nolint:gosec // G304: groupPath is /etc/group, set by Run
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -132,21 +129,36 @@ func UnknownUserEnv(env []string, uid int, gid int, passwdPath string, groupPath
 	home := lookupEnv(env, "HOME")
 	if home == "" {
 		home = "/"
+		env = setEnv(env, "HOME", home)
+	}
+	newPasswd, passwdChanged := withPasswdEntry(passwd, uid, gid, home)
+	newGroup, groupChanged := group, false
+	if !hasID(group, gid) {
+		newGroup, groupChanged = appendLine(group, GroupEntry(gid)), true
+	}
+	if !passwdChanged && !groupChanged {
+		return env, nil
+	}
+	warn := func(reason string) []string {
+		fmt.Fprintf(os.Stderr, "mars-entrypoint: uid %d:%d has no passwd entry with home %s, and %s; ssh may fail\n", uid, gid, home, reason)
+		return env
+	}
+	if lib == "" {
+		return warn("the image has no nss_wrapper"), nil
 	}
 	dir, err := os.MkdirTemp("", "mars-nss-")
 	if err != nil {
-		return nil, err
+		return warn("it cannot be written: " + err.Error()), nil
 	}
 	passwdCopy := filepath.Join(dir, "passwd")
-	if err := os.WriteFile(passwdCopy, appendLine(passwd, PasswdEntry(uid, gid, home)), 0o644); err != nil { //nolint:gosec // G306: a passwd file is world-readable
-		return nil, err
-	}
 	groupCopy := filepath.Join(dir, "group")
-	if !hasID(group, gid) {
-		group = appendLine(group, GroupEntry(gid))
+	if err := os.WriteFile(passwdCopy, newPasswd, 0o644); err != nil { //nolint:gosec // G306: a passwd file is world-readable
+		_ = os.RemoveAll(dir)
+		return warn("it cannot be written: " + err.Error()), nil
 	}
-	if err := os.WriteFile(groupCopy, group, 0o644); err != nil { //nolint:gosec // G306: a group file is world-readable
-		return nil, err
+	if err := os.WriteFile(groupCopy, newGroup, 0o644); err != nil { //nolint:gosec // G306: a group file is world-readable
+		_ = os.RemoveAll(dir)
+		return warn("it cannot be written: " + err.Error()), nil
 	}
 	preload := lib
 	if existing := lookupEnv(env, "LD_PRELOAD"); existing != "" {
@@ -156,6 +168,27 @@ func UnknownUserEnv(env []string, uid int, gid int, passwdPath string, groupPath
 	env = setEnv(env, "NSS_WRAPPER_PASSWD", passwdCopy)
 	env = setEnv(env, "NSS_WRAPPER_GROUP", groupCopy)
 	return env, nil
+}
+
+// withPasswdEntry returns passwd with an entry for uid whose home is home,
+// and whether it differs from passwd. An entry the uid already has keeps
+// its name and gets home; a missing one is added as the user default.
+func withPasswdEntry(passwd []byte, uid int, gid int, home string) ([]byte, bool) {
+	want := strconv.Itoa(uid)
+	lines := strings.Split(string(passwd), "\n")
+	for i, line := range lines {
+		fields := strings.Split(line, ":")
+		if len(fields) != 7 || fields[2] != want {
+			continue
+		}
+		if fields[5] == home {
+			return passwd, false
+		}
+		fields[5] = home
+		lines[i] = strings.Join(fields, ":")
+		return []byte(strings.Join(lines, "\n")), true
+	}
+	return appendLine(passwd, PasswdEntry(uid, gid, home)), true
 }
 
 // hasID reports whether a passwd or group file has an entry whose third
