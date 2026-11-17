@@ -27,7 +27,10 @@ which a stage `setup` hook can run.
 
 `mars-stages.yaml` at the project root (`--config <file>` names another).
 Every path in it is relative to the directory of the config file (the
-project root). Unknown keys are an error.
+project root). Unknown keys are an error, and so are two reports with the
+same file: two kinds, two stages, or a stage's report and a global one (a
+stage named `outputs` with `files.outputs: "{stage}.json"` is
+`outputs.json`, the outputs alias).
 
 ```yaml
 version: 1
@@ -53,7 +56,8 @@ strip_providers: false               # default: false
 
 # A command run before each stage, in the project root, with MARS_ENV,
 # MARS_STAGE and MARS_STAGE_DIR (absolute) set. It may make the stage
-# directory. A failure fails the stage. A stage's own setup replaces it.
+# directory. A failure fails the stage. A stage's own setup replaces it;
+# a stage's `setup: []` runs none.
 setup: ["bash", "tf/stage-setup.sh"] # default: none
 
 # Report file names, inside outputs_dir. {stage} is the stage name.
@@ -72,6 +76,7 @@ drift:
   # Fields added to every drift report, from environment variables: the
   # field is the variable's value, or null when it is empty or unset. They
   # go before "resources".
+  # A field may not be one of the report's own.
   stamp_env:
     template_version: TEMPLATE_VERSION
 
@@ -118,12 +123,16 @@ For each stage, in config order (or in the order of `--stages`):
 A stage whose setup, init, plan or show fails has the row `{"error": true}`
 and no plan JSON.
 
-Before the stages, plan-all deletes stale reports: every `files.plan_json`
-(any stage), `files.plan_alias`, `files.summary` and `files.stage_summary`.
-With `--continue` (the template's `PLAN_ALL_CONTINUE=true`) it deletes only
-this run's stages' plan JSON and the alias, and keeps the rows of the
+Before the stages, plan-all deletes stale reports, only by the names the
+config gives (never by a wildcard): `files.plan_json` and
+`files.stage_summary` of every configured stage, `files.plan_alias`,
+`files.summary`, `files.drift` of this run's stages, and with
+`--check-drift` `files.drift_alias`. With `--continue` (the template's
+`PLAN_ALL_CONTINUE=true`) it deletes only this run's stages' plan JSON,
+stage summaries and drift reports and the alias, and keeps the rows of the
 summary's other stages: this run continues a plan-all that an earlier step
-started.
+started. A kept `{"error": true}` row still makes the run exit 1, as in
+plan-all.sh.
 
 `files.summary` (field for field the template's `plan-summary.json`):
 
@@ -169,7 +178,8 @@ Exit codes: 0 planned (no drift, or drift that does not count); 2 with
 1. Run the setup hook. With `--plan`, the file (in the stage directory) must
    exist.
 2. With `--clean-providers`, delete the stage's `.terraform/providers`
-   (`apply-plan.sh` does this before its init).
+   (`apply-plan.sh` does this before its init), through an `os.Root` of the
+   project: a `.terraform` that links out of the project is an error.
 3. `terraform init <init_args>`, `terraform workspace select <env>`.
 4. Without `--plan`: `terraform plan <var files> -out=<plan_file>` and apply
    that.
