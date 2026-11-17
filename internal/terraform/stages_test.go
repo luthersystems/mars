@@ -35,6 +35,8 @@ type stageFake struct {
 	fail map[string]bool
 	// outputs is each stage's terraform output -json.
 	outputs map[string]string
+	// workspace is what terraform workspace show prints (default "default").
+	workspace string
 }
 
 func (f *stageFake) stage() string {
@@ -64,6 +66,9 @@ func (f *stageFake) do(cmd runner.Command) ([]byte, error) {
 	switch verb {
 	case "workspace":
 		if cmd.Argv[2] == "show" {
+			if f.workspace != "" {
+				return []byte(f.workspace + "\n"), nil
+			}
 			return []byte("default\n"), nil
 		}
 	case "show":
@@ -206,7 +211,6 @@ func TestLoadStagesConfigDefaults(t *testing.T) {
 		cfg.outPath(cfg.outputsName(), "a"):      filepath.Join(root, "outputs", "a.json"),
 		cfg.outPath(cfg.outputsAliasName(), ""):  filepath.Join(root, "outputs", "outputs.json"),
 		cfg.stageDir(cfg.stage("b")):             filepath.Join(root, "stages", "b"),
-		cfg.outGlob(cfg.planJSONName()):          filepath.Join(root, "outputs", "tfplan-*.json"),
 		cfg.outPath(cfg.stageSummaryName(), "a"): "",
 	}
 	for got, w := range want {
@@ -218,21 +222,26 @@ func TestLoadStagesConfigDefaults(t *testing.T) {
 
 func TestLoadStagesConfigRejects(t *testing.T) {
 	cases := map[string]string{
-		"version":        "version: 2\nstages: [{name: a}]\n",
-		"no stages":      "version: 1\n",
-		"unknown key":    "version: 1\nstagez: []\nstages: [{name: a}]\n",
-		"bad name":       "version: 1\nstages: [{name: 'a/b'}]\n",
-		"duplicate":      "version: 1\nstages: [{name: a}, {name: a}]\n",
-		"dir escapes":    "version: 1\nstages: [{name: a, dir: ../x}]\n",
-		"no {stage}":     "version: 1\nfiles: {plan_json: plan.json}\nstages: [{name: a}]\n",
-		"alias {stage}":  "version: 1\nfiles: {summary: 's-{stage}.json'}\nstages: [{name: a}]\n",
-		"glob":           "version: 1\nfiles: {drift: 'd*-{stage}.json'}\nstages: [{name: a}]\n",
-		"two preferred":  "version: 1\nstages: [{name: a, plan_alias_preferred: true}, {name: b, plan_alias_preferred: true}]\n",
-		"stamp reserved": "version: 1\ndrift: {stamp_env: {resources: X}}\nstages: [{name: a}]\n",
-		"stamp env name": "version: 1\ndrift: {stamp_env: {v: 'not a name'}}\nstages: [{name: a}]\n",
-		"plan_file path": "version: 1\nplan_file: ../p.tfplan\nstages: [{name: a}]\n",
-		"outputs escape": "version: 1\noutputs_dir: ../out\nstages: [{name: a}]\n",
-		"empty":          "",
+		"version":         "version: 2\nstages: [{name: a}]\n",
+		"no stages":       "version: 1\n",
+		"unknown key":     "version: 1\nstagez: []\nstages: [{name: a}]\n",
+		"bad name":        "version: 1\nstages: [{name: 'a/b'}]\n",
+		"duplicate":       "version: 1\nstages: [{name: a}, {name: a}]\n",
+		"dir escapes":     "version: 1\nstages: [{name: a, dir: ../x}]\n",
+		"no {stage}":      "version: 1\nfiles: {plan_json: plan.json}\nstages: [{name: a}]\n",
+		"alias {stage}":   "version: 1\nfiles: {summary: 's-{stage}.json'}\nstages: [{name: a}]\n",
+		"glob":            "version: 1\nfiles: {drift: 'd*-{stage}.json'}\nstages: [{name: a}]\n",
+		"two preferred":   "version: 1\nstages: [{name: a, plan_alias_preferred: true}, {name: b, plan_alias_preferred: true}]\n",
+		"stamp reserved":  "version: 1\ndrift: {stamp_env: {resources: X}}\nstages: [{name: a}]\n",
+		"stamp count":     "version: 1\ndrift: {stamp_env: {actionable_count: X}}\nstages: [{name: a}]\n",
+		"kinds collide":   "version: 1\nfiles: {plan_json: 'x-{stage}.json', drift: 'x-{stage}.json'}\nstages: [{name: a}]\n",
+		"stage = global":  "version: 1\nstages: [{name: a}, {name: outputs}]\n",
+		"globals collide": "version: 1\nfiles: {summary: tfplan.json}\nstages: [{name: a}]\n",
+		"stage = alias":   "version: 1\nfiles: {plan_json: '{stage}.plan.json', plan_alias: tfplan.plan.json}\nstages: [{name: tfplan}]\n",
+		"stamp env name":  "version: 1\ndrift: {stamp_env: {v: 'not a name'}}\nstages: [{name: a}]\n",
+		"plan_file path":  "version: 1\nplan_file: ../p.tfplan\nstages: [{name: a}]\n",
+		"outputs escape":  "version: 1\noutputs_dir: ../out\nstages: [{name: a}]\n",
+		"empty":           "",
 	}
 	for name, cfg := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -657,5 +666,197 @@ func TestApplyStageDriftGate(t *testing.T) {
 	f.fail["a apply"] = true
 	if code := runner.ExitCode(cmd.Run(context.Background(), rt)); code != 1 {
 		t.Errorf("failed apply: exit %d, want 1", code)
+	}
+}
+
+func TestPlanAllContinueKeepsAnEarlierErrorRow(t *testing.T) {
+	_, f := stageProject(t, twoStageConfig)
+	f.fail["a plan"] = true
+	rt, _, _ := stageRuntime(f)
+	if code := runner.ExitCode((&PlanAllCmd{Stages: []string{"a"}}).Run(context.Background(), rt)); code != 1 {
+		t.Fatalf("first step: exit %d, want 1", code)
+	}
+	if code := runner.ExitCode((&PlanAllCmd{Stages: []string{"b"}, Continue: true}).Run(context.Background(), rt)); code != 1 {
+		t.Errorf("--continue after a failed stage: exit %d, want 1 (plan-all.sh's had_error)", code)
+	}
+}
+
+func TestPlanAllRemovesStaleDriftReports(t *testing.T) {
+	root, f := stageProject(t, twoStageConfig)
+	out := filepath.Join(root, "outputs")
+	if err := os.MkdirAll(out, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range []string{"drift-a.json", "drift-b.json", "drift.json"} {
+		if err := os.WriteFile(filepath.Join(out, n), []byte("{}"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rt, _, _ := stageRuntime(f)
+	if err := (&PlanAllCmd{Stages: []string{"a"}}).Run(context.Background(), rt); err != nil {
+		t.Fatal(err)
+	}
+	if fileExists(filepath.Join(out, "drift-a.json")) {
+		t.Error("stale drift-a.json kept")
+	}
+	if !fileExists(filepath.Join(out, "drift-b.json")) || !fileExists(filepath.Join(out, "drift.json")) {
+		t.Error("removed another stage's drift report, or the alias without --check-drift")
+	}
+	if err := (&PlanAllCmd{Stages: []string{"a"}, CheckDrift: true}).Run(context.Background(), rt); err != nil {
+		t.Fatal(err)
+	}
+	if fileExists(filepath.Join(out, "drift.json")) {
+		t.Error("stale drift.json kept with --check-drift")
+	}
+}
+
+func TestPlanAllFailedStageHasNoPlanJSON(t *testing.T) {
+	cases := map[string]func(f *stageFake) *PlanAllCmd{
+		"state list": func(f *stageFake) *PlanAllCmd {
+			f.fail["a state"] = true
+			return &PlanAllCmd{Stages: []string{"a"}}
+		},
+		"drift report": func(f *stageFake) *PlanAllCmd {
+			f.plans["a"] = `{"resource_drift": {"x": 1}, "resource_changes": []}`
+			return &PlanAllCmd{Stages: []string{"a"}, CheckDrift: true}
+		},
+	}
+	for name, setup := range cases {
+		t.Run(name, func(t *testing.T) {
+			root, f := stageProject(t, "files: {stage_summary: 'sum-{stage}.json'}\n"+twoStageConfig)
+			cmd := setup(f)
+			rt, _, _ := stageRuntime(f)
+			if code := runner.ExitCode(cmd.Run(context.Background(), rt)); code != 1 {
+				t.Fatalf("exit %d, want 1", code)
+			}
+			for _, n := range []string{"tfplan-a.json", "sum-a.json", "tfplan.json"} {
+				if fileExists(filepath.Join(root, "outputs", n)) {
+					t.Errorf("%s written for a failed stage", n)
+				}
+			}
+		})
+	}
+}
+
+func TestPlanAllPromptsReadPipedAnswersAcrossStages(t *testing.T) {
+	_, f := stageProject(t, twoStageConfig)
+	f.workspace = "other"
+	rt, _, stderr := stageRuntime(f)
+	rt.SkipPrompt = false
+	rt.Stdin = strings.NewReader("y\ny\n")
+	if err := (&PlanAllCmd{}).Run(context.Background(), rt); err != nil {
+		t.Fatalf("%v\n%s", err, stderr)
+	}
+	if !f.ran("a", "plan") || !f.ran("b", "plan") {
+		t.Errorf("a %v, b %v", f.terraformCalls("a"), f.terraformCalls("b"))
+	}
+	if got := strings.Count(stderr.String(), "switch to default?"); got != 2 {
+		t.Errorf("prompted %d times, want 2", got)
+	}
+}
+
+func TestApplyStageCleanProvidersStaysInTheProject(t *testing.T) {
+	root, f := stageProject(t, twoStageConfig)
+	outside := t.TempDir()
+	kept := filepath.Join(outside, "providers", "registry")
+	if err := os.MkdirAll(kept, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(root, "stages", "a", ".terraform")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "stages", "a", "job.tfplan"), []byte("PK"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rt, _, _ := stageRuntime(f)
+	cmd := &ApplyStageCmd{Stage: "a", Plan: "job.tfplan", CleanProviders: true}
+	if code := runner.ExitCode(cmd.Run(context.Background(), rt)); code != 1 {
+		t.Errorf("exit %d, want 1", code)
+	}
+	if _, err := os.Stat(kept); err != nil {
+		t.Errorf("deleted outside the project: %v", err)
+	}
+	if f.ran("a", "apply") {
+		t.Error("applied after the refused clean")
+	}
+}
+
+func TestStageSetupEmptyListRunsNoHook(t *testing.T) {
+	cfg := `version: 1
+setup: [hook, all]
+stages:
+  - {name: a, dir: stages/a, setup: []}
+  - {name: b, dir: stages/b}
+`
+	_, f := stageProject(t, cfg)
+	rt, _, _ := stageRuntime(f)
+	if err := (&PlanAllCmd{}).Run(context.Background(), rt); err != nil {
+		t.Fatal(err)
+	}
+	var stages []string
+	for _, c := range f.calls {
+		if c.argv[0] == "hook" {
+			stages = append(stages, c.env["MARS_STAGE"])
+		}
+	}
+	if !reflect.DeepEqual(stages, []string{"b"}) {
+		t.Errorf("hooks ran for %v, want [b]", stages)
+	}
+}
+
+func TestPlanAllCleansOnlyConfiguredFiles(t *testing.T) {
+	root, f := stageProject(t, "files: {plan_json: 'p-{stage}.json'}\n"+twoStageConfig)
+	out := filepath.Join(root, "outputs")
+	if err := os.MkdirAll(out, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range []string{"p-zzz.json", "other.json", "p-a.json"} {
+		if err := os.WriteFile(filepath.Join(out, n), []byte("{}"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	f.fail["a plan"] = true
+	rt, _, _ := stageRuntime(f)
+	_ = (&PlanAllCmd{}).Run(context.Background(), rt)
+	if fileExists(filepath.Join(out, "p-a.json")) {
+		t.Error("stale p-a.json kept")
+	}
+	for _, n := range []string{"p-zzz.json", "other.json"} {
+		if !fileExists(filepath.Join(out, n)) {
+			t.Errorf("removed %s, which no configured stage names", n)
+		}
+	}
+}
+
+func TestDriftDocHasEveryDriftReportField(t *testing.T) {
+	_, _ = stageProject(t, "drift: {stamp_env: {stamp: S}}\n"+twoStageConfig)
+	cfg, err := loadStagesConfig("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := &stageRun{cfg: cfg}
+	doc, err := r.driftDoc(&DriftReport{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var keys []string
+	for _, f := range doc {
+		keys = append(keys, f.Key)
+	}
+	var want []string
+	rt := reflect.TypeFor[DriftReport]()
+	for i := range rt.NumField() {
+		name, _, _ := strings.Cut(rt.Field(i).Tag.Get("json"), ",")
+		if name == "resources" {
+			want = append(want, "stamp")
+		}
+		want = append(want, name)
+	}
+	if !reflect.DeepEqual(keys, want) {
+		t.Errorf("drift doc fields %v, want %v", keys, want)
+	}
+	b, _ := marshalNoEscape(doc)
+	if !strings.HasSuffix(string(b), `"stamp":null,"resources":[]}`) {
+		t.Errorf("doc %s", b)
 	}
 }

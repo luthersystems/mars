@@ -2,7 +2,6 @@ package terraform
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 
 	"github.com/luthersystems/mars/internal/app"
@@ -53,8 +52,14 @@ func (c *ApplyStageCmd) Run(ctx context.Context, rt *app.Runtime) error {
 		return r.fail("plan file not found: %s", filepath.Join(dir, planFile))
 	}
 	if c.CleanProviders {
-		if err := os.RemoveAll(filepath.Join(dir, ".terraform", "providers")); err != nil {
+		// Through an os.Root of the project: a .terraform that links out of
+		// the project is refused, not cleaned.
+		rel, err := filepath.Rel(cfg.root, filepath.Join(dir, ".terraform", "providers"))
+		if err != nil {
 			return r.fail("%v", err)
+		}
+		if err := removeAllInRoot(cfg.root, rel); err != nil {
+			return r.fail("stage %s: clean providers: %v", st.Name, err)
 		}
 	}
 

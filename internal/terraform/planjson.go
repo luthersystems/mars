@@ -142,24 +142,61 @@ func decodeValue(raw []byte) (any, error) {
 // writeReport writes v as indented JSON to path, or to stdout when path is
 // empty. Struct field order is the report's order; map keys are sorted.
 func writeReport(rt *app.Runtime, cmd, path string, v any) error {
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	enc.SetEscapeHTML(false)
-	enc.SetIndent("", "  ")
-	if err := enc.Encode(v); err != nil {
+	b, err := encodeJSON(v, true)
+	if err != nil {
 		return cmdError(rt.Stderr, cmd, "encode report: %v", err)
 	}
 	if path == "" {
-		_, err := rt.Stdout.Write(buf.Bytes())
+		_, err := rt.Stdout.Write(b)
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil { //nolint:gosec // G301: as the script's mkdir -p of the outputs directory
-		return cmdError(rt.Stderr, cmd, "%v", err)
-	}
-	if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil { //nolint:gosec // G306: a report other steps read
+	if err := writeReportFile(path, b); err != nil {
 		return cmdError(rt.Stderr, cmd, "%v", err)
 	}
 	return nil
+}
+
+// encodeJSON encodes v without HTML escaping: indented with a final
+// newline (a report file), or compact without one.
+func encodeJSON(v any, indent bool) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if indent {
+		enc.SetIndent("", "  ")
+	}
+	if err := enc.Encode(v); err != nil {
+		return nil, err
+	}
+	if indent {
+		return buf.Bytes(), nil
+	}
+	return bytes.TrimRight(buf.Bytes(), "\n"), nil
+}
+
+// writeReportFile writes b to path, making its directory. An empty path
+// writes nothing.
+func writeReportFile(path string, b []byte) error {
+	if path == "" {
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil { //nolint:gosec // G301: as the script's mkdir -p of the outputs directory
+		return err
+	}
+	return os.WriteFile(path, b, 0o644) //nolint:gosec // G306: a report other steps read
+}
+
+// writeReportJSON writes v to path as writeReport does; an empty path
+// writes nothing.
+func writeReportJSON(path string, v any) error {
+	if path == "" {
+		return nil
+	}
+	b, err := encodeJSON(v, true)
+	if err != nil {
+		return err
+	}
+	return writeReportFile(path, b)
 }
 
 // jsonEqual compares decoded JSON values; numbers compare by value, as jq

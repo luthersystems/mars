@@ -3,10 +3,8 @@ package terraform
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -173,39 +171,6 @@ func (r *stageRun) applyPlan(ctx context.Context, st *StageEntry, planFile strin
 	return nil
 }
 
-// writeFile writes b to path, making its directory. An empty path writes
-// nothing.
-func writeReportFile(path string, b []byte) error {
-	if path == "" {
-		return nil
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil { //nolint:gosec // G301: the reports directory other steps read
-		return err
-	}
-	return os.WriteFile(path, b, 0o644) //nolint:gosec // G306: a report other steps read
-}
-
-// writeJSON writes v as indented JSON, as writeReport does.
-func writeReportJSON(path string, v any) error {
-	if path == "" {
-		return nil
-	}
-	b, err := indentedJSON(v)
-	if err != nil {
-		return err
-	}
-	return writeReportFile(path, b)
-}
-
-func indentedJSON(v any) ([]byte, error) {
-	var buf bytes.Buffer
-	enc := jsonEncoder(&buf)
-	if err := enc.Encode(v); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
 // copyFile copies src to dst; an empty dst copies nothing.
 func copyFile(src, dst string) error {
 	if dst == "" {
@@ -223,24 +188,6 @@ func fileExists(path string) bool {
 	return err == nil && fi.Mode().IsRegular()
 }
 
-// removeGlob removes every file the glob matches; an empty glob removes
-// nothing.
-func removeGlob(glob string) error {
-	if glob == "" {
-		return nil
-	}
-	matches, err := filepath.Glob(glob)
-	if err != nil {
-		return err
-	}
-	for _, m := range matches {
-		if err := os.Remove(m); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return err
-		}
-	}
-	return nil
-}
-
 func removeFile(path string) error {
 	if path == "" {
 		return nil
@@ -251,50 +198,81 @@ func removeFile(path string) error {
 	return nil
 }
 
-// driftDoc is a drift report with the config's stamps, as written: the
-// report's fields, the stamps, then resources.
-func (r *stageRun) driftDoc(rep *DriftReport) orderedObject {
-	doc := orderedObject{
-		{"drift_detected", rep.DriftDetected},
-		{"drift_count", rep.DriftCount},
-		{"actionable", rep.Actionable},
-		{"actionable_count", rep.ActionableCount},
-		{"apply_skipped", rep.ApplySkipped},
+// driftDoc is a drift report as written: the DriftReport's own fields in
+// its order, with the config's stamps inserted before "resources".
+func (r *stageRun) driftDoc(rep *DriftReport) (orderedObject, error) {
+	cp := *rep
+	if cp.Resources == nil {
+		cp.Resources = []map[string]any{}
 	}
+	b, err := encodeJSON(cp, false)
+	if err != nil {
+		return nil, err
+	}
+	fields, err := objectFields(b)
+	if err != nil {
+		return nil, err
+	}
+	stamps := make(orderedObject, 0, len(r.cfg.Drift.StampEnv))
 	for _, p := range r.cfg.Drift.StampEnv {
 		var v any
 		if s := os.Getenv(p.value); s != "" {
 			v = s
 		}
-		doc = append(doc, jsonField{p.key, v})
+		stamps = append(stamps, jsonField{p.key, v})
 	}
-	resources := rep.Resources
-	if resources == nil {
-		resources = []map[string]any{}
+	doc := make(orderedObject, 0, len(fields)+len(stamps))
+	inserted := false
+	for _, f := range fields {
+		if f.Key == "resources" && !inserted {
+			doc = append(doc, stamps...)
+			inserted = true
+		}
+		doc = append(doc, f)
 	}
-	return append(doc, jsonField{"resources", resources})
+	if !inserted {
+		doc = append(doc, stamps...)
+	}
+	return doc, nil
 }
 
-// writeDrift writes the stage's drift report and its alias.
+// writeDriftReport writes the drift report to path (none when "").
+func (r *stageRun) writeDriftReport(path string, rep *DriftReport) error {
+	if path == "" {
+		return nil
+	}
+	doc, err := r.driftDoc(rep)
+	if err != nil {
+		return err
+	}
+	return writeReportJSON(path, doc)
+}
+
+// writeDrift writes the stage's drift report (when perStage) and the alias.
 func (r *stageRun) writeDrift(st *StageEntry, rep *DriftReport, perStage bool) error {
-	doc := r.driftDoc(rep)
 	if perStage {
-		if err := writeReportJSON(r.cfg.outPath(r.cfg.driftName(), st.Name), doc); err != nil {
+		if err := r.writeDriftReport(r.cfg.outPath(r.cfg.driftName(), st.Name), rep); err != nil {
 			return err
 		}
 	}
-	return writeReportJSON(r.cfg.outPath(r.cfg.driftAliasName(), st.Name), doc)
+	return r.writeDriftReport(r.cfg.outPath(r.cfg.driftAliasName(), st.Name), rep)
+}
+
+// removeAllInRoot removes rel under root through an os.Root, so a symlink
+// on the way cannot lead the delete out of root.
+func removeAllInRoot(root, rel string) error {
+	r, err := os.OpenRoot(root)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = r.Close() }()
+	return r.RemoveAll(rel)
 }
 
 // stripProviders deletes every .terraform/providers directory under root.
 // The deletes go through an os.Root, so a symlink cannot lead them out of
 // the project.
 func stripProviders(root string, log func(string, ...any)) error {
-	r, err := os.OpenRoot(root)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = r.Close() }()
 	var dirs []string
 	walkErr := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -314,18 +292,10 @@ func stripProviders(root string, log func(string, ...any)) error {
 		return walkErr
 	}
 	for _, rel := range dirs {
-		if err := r.RemoveAll(rel); err != nil {
+		if err := removeAllInRoot(root, rel); err != nil {
 			return err
 		}
 		log("  stripped %s", rel)
 	}
 	return nil
-}
-
-// jsonEncoder writes indented JSON without HTML escaping.
-func jsonEncoder(w io.Writer) *json.Encoder {
-	enc := json.NewEncoder(w)
-	enc.SetEscapeHTML(false)
-	enc.SetIndent("", "  ")
-	return enc
 }

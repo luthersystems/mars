@@ -61,11 +61,13 @@ type StagesDrift struct {
 
 // StageEntry is one stage.
 type StageEntry struct {
-	Name               string   `yaml:"name"`
-	Dir                string   `yaml:"dir"`
-	ApplyIfNoState     bool     `yaml:"apply_if_no_state"`
-	PlanAliasPreferred bool     `yaml:"plan_alias_preferred"`
-	Setup              []string `yaml:"setup"`
+	Name               string `yaml:"name"`
+	Dir                string `yaml:"dir"`
+	ApplyIfNoState     bool   `yaml:"apply_if_no_state"`
+	PlanAliasPreferred bool   `yaml:"plan_alias_preferred"`
+	// Setup is the stage's own setup hook: absent (nil) uses the
+	// config's, an empty list runs none.
+	Setup *[]string `yaml:"setup"`
 }
 
 // orderedStrings is a YAML mapping of strings that keeps its order.
@@ -97,11 +99,53 @@ var (
 	envNameRE   = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 )
 
-// driftReportFields are the fields of a drift report a stamp must not
-// replace.
-var driftReportFields = map[string]bool{
-	"drift_detected": true, "drift_count": true, "actionable": true,
-	"actionable_count": true, "apply_skipped": true, "resources": true,
+// driftReportFieldSet is the set of DriftReport's JSON fields, read from
+// the struct itself so it cannot fall out of step with it. A stamp may not
+// use one.
+func driftReportFieldSet() map[string]bool {
+	b, err := encodeJSON(DriftReport{}, false)
+	if err != nil {
+		panic(err) // DriftReport always encodes
+	}
+	fields, err := objectFields(b)
+	if err != nil {
+		panic(err)
+	}
+	set := map[string]bool{}
+	for _, f := range fields {
+		set[f.Key] = true
+	}
+	return set
+}
+
+// objectFields reads a JSON object's top-level fields in order, each value
+// raw.
+func objectFields(b []byte) (orderedObject, error) {
+	dec := json.NewDecoder(bytes.NewReader(b))
+	tok, err := dec.Token()
+	if err != nil {
+		return nil, err
+	}
+	if d, ok := tok.(json.Delim); !ok || d != '{' {
+		return nil, errors.New("not a JSON object")
+	}
+	var out orderedObject
+	for dec.More() {
+		tok, err := dec.Token()
+		if err != nil {
+			return nil, err
+		}
+		key, ok := tok.(string)
+		if !ok {
+			return nil, errors.New("object key is not a string")
+		}
+		var raw json.RawMessage
+		if err := dec.Decode(&raw); err != nil {
+			return nil, err
+		}
+		out = append(out, jsonField{key, raw})
+	}
+	return out, nil
 }
 
 func strDefault(p *string, def string) string {
@@ -167,14 +211,6 @@ func (c *StagesConfig) outPath(name, stage string) string {
 	return filepath.Join(c.outputsDir(), strings.ReplaceAll(name, "{stage}", stage))
 }
 
-// outGlob is the glob that matches a per-stage report of any stage.
-func (c *StagesConfig) outGlob(name string) string {
-	if name == "" {
-		return ""
-	}
-	return filepath.Join(c.outputsDir(), strings.ReplaceAll(name, "{stage}", "*"))
-}
-
 // stageDir is the stage's directory, absolute.
 func (c *StagesConfig) stageDir(st *StageEntry) string {
 	d := st.Dir
@@ -185,8 +221,8 @@ func (c *StagesConfig) stageDir(st *StageEntry) string {
 }
 
 func (c *StagesConfig) setupFor(st *StageEntry) []string {
-	if len(st.Setup) > 0 {
-		return st.Setup
+	if st.Setup != nil {
+		return *st.Setup
 	}
 	return c.Setup
 }
@@ -295,8 +331,9 @@ func (c *StagesConfig) validate() error {
 			return fmt.Errorf("files.%s %q must be a path inside outputs_dir, without {stage} or glob characters", key, name)
 		}
 	}
+	reportFields := driftReportFieldSet()
 	for _, p := range c.Drift.StampEnv {
-		if driftReportFields[p.key] || p.key == "" {
+		if reportFields[p.key] || p.key == "" {
 			return fmt.Errorf("drift.stamp_env: field %q is not allowed", p.key)
 		}
 		if !envNameRE.MatchString(p.value) {
@@ -322,6 +359,45 @@ func (c *StagesConfig) validate() error {
 				return fmt.Errorf("stages %s and %s are both plan_alias_preferred", preferred, st.Name)
 			}
 			preferred = st.Name
+		}
+	}
+	return c.checkReportNames()
+}
+
+// checkReportNames rejects two reports with the same file: two kinds of
+// report, or two stages, or a stage's report and a global one. Each kind
+// would overwrite (or plan-all's cleanup delete) the other.
+func (c *StagesConfig) checkReportNames() error {
+	owner := map[string]string{}
+	claim := func(path, what string) error {
+		if path == "" {
+			return nil
+		}
+		if prev, ok := owner[path]; ok {
+			return fmt.Errorf("files: %s and %s are both %s", prev, what, path)
+		}
+		owner[path] = what
+		return nil
+	}
+	global := []struct{ key, name string }{
+		{"plan_alias", c.planAliasName()}, {"summary", c.summaryName()},
+		{"drift_alias", c.driftAliasName()}, {"outputs_alias", c.outputsAliasName()},
+	}
+	for _, g := range global {
+		if err := claim(c.outPath(g.name, ""), "files."+g.key); err != nil {
+			return err
+		}
+	}
+	perStage := []struct{ key, name string }{
+		{"plan_json", c.planJSONName()}, {"stage_summary", c.stageSummaryName()},
+		{"drift", c.driftName()}, {"outputs", c.outputsName()},
+	}
+	for i := range c.Stages {
+		for _, p := range perStage {
+			what := fmt.Sprintf("files.%s of stage %s", p.key, c.Stages[i].Name)
+			if err := claim(c.outPath(p.name, c.Stages[i].Name), what); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -365,14 +441,6 @@ func (o orderedObject) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// marshalNoEscape is json.Marshal without HTML escaping, as writeReport
-// writes.
-func marshalNoEscape(v any) ([]byte, error) {
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	enc.SetEscapeHTML(false)
-	if err := enc.Encode(v); err != nil {
-		return nil, err
-	}
-	return bytes.TrimRight(buf.Bytes(), "\n"), nil
-}
+// marshalNoEscape is compact JSON without HTML escaping, as reports are
+// written.
+func marshalNoEscape(v any) ([]byte, error) { return encodeJSON(v, false) }

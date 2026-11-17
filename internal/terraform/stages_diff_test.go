@@ -297,6 +297,32 @@ func TestPlanAllContinueParityWithShellScript(t *testing.T) {
 	}
 }
 
+func TestPlanAllContinueErrorParityWithShellScript(t *testing.T) {
+	fx := stagesTestEnv(t)
+	fx.set(t, "stage-a.fail", "")
+	shRoot, marsRoot := stagesProject(t), stagesProject(t)
+	shLog, marsLog := filepath.Join(shRoot, "tf.log"), filepath.Join(marsRoot, "tf.log")
+	steps := []struct {
+		stage string
+		cont  bool
+	}{{"stage-a", false}, {"stage-b", true}}
+	for _, st := range steps {
+		env := []string{"PLAN_STAGES=" + st.stage, "PLAN_ALL_CONTINUE=" + map[bool]string{true: "true", false: "false"}[st.cont]}
+		sh := runIn(t, filepath.Join(shRoot, "tf"), shLog, env, "bash", "plan-all.sh")
+		args := []string{"plan-all", "--stages", st.stage}
+		if st.cont {
+			args = append(args, "--continue")
+		}
+		gor := runMarsIn(t, marsRoot, marsLog, args...)
+		if sh.code != 1 || gor.code != 1 {
+			t.Errorf("%v: exit script %d, mars %d, want 1 (the kept error row)", st, sh.code, gor.code)
+		}
+		if want, got := outputsJSON(t, shRoot), outputsJSON(t, marsRoot); !reflect.DeepEqual(want, got) {
+			t.Errorf("after %v:\nscript %v\nmars   %v", st, want, got)
+		}
+	}
+}
+
 // applyParityFixtures are drift-check plan fixtures the apply comparisons
 // run on: no drift, actionable drift, drift with a no-op change.
 var applyParityFixtures = []string{"noop_plan.json", "actionable_plan.json", "noop_drift_plan.json", "false_positive_plan.json", "enrich_plan.json"}

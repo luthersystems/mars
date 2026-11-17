@@ -58,9 +58,13 @@ type stagePlan struct {
 }
 
 // planOneStage plans a stage, writes its plan JSON (and stage summary), and
-// in hook runs anything else that needs the stage directory.
+// in hook runs anything else that needs the stage directory. When a step
+// after the plan JSON fails, the plan JSON and stage summary are removed,
+// so a failed stage never has them.
 func (r *stageRun) planOneStage(ctx context.Context, st *StageEntry, planFile string, refreshOnly bool, hook func(*stagePlan) error) (*stagePlan, error) {
 	var res *stagePlan
+	planJSON := r.cfg.outPath(r.cfg.planJSONName(), st.Name)
+	stageSummary := r.cfg.outPath(r.cfg.stageSummaryName(), st.Name)
 	err := r.inStage(ctx, st, func() error {
 		if err := r.plan(ctx, st, planFile, refreshOnly); err != nil {
 			return err
@@ -70,13 +74,13 @@ func (r *stageRun) planOneStage(ctx context.Context, st *StageEntry, planFile st
 			return err
 		}
 		res = &stagePlan{raw: raw, plan: plan, summary: summarizePlan(plan)}
-		if p := r.cfg.outPath(r.cfg.planJSONName(), st.Name); p != "" {
-			if err := writeReportFile(p, raw); err != nil {
-				return err
-			}
-			r.logf("Plan JSON written to %s", p)
+		if err := writeReportFile(planJSON, raw); err != nil {
+			return err
 		}
-		if err := writeReportJSON(r.cfg.outPath(r.cfg.stageSummaryName(), st.Name), res.summary); err != nil {
+		if planJSON != "" {
+			r.logf("Plan JSON written to %s", planJSON)
+		}
+		if err := writeReportJSON(stageSummary, res.summary); err != nil {
 			return err
 		}
 		if hook != nil {
@@ -84,7 +88,15 @@ func (r *stageRun) planOneStage(ctx context.Context, st *StageEntry, planFile st
 		}
 		return nil
 	})
-	return res, err
+	if err != nil {
+		for _, p := range []string{planJSON, stageSummary} {
+			if rmErr := removeFile(p); rmErr != nil {
+				return nil, errors.Join(err, rmErr)
+			}
+		}
+		return nil, err
+	}
+	return res, nil
 }
 
 // summaryRow is a stage's row in plan-all's summary: the template's fields.
@@ -100,13 +112,20 @@ func summaryRow(s *PlanSummary) orderedObject {
 
 var errorRow = orderedObject{{"error", true}}
 
-// rowCounts reads a summary row: whether it is an error row, has changes,
-// and its counts (a missing count is 0).
+// rowCounts are what the totals read from a summary row.
 type rowCounts struct {
 	isError, hasChanges           bool
 	add, change, destroy, imports int
 }
 
+func countsOf(s *PlanSummary) rowCounts {
+	return rowCounts{
+		hasChanges: s.HasChanges,
+		add:        s.Add, change: s.Change, destroy: s.Destroy, imports: s.Import,
+	}
+}
+
+// readRow reads a row an earlier run wrote (a missing count is 0).
 func readRow(raw json.RawMessage) (rowCounts, error) {
 	v, err := decodeValue(raw)
 	if err != nil {
@@ -134,9 +153,45 @@ func readRow(raw json.RawMessage) (rowCounts, error) {
 	}, nil
 }
 
+// namedRow is a stage's summary row: body is written as is, counts feed the
+// totals.
 type namedRow struct {
-	name string
-	raw  json.RawMessage
+	name   string
+	body   any
+	counts rowCounts
+}
+
+// cleanStale removes the reports an earlier run left. Only the files the
+// config names are removed, for every configured stage; with --continue only
+// this run's stages' and the plan alias, so the other stages' stay.
+func (c *PlanAllCmd) cleanStale(cfg *StagesConfig, stages []*StageEntry) error {
+	clean := stages
+	var paths []string
+	if !c.Continue {
+		clean = nil
+		for i := range cfg.Stages {
+			clean = append(clean, &cfg.Stages[i])
+		}
+		paths = append(paths, cfg.outPath(cfg.summaryName(), ""))
+	}
+	for _, st := range clean {
+		paths = append(paths, cfg.outPath(cfg.planJSONName(), st.Name), cfg.outPath(cfg.stageSummaryName(), st.Name))
+	}
+	// This run's stages' drift reports are stale whether or not it checks
+	// drift; the alias only when it writes drift reports.
+	for _, st := range stages {
+		paths = append(paths, cfg.outPath(cfg.driftName(), st.Name))
+	}
+	if c.CheckDrift {
+		paths = append(paths, cfg.outPath(cfg.driftAliasName(), ""))
+	}
+	paths = append(paths, cfg.outPath(cfg.planAliasName(), ""))
+	for _, p := range paths {
+		if err := removeFile(p); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *PlanAllCmd) Run(ctx context.Context, rt *app.Runtime) error {
@@ -154,39 +209,25 @@ func (c *PlanAllCmd) Run(ctx context.Context, rt *app.Runtime) error {
 		inRun[st.Name] = true
 	}
 
-	// Clear stale reports, or with --continue keep the other stages'.
-	var prior []namedRow
+	// With --continue, keep the rows of the other stages; an earlier
+	// failed stage still fails this run, as in plan-all.sh.
+	var rows []namedRow
+	hadError := false
 	if c.Continue {
-		for _, st := range stages {
-			if err := removeFile(cfg.outPath(cfg.planJSONName(), st.Name)); err != nil {
-				return r.fail("%v", err)
-			}
-			if err := removeFile(cfg.outPath(cfg.stageSummaryName(), st.Name)); err != nil {
-				return r.fail("%v", err)
-			}
-		}
-		if err := removeFile(cfg.outPath(cfg.planAliasName(), "")); err != nil {
-			return r.fail("%v", err)
-		}
-		prior, err = readPriorRows(cfg.outPath(cfg.summaryName(), ""), inRun)
+		rows, err = readPriorRows(cfg.outPath(cfg.summaryName(), ""), inRun)
 		if err != nil {
 			return r.fail("%v", err)
 		}
-	} else {
-		for _, g := range []string{cfg.outGlob(cfg.planJSONName()), cfg.outGlob(cfg.stageSummaryName())} {
-			if err := removeGlob(g); err != nil {
-				return r.fail("%v", err)
-			}
-		}
-		for _, p := range []string{cfg.outPath(cfg.planAliasName(), ""), cfg.outPath(cfg.summaryName(), "")} {
-			if err := removeFile(p); err != nil {
-				return r.fail("%v", err)
+		for _, row := range rows {
+			if row.counts.isError {
+				hadError = true
 			}
 		}
 	}
+	if err := c.cleanStale(cfg, stages); err != nil {
+		return r.fail("%v", err)
+	}
 
-	hadError := false
-	rows := append([]namedRow(nil), prior...)
 	planFile := cfg.planFile()
 	for _, st := range stages {
 		r.logf("\n=== Planning stage: %s ===\n", st.Name)
@@ -197,7 +238,7 @@ func (c *PlanAllCmd) Run(ctx context.Context, rt *app.Runtime) error {
 				if err != nil {
 					return fmt.Errorf("stage %s: %w", st.Name, err)
 				}
-				if err := writeReportJSON(cfg.outPath(cfg.driftName(), st.Name), r.driftDoc(rep)); err != nil {
+				if err := r.writeDriftReport(cfg.outPath(cfg.driftName(), st.Name), rep); err != nil {
 					return err
 				}
 			}
@@ -227,16 +268,17 @@ func (c *PlanAllCmd) Run(ctx context.Context, rt *app.Runtime) error {
 		if err != nil {
 			r.logf("ERROR: %v", err)
 			hadError = true
-			rows = append(rows, namedRow{st.Name, mustJSON(errorRow)})
+			rows = append(rows, namedRow{name: st.Name, body: errorRow, counts: rowCounts{isError: true}})
 			if !cfg.continueOnError() {
 				break
 			}
 			continue
 		}
 		row := summaryRow(res.summary)
-		rows = append(rows, namedRow{st.Name, mustJSON(row)})
-		b, _ := marshalNoEscape(row)
-		r.logf("Stage %s: %s", st.Name, b)
+		rows = append(rows, namedRow{name: st.Name, body: row, counts: countsOf(res.summary)})
+		if b, err := marshalNoEscape(row); err == nil {
+			r.logf("Stage %s: %s", st.Name, b)
+		}
 		if applyFailed {
 			hadError = true
 			if !cfg.continueOnError() {
@@ -245,17 +287,14 @@ func (c *PlanAllCmd) Run(ctx context.Context, rt *app.Runtime) error {
 		}
 	}
 
-	summary, err := buildAllSummary(rows)
-	if err != nil {
-		return r.fail("%v", err)
-	}
+	summary := buildAllSummary(rows)
 	if p := cfg.outPath(cfg.summaryName(), ""); p != "" {
 		if err := writeReportJSON(p, summary); err != nil {
 			return r.fail("%v", err)
 		}
 		r.logf("\nPlan summary written to %s", p)
 	}
-	if b, err := indentedJSON(summary); err == nil {
+	if b, err := encodeJSON(summary, true); err == nil {
 		_, _ = rt.Stdout.Write(b)
 	}
 
@@ -272,14 +311,6 @@ func (c *PlanAllCmd) Run(ctx context.Context, rt *app.Runtime) error {
 		return runner.ExitSilently(exitError)
 	}
 	return nil
-}
-
-func mustJSON(v any) json.RawMessage {
-	b, err := marshalNoEscape(v)
-	if err != nil {
-		panic(err)
-	}
-	return b
 }
 
 // readPriorRows reads the rows of an earlier summary, sorted by stage name,
@@ -307,22 +338,23 @@ func readPriorRows(path string, inRun map[string]bool) ([]namedRow, error) {
 	sort.Strings(names)
 	out := make([]namedRow, 0, len(names))
 	for _, n := range names {
-		out = append(out, namedRow{n, doc.Stages[n]})
+		rc, err := readRow(doc.Stages[n])
+		if err != nil {
+			return nil, fmt.Errorf("the earlier summary's row of %s: %w", n, err)
+		}
+		out = append(out, namedRow{name: n, body: doc.Stages[n], counts: rc})
 	}
 	return out, nil
 }
 
 // buildAllSummary is plan-all's summary: the rows, the totals of the rows
 // that are not errors, and has_changes.
-func buildAllSummary(rows []namedRow) (orderedObject, error) {
+func buildAllSummary(rows []namedRow) orderedObject {
 	stages := orderedObject{}
 	var add, change, destroy, imports int
 	hasChanges := false
 	for _, row := range rows {
-		rc, err := readRow(row.raw)
-		if err != nil {
-			return nil, fmt.Errorf("summary row of %s: %w", row.name, err)
-		}
+		rc := row.counts
 		if !rc.isError {
 			add += rc.add
 			change += rc.change
@@ -332,13 +364,13 @@ func buildAllSummary(rows []namedRow) (orderedObject, error) {
 		if rc.hasChanges {
 			hasChanges = true
 		}
-		stages = append(stages, jsonField{row.name, row.raw})
+		stages = append(stages, jsonField{row.name, row.body})
 	}
 	return orderedObject{
 		{"stages", stages},
 		{"total", orderedObject{{"add", add}, {"change", change}, {"destroy", destroy}, {"import", imports}}},
 		{"has_changes", hasChanges},
-	}, nil
+	}
 }
 
 // writePlanAlias copies the preferred stage's plan JSON to the alias, or the
