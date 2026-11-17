@@ -68,7 +68,7 @@ files:
   stage_summary: ""                  # full plan-summary report per stage, off by default
   summary: plan-summary.json         # plan-all's totals
   drift: "drift-{stage}.json"        # drift report per stage
-  drift_alias: drift.json            # copy of the last drift report
+  drift_alias: drift.json            # the latest drift report (see below)
   outputs: "{stage}.json"            # terraform output -json per stage
   outputs_alias: outputs.json        # copy of the last outputs
 
@@ -120,14 +120,23 @@ For each stage, in config order (or in the order of `--stages`):
 7. With `--check-drift`: the drift report in process (as `drift-check`)
    into `files.drift`. It does not change the exit code.
 
-A stage whose setup, init, plan or show fails has the row `{"error": true}`
-and no plan JSON.
+A stage that fails (setup, init, plan, show, state list, or its reports) has
+the row `{"error": true}` and none of its reports: no plan JSON, stage
+summary or drift report.
+
+With `--check-drift`, after the stages, plan-all writes `files.drift_alias`:
+one report that combines this run's planned stages (counts summed,
+resources in stage order, `apply_skipped` when any stage's is), so a later
+apply step reads one drift report for the whole run. With no stage planned
+it is an empty report (`drift_detected: false`).
 
 Before the stages, plan-all deletes stale reports, only by the names the
 config gives (never by a wildcard): `files.plan_json` and
-`files.stage_summary` of every configured stage, `files.plan_alias`,
-`files.summary`, `files.drift` of this run's stages, and with
-`--check-drift` `files.drift_alias`. With `--continue` (the template's
+`files.stage_summary` and `files.drift` of every configured stage,
+`files.plan_alias`, `files.summary`, and with `--check-drift`
+`files.drift_alias`. Cleanup knows only the stages in the config: the
+reports of a stage that was renamed or removed from the config stay, so
+delete them by hand. With `--continue` (the template's
 `PLAN_ALL_CONTINUE=true`) it deletes only this run's stages' plan JSON,
 stage summaries and drift reports and the alias, and keeps the rows of the
 summary's other stages: this run continues a plan-all that an earlier step
@@ -167,7 +176,13 @@ One stage of plan-all (steps 1 to 4, 6, without the new-project apply), plus
 `files.plan_alias`. It is the general part of `plan.sh` and, with
 `--refresh-only --check-drift --strict --plan-file refresh.tfplan`, of
 `drift-refresh.sh`. With `--check-drift` it writes `files.drift` and
-`files.drift_alias` and exits as `drift-check` does.
+`files.drift_alias` (the same document) and exits as `drift-check` does.
+
+It first deletes the stage's own stale reports (plan JSON, stage summary,
+drift report). When the plan itself fails, the aliases stay as they were.
+When a later step fails (show, counts, drift report), it deletes the
+stage's reports and the aliases this run would have written, so no alias
+points at a half-written run.
 
 Exit codes: 0 planned (no drift, or drift that does not count); 2 with
 `--check-drift`: actionable drift, or any drift with `--strict`, unless

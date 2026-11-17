@@ -248,14 +248,60 @@ func (r *stageRun) writeDriftReport(path string, rep *DriftReport) error {
 	return writeReportJSON(path, doc)
 }
 
-// writeDrift writes the stage's drift report (when perStage) and the alias.
+// writeDrift builds the drift document once and writes it to the stage's
+// drift report (when perStage) and to the alias.
 func (r *stageRun) writeDrift(st *StageEntry, rep *DriftReport, perStage bool) error {
+	doc, err := r.driftDoc(rep)
+	if err != nil {
+		return err
+	}
+	paths := []string{r.cfg.outPath(r.cfg.driftAliasName(), st.Name)}
 	if perStage {
-		if err := r.writeDriftReport(r.cfg.outPath(r.cfg.driftName(), st.Name), rep); err != nil {
+		paths = append([]string{r.cfg.outPath(r.cfg.driftName(), st.Name)}, paths...)
+	}
+	for _, p := range paths {
+		if err := writeReportJSON(p, doc); err != nil {
 			return err
 		}
 	}
-	return r.writeDriftReport(r.cfg.outPath(r.cfg.driftAliasName(), st.Name), rep)
+	return nil
+}
+
+// combineDrift is one drift report of several stages' reports: the counts
+// summed, the resources in stage order, and apply_skipped when any stage's
+// is.
+func combineDrift(reps []*DriftReport) *DriftReport {
+	out := &DriftReport{Resources: []map[string]any{}}
+	for _, rep := range reps {
+		out.DriftCount += rep.DriftCount
+		out.ActionableCount += rep.ActionableCount
+		out.ApplySkipped = out.ApplySkipped || rep.ApplySkipped
+		out.Resources = append(out.Resources, rep.Resources...)
+	}
+	out.DriftDetected = out.DriftCount > 0
+	out.Actionable = out.ActionableCount > 0
+	return out
+}
+
+// stageReports are the per-stage reports of a stage: what a failed stage
+// must not leave behind.
+func (r *stageRun) stageReports(st *StageEntry) []string {
+	c := r.cfg
+	return []string{
+		c.outPath(c.planJSONName(), st.Name),
+		c.outPath(c.stageSummaryName(), st.Name),
+		c.outPath(c.driftName(), st.Name),
+	}
+}
+
+// removeAll removes each path; the first error is returned joined to err.
+func removeAll(err error, paths ...string) error {
+	for _, p := range paths {
+		if rmErr := removeFile(p); rmErr != nil {
+			return errors.Join(err, rmErr)
+		}
+	}
+	return err
 }
 
 // removeAllInRoot removes rel under root through an os.Root, so a symlink

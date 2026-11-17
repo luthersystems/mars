@@ -539,8 +539,13 @@ func TestPlanAllCheckDriftWritesStageReports(t *testing.T) {
 	if rep["actionable"] != true || rep["apply_skipped"] != true {
 		t.Errorf("drift-a.json %v", rep)
 	}
-	if fileExists(filepath.Join(root, "outputs", "drift.json")) {
-		t.Error("plan-all wrote the drift alias")
+	// The alias combines this run's stages: a's drift, b's none.
+	alias := readJSONFile(t, filepath.Join(root, "outputs", "drift.json")).(map[string]any)
+	if alias["drift_count"] != float64(1) || alias["apply_skipped"] != true || len(alias["resources"].([]any)) != 1 {
+		t.Errorf("drift.json %v", alias)
+	}
+	if rep := readJSONFile(t, filepath.Join(root, "outputs", "drift-b.json")).(map[string]any); rep["drift_detected"] != false {
+		t.Errorf("drift-b.json %v", rep)
 	}
 }
 
@@ -684,29 +689,47 @@ func TestPlanAllContinueKeepsAnEarlierErrorRow(t *testing.T) {
 func TestPlanAllRemovesStaleDriftReports(t *testing.T) {
 	root, f := stageProject(t, twoStageConfig)
 	out := filepath.Join(root, "outputs")
-	if err := os.MkdirAll(out, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	for _, n := range []string{"drift-a.json", "drift-b.json", "drift.json"} {
-		if err := os.WriteFile(filepath.Join(out, n), []byte("{}"), 0o644); err != nil {
+	stale := func() {
+		t.Helper()
+		if err := os.MkdirAll(out, 0o755); err != nil {
 			t.Fatal(err)
+		}
+		for _, n := range []string{"drift-a.json", "drift-b.json", "drift.json"} {
+			if err := os.WriteFile(filepath.Join(out, n), []byte("{}"), 0o644); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 	rt, _, _ := stageRuntime(f)
+
+	// Without --continue: every configured stage's, as for plan JSON.
+	stale()
 	if err := (&PlanAllCmd{Stages: []string{"a"}}).Run(context.Background(), rt); err != nil {
 		t.Fatal(err)
 	}
-	if fileExists(filepath.Join(out, "drift-a.json")) {
-		t.Error("stale drift-a.json kept")
+	if fileExists(filepath.Join(out, "drift-a.json")) || fileExists(filepath.Join(out, "drift-b.json")) {
+		t.Error("stale stage drift report kept without --continue")
 	}
-	if !fileExists(filepath.Join(out, "drift-b.json")) || !fileExists(filepath.Join(out, "drift.json")) {
-		t.Error("removed another stage's drift report, or the alias without --check-drift")
+	if !fileExists(filepath.Join(out, "drift.json")) {
+		t.Error("removed the drift alias without --check-drift")
 	}
+
+	// With --continue: only this run's stages'.
+	stale()
+	if err := (&PlanAllCmd{Stages: []string{"a"}, Continue: true}).Run(context.Background(), rt); err != nil {
+		t.Fatal(err)
+	}
+	if fileExists(filepath.Join(out, "drift-a.json")) || !fileExists(filepath.Join(out, "drift-b.json")) {
+		t.Error("--continue: want drift-a.json removed and drift-b.json kept")
+	}
+
+	// With --check-drift the alias is this run's.
+	stale()
 	if err := (&PlanAllCmd{Stages: []string{"a"}, CheckDrift: true}).Run(context.Background(), rt); err != nil {
 		t.Fatal(err)
 	}
-	if fileExists(filepath.Join(out, "drift.json")) {
-		t.Error("stale drift.json kept with --check-drift")
+	if rep := readJSONFile(t, filepath.Join(out, "drift.json")).(map[string]any); rep["drift_detected"] != false {
+		t.Errorf("drift.json %v, want this run's report", rep)
 	}
 }
 
@@ -714,7 +737,8 @@ func TestPlanAllFailedStageHasNoPlanJSON(t *testing.T) {
 	cases := map[string]func(f *stageFake) *PlanAllCmd{
 		"state list": func(f *stageFake) *PlanAllCmd {
 			f.fail["a state"] = true
-			return &PlanAllCmd{Stages: []string{"a"}}
+			// The hook writes a's drift report before state list fails.
+			return &PlanAllCmd{Stages: []string{"a"}, CheckDrift: true}
 		},
 		"drift report": func(f *stageFake) *PlanAllCmd {
 			f.plans["a"] = `{"resource_drift": {"x": 1}, "resource_changes": []}`
@@ -729,10 +753,13 @@ func TestPlanAllFailedStageHasNoPlanJSON(t *testing.T) {
 			if code := runner.ExitCode(cmd.Run(context.Background(), rt)); code != 1 {
 				t.Fatalf("exit %d, want 1", code)
 			}
-			for _, n := range []string{"tfplan-a.json", "sum-a.json", "tfplan.json"} {
+			for _, n := range []string{"tfplan-a.json", "sum-a.json", "drift-a.json", "tfplan.json"} {
 				if fileExists(filepath.Join(root, "outputs", n)) {
 					t.Errorf("%s written for a failed stage", n)
 				}
+			}
+			if rep := readJSONFile(t, filepath.Join(root, "outputs", "drift.json")).(map[string]any); cmd.CheckDrift && rep["drift_count"] != float64(0) {
+				t.Errorf("drift alias counts the failed stage: %v", rep)
 			}
 		})
 	}
@@ -858,5 +885,43 @@ func TestDriftDocHasEveryDriftReportField(t *testing.T) {
 	b, _ := marshalNoEscape(doc)
 	if !strings.HasSuffix(string(b), `"stamp":null,"resources":[]}`) {
 		t.Errorf("doc %s", b)
+	}
+}
+
+func TestPlanStageFailureLeavesNoReportOrAlias(t *testing.T) {
+	root, f := stageProject(t, "files: {stage_summary: 'sum-{stage}.json'}\n"+twoStageConfig)
+	out := filepath.Join(root, "outputs")
+	if err := os.MkdirAll(out, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range []string{"tfplan.json", "drift.json", "drift-a.json", "tfplan-a.json"} {
+		if err := os.WriteFile(filepath.Join(out, n), []byte("{}"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// The plan and plan alias are written; the drift report then fails.
+	f.plans["a"] = `{"resource_drift": {"x": 1}, "resource_changes": []}`
+	rt, _, _ := stageRuntime(f)
+	if code := runner.ExitCode((&PlanStageCmd{Stage: "a", CheckDrift: true}).Run(context.Background(), rt)); code != 1 {
+		t.Fatalf("exit %d, want 1", code)
+	}
+	for _, n := range []string{"tfplan-a.json", "sum-a.json", "drift-a.json", "tfplan.json", "drift.json"} {
+		if fileExists(filepath.Join(out, n)) {
+			t.Errorf("%s left after the failed plan-stage", n)
+		}
+	}
+
+	// A failed plan keeps the aliases it never reached.
+	for _, n := range []string{"tfplan.json", "drift.json"} {
+		if err := os.WriteFile(filepath.Join(out, n), []byte("{}"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	f.fail["a plan"] = true
+	if code := runner.ExitCode((&PlanStageCmd{Stage: "a", CheckDrift: true}).Run(context.Background(), rt)); code != 1 {
+		t.Fatalf("exit %d, want 1", code)
+	}
+	if !fileExists(filepath.Join(out, "tfplan.json")) || !fileExists(filepath.Join(out, "drift.json")) {
+		t.Error("removed an alias this run did not write")
 	}
 }

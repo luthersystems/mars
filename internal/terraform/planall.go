@@ -58,9 +58,9 @@ type stagePlan struct {
 }
 
 // planOneStage plans a stage, writes its plan JSON (and stage summary), and
-// in hook runs anything else that needs the stage directory. When a step
-// after the plan JSON fails, the plan JSON and stage summary are removed,
-// so a failed stage never has them.
+// in hook runs anything else that needs the stage directory. When any step
+// fails, every per-stage report of the stage is removed (plan JSON, stage
+// summary, drift report), so a failed stage never has them.
 func (r *stageRun) planOneStage(ctx context.Context, st *StageEntry, planFile string, refreshOnly bool, hook func(*stagePlan) error) (*stagePlan, error) {
 	var res *stagePlan
 	planJSON := r.cfg.outPath(r.cfg.planJSONName(), st.Name)
@@ -89,12 +89,8 @@ func (r *stageRun) planOneStage(ctx context.Context, st *StageEntry, planFile st
 		return nil
 	})
 	if err != nil {
-		for _, p := range []string{planJSON, stageSummary} {
-			if rmErr := removeFile(p); rmErr != nil {
-				return nil, errors.Join(err, rmErr)
-			}
-		}
-		return nil, err
+		// Also the drift report a hook may have written.
+		return nil, removeAll(err, r.stageReports(st)...)
 	}
 	return res, nil
 }
@@ -162,8 +158,10 @@ type namedRow struct {
 }
 
 // cleanStale removes the reports an earlier run left. Only the files the
-// config names are removed, for every configured stage; with --continue only
-// this run's stages' and the plan alias, so the other stages' stay.
+// config names are removed: the per-stage reports (plan JSON, stage summary,
+// drift) of every configured stage, or with --continue of this run's stages
+// only, so the other stages' stay; the plan alias; the summary without
+// --continue; and the drift alias with --check-drift.
 func (c *PlanAllCmd) cleanStale(cfg *StagesConfig, stages []*StageEntry) error {
 	clean := stages
 	var paths []string
@@ -174,14 +172,11 @@ func (c *PlanAllCmd) cleanStale(cfg *StagesConfig, stages []*StageEntry) error {
 		}
 		paths = append(paths, cfg.outPath(cfg.summaryName(), ""))
 	}
+	r := &stageRun{cfg: cfg}
 	for _, st := range clean {
-		paths = append(paths, cfg.outPath(cfg.planJSONName(), st.Name), cfg.outPath(cfg.stageSummaryName(), st.Name))
+		paths = append(paths, r.stageReports(st)...)
 	}
-	// This run's stages' drift reports are stale whether or not it checks
-	// drift; the alias only when it writes drift reports.
-	for _, st := range stages {
-		paths = append(paths, cfg.outPath(cfg.driftName(), st.Name))
-	}
+	// The drift alias only when this run writes it.
 	if c.CheckDrift {
 		paths = append(paths, cfg.outPath(cfg.driftAliasName(), ""))
 	}
@@ -229,9 +224,11 @@ func (c *PlanAllCmd) Run(ctx context.Context, rt *app.Runtime) error {
 	}
 
 	planFile := cfg.planFile()
+	var driftReps []*DriftReport
 	for _, st := range stages {
 		r.logf("\n=== Planning stage: %s ===\n", st.Name)
 		applyFailed := false
+		var stageDrift *DriftReport
 		res, err := r.planOneStage(ctx, st, planFile, false, func(res *stagePlan) error {
 			if c.CheckDrift {
 				rep, err := buildDriftReport(res.raw, false)
@@ -241,6 +238,7 @@ func (c *PlanAllCmd) Run(ctx context.Context, rt *app.Runtime) error {
 				if err := r.writeDriftReport(cfg.outPath(cfg.driftName(), st.Name), rep); err != nil {
 					return err
 				}
+				stageDrift = rep
 			}
 			if !st.ApplyIfNoState {
 				return nil
@@ -274,6 +272,9 @@ func (c *PlanAllCmd) Run(ctx context.Context, rt *app.Runtime) error {
 			}
 			continue
 		}
+		if stageDrift != nil {
+			driftReps = append(driftReps, stageDrift)
+		}
 		row := summaryRow(res.summary)
 		rows = append(rows, namedRow{name: st.Name, body: row, counts: countsOf(res.summary)})
 		if b, err := marshalNoEscape(row); err == nil {
@@ -300,6 +301,12 @@ func (c *PlanAllCmd) Run(ctx context.Context, rt *app.Runtime) error {
 
 	if err := r.writePlanAlias(rows); err != nil {
 		return r.fail("%v", err)
+	}
+	if c.CheckDrift {
+		// The drift alias is this run's planned stages' reports combined.
+		if err := r.writeDriftReport(cfg.outPath(cfg.driftAliasName(), ""), combineDrift(driftReps)); err != nil {
+			return r.fail("%v", err)
+		}
 	}
 	if cfg.StripProviders {
 		r.logf("Stripping .terraform/providers under %s", cfg.root)
@@ -423,14 +430,27 @@ func (c *PlanStageCmd) Run(ctx context.Context, rt *app.Runtime) error {
 	if !isPlainLocal(planFile) {
 		return r.fail("--plan-file %q must be a file name inside the stage directory", planFile)
 	}
+	// The stage's reports from an earlier run are stale.
+	if err := removeAll(nil, r.stageReports(st)...); err != nil {
+		return r.fail("%v", err)
+	}
+	// Once the plan succeeded, fail removes the stage's reports and the
+	// aliases this run writes, so a failed run leaves no report or alias
+	// that looks like its result. A run that fails to plan leaves the
+	// aliases as they were.
+	var aliases []string
+	fail := func(err error) error {
+		return r.fail("%v", removeAll(err, append(r.stageReports(st), aliases...)...))
+	}
 	res, err := r.planOneStage(ctx, st, planFile, c.RefreshOnly, nil)
 	if err != nil {
 		return r.fail("%v", err)
 	}
 	if src := r.cfg.outPath(r.cfg.planJSONName(), st.Name); src != "" {
 		if alias := r.cfg.outPath(r.cfg.planAliasName(), ""); alias != "" {
+			aliases = append(aliases, alias)
 			if err := copyFile(src, alias); err != nil {
-				return r.fail("%v", err)
+				return fail(err)
 			}
 			r.logf("Canonical %s written", alias)
 		}
@@ -438,13 +458,18 @@ func (c *PlanStageCmd) Run(ctx context.Context, rt *app.Runtime) error {
 	if !c.CheckDrift {
 		return nil
 	}
+	// From here the drift alias is this run's to write: a failure removes
+	// it rather than leave an earlier run's.
+	if alias := r.cfg.outPath(r.cfg.driftAliasName(), st.Name); alias != "" {
+		aliases = append(aliases, alias)
+	}
 	rep, err := buildDriftReport(res.raw, c.IgnoreDrift)
 	if err != nil {
-		return r.fail("stage %s: %v", st.Name, err)
+		return fail(fmt.Errorf("stage %s: %w", st.Name, err))
 	}
 	printDriftSummary(rt.Stderr, rep)
 	if err := r.writeDrift(st, rep, true); err != nil {
-		return r.fail("%v", err)
+		return fail(err)
 	}
 	return runner.ExitSilently(driftExitCode(rep, c.IgnoreDrift, c.Strict))
 }
