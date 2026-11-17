@@ -83,7 +83,7 @@ files:
   stage_summary: ""                  # full plan-summary report per stage, off by default
   summary: plan-summary.json         # plan-all's totals
   drift: "drift-{stage}.json"        # drift report per stage
-  drift_alias: drift.json            # the latest drift report (see below)
+  drift_alias: drift.json            # the drift report a later apply reads (see below)
   outputs: "{stage}.json"            # terraform output -json per stage
   outputs_alias: outputs.json        # copy of the last outputs
 
@@ -137,13 +137,21 @@ For each stage, in config order (or in the order of `--stages`):
 
 A stage that fails (setup, init, plan, show, state list, or its reports) has
 the row `{"error": true}` and none of its reports: no plan JSON, stage
-summary or drift report.
+summary, and with `--check-drift` no drift report (without it, the stage's
+drift report is not this run's, and the failure leaves it alone).
 
 With `--check-drift`, after the stages, plan-all writes `files.drift_alias`:
-one report that combines this run's planned stages (counts summed,
-resources in stage order, `apply_skipped` when any stage's is), so a later
-apply step reads one drift report for the whole run. With no stage planned
-it is an empty report (`drift_detected: false`).
+one report that combines the `files.drift` reports of every configured
+stage that has one, in config order (counts summed, resources in stage
+order, `apply_skipped` when any stage's is), so a later apply step reads
+one drift report for the whole run. This run's stages' reports are fresh;
+with `--continue`, the reports of earlier steps' stages stay and count, so
+their drift is not lost. With none it is an empty report
+(`drift_detected: false`). When the run fails (a stage failed, a stage was
+not planned because `continue_on_error: false` stopped the run, a
+new-project apply failed, or `--continue` kept an `{"error": true}` row),
+plan-all writes no drift alias and removes an old one, so no alias reads
+as clean for a run that did not finish.
 
 Before the stages, plan-all deletes stale reports, only by the names the
 config gives (never by a wildcard): `files.plan_json` and
@@ -194,7 +202,8 @@ One stage of plan-all (steps 1 to 4, 6, without the new-project apply), plus
 `files.drift_alias` (the same document) and exits as `drift-check` does.
 
 It first deletes the stage's own stale reports (plan JSON, stage summary,
-drift report). When the plan itself fails, the aliases stay as they were.
+and with `--check-drift` its drift report; without it the drift report is
+neither written nor removed). When the plan itself fails, the aliases stay as they were.
 When a later step fails (show, counts, drift report), it deletes the
 stage's reports and the aliases this run would have written, so no alias
 points at a half-written run.

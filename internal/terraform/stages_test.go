@@ -758,8 +758,9 @@ func TestPlanAllFailedStageHasNoPlanJSON(t *testing.T) {
 					t.Errorf("%s written for a failed stage", n)
 				}
 			}
-			if rep := readJSONFile(t, filepath.Join(root, "outputs", "drift.json")).(map[string]any); cmd.CheckDrift && rep["drift_count"] != float64(0) {
-				t.Errorf("drift alias counts the failed stage: %v", rep)
+			// A failed stage leaves no clean-looking drift alias.
+			if fileExists(filepath.Join(root, "outputs", "drift.json")) {
+				t.Error("drift.json written by a run with a failed stage")
 			}
 		})
 	}
@@ -923,5 +924,115 @@ func TestPlanStageFailureLeavesNoReportOrAlias(t *testing.T) {
 	}
 	if !fileExists(filepath.Join(out, "tfplan.json")) || !fileExists(filepath.Join(out, "drift.json")) {
 		t.Error("removed an alias this run did not write")
+	}
+}
+
+// plan-all --check-drift writes no drift alias, and removes an old one, when
+// a stage failed or was never planned (continue_on_error: false stops).
+func TestPlanAllCheckDriftNoAliasAfterFailure(t *testing.T) {
+	for name, cfg := range map[string]string{
+		"failed stage":     twoStageConfig,
+		"unplanned stages": "continue_on_error: false\n" + twoStageConfig,
+	} {
+		t.Run(name, func(t *testing.T) {
+			root, f := stageProject(t, cfg)
+			out := filepath.Join(root, "outputs")
+			if err := os.MkdirAll(out, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(out, "drift.json"), []byte("{}"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			f.fail["a plan"] = true
+			rt, _, _ := stageRuntime(f)
+			if code := runner.ExitCode((&PlanAllCmd{CheckDrift: true}).Run(context.Background(), rt)); code != 1 {
+				t.Fatalf("exit %d, want 1", code)
+			}
+			if fileExists(filepath.Join(out, "drift.json")) {
+				t.Error("drift.json left after a failed stage")
+			}
+		})
+	}
+}
+
+// With --continue --check-drift the alias combines the drift reports of
+// every configured stage on disk, so an earlier step's drift stays in it.
+func TestPlanAllContinueDriftAliasKeepsEarlierSteps(t *testing.T) {
+	root, f := stageProject(t, twoStageConfig)
+	f.plans["a"] = planDrift
+	rt, _, _ := stageRuntime(f)
+	if err := (&PlanAllCmd{Stages: []string{"a"}, CheckDrift: true}).Run(context.Background(), rt); err != nil {
+		t.Fatal(err)
+	}
+	if err := (&PlanAllCmd{Stages: []string{"b"}, Continue: true, CheckDrift: true}).Run(context.Background(), rt); err != nil {
+		t.Fatal(err)
+	}
+	alias := readJSONFile(t, filepath.Join(root, "outputs", "drift.json")).(map[string]any)
+	if alias["drift_count"] != float64(1) || alias["apply_skipped"] != true || len(alias["resources"].([]any)) != 1 {
+		t.Errorf("drift.json %v, want stage a's drift", alias)
+	}
+}
+
+// plan-stage: when show fails after the plan, the aliases are removed.
+func TestPlanStageShowFailureRemovesAliases(t *testing.T) {
+	root, f := stageProject(t, twoStageConfig)
+	out := filepath.Join(root, "outputs")
+	if err := os.MkdirAll(out, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range []string{"tfplan.json", "drift.json"} {
+		if err := os.WriteFile(filepath.Join(out, n), []byte("{}"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	f.fail["a show"] = true
+	rt, _, _ := stageRuntime(f)
+	if code := runner.ExitCode((&PlanStageCmd{Stage: "a", CheckDrift: true}).Run(context.Background(), rt)); code != 1 {
+		t.Fatalf("exit %d, want 1", code)
+	}
+	for _, n := range []string{"tfplan.json", "drift.json"} {
+		if fileExists(filepath.Join(out, n)) {
+			t.Errorf("%s left after show failed", n)
+		}
+	}
+}
+
+// Without --check-drift, plan-stage neither writes nor removes the stage's
+// drift report, on success or failure.
+func TestPlanStageKeepsDriftReportWithoutCheckDrift(t *testing.T) {
+	for _, failShow := range []bool{false, true} {
+		root, f := stageProject(t, twoStageConfig)
+		out := filepath.Join(root, "outputs")
+		if err := os.MkdirAll(out, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(out, "drift-a.json"), []byte("{}"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		f.fail["a show"] = failShow
+		rt, _, _ := stageRuntime(f)
+		_ = (&PlanStageCmd{Stage: "a"}).Run(context.Background(), rt)
+		if !fileExists(filepath.Join(out, "drift-a.json")) {
+			t.Errorf("show fails %v: drift-a.json removed without --check-drift", failShow)
+		}
+	}
+}
+
+func TestRemoveAllTriesEveryPath(t *testing.T) {
+	dir := t.TempDir()
+	// A non-empty directory cannot be removed with os.Remove.
+	bad := filepath.Join(dir, "bad")
+	if err := os.MkdirAll(filepath.Join(bad, "x"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	later := filepath.Join(dir, "later.json")
+	if err := os.WriteFile(later, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := removeAll(nil, bad, later); err == nil {
+		t.Error("no error for the path that could not be removed")
+	}
+	if fileExists(later) {
+		t.Error("stopped at the first error: later path kept")
 	}
 }

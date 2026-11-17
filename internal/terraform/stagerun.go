@@ -3,6 +3,7 @@ package terraform
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -238,28 +239,12 @@ func (r *stageRun) driftDoc(rep *DriftReport) (orderedObject, error) {
 	return doc, nil
 }
 
-// writeDriftReport writes the drift report to path (none when "").
-func (r *stageRun) writeDriftReport(path string, rep *DriftReport) error {
-	if path == "" {
-		return nil
-	}
+// writeDrift builds the drift document once and writes it to each path
+// ("" is skipped).
+func (r *stageRun) writeDrift(rep *DriftReport, paths ...string) error {
 	doc, err := r.driftDoc(rep)
 	if err != nil {
 		return err
-	}
-	return writeReportJSON(path, doc)
-}
-
-// writeDrift builds the drift document once and writes it to the stage's
-// drift report (when perStage) and to the alias.
-func (r *stageRun) writeDrift(st *StageEntry, rep *DriftReport, perStage bool) error {
-	doc, err := r.driftDoc(rep)
-	if err != nil {
-		return err
-	}
-	paths := []string{r.cfg.outPath(r.cfg.driftAliasName(), st.Name)}
-	if perStage {
-		paths = append([]string{r.cfg.outPath(r.cfg.driftName(), st.Name)}, paths...)
 	}
 	for _, p := range paths {
 		if err := writeReportJSON(p, doc); err != nil {
@@ -285,22 +270,29 @@ func combineDrift(reps []*DriftReport) *DriftReport {
 	return out
 }
 
-// stageReports are the per-stage reports of a stage: what a failed stage
-// must not leave behind.
-func (r *stageRun) stageReports(st *StageEntry) []string {
-	c := r.cfg
-	return []string{
-		c.outPath(c.planJSONName(), st.Name),
-		c.outPath(c.stageSummaryName(), st.Name),
-		c.outPath(c.driftName(), st.Name),
+// readDriftReport reads a drift report a run wrote, keeping number
+// literals as they are. The config's stamps are dropped (they are written
+// again).
+func readDriftReport(path string) (*DriftReport, error) {
+	b, err := os.ReadFile(path) //nolint:gosec // G304: a drift report the config names
+	if err != nil {
+		return nil, err
 	}
+	dec := json.NewDecoder(bytes.NewReader(b))
+	dec.UseNumber()
+	var rep DriftReport
+	if err := dec.Decode(&rep); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	return &rep, nil
 }
 
-// removeAll removes each path; the first error is returned joined to err.
+// removeAll removes every path, going on after a failure; the failures are
+// joined to err.
 func removeAll(err error, paths ...string) error {
 	for _, p := range paths {
 		if rmErr := removeFile(p); rmErr != nil {
-			return errors.Join(err, rmErr)
+			err = errors.Join(err, rmErr)
 		}
 	}
 	return err

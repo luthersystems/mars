@@ -81,7 +81,7 @@ func (c *ApplyStageCmd) Run(ctx context.Context, rt *app.Runtime) error {
 				return err
 			}
 			printDriftSummary(rt.Stderr, rep)
-			if err := r.writeDrift(st, rep, true); err != nil {
+			if err := r.writeDrift(rep, cfg.outPath(cfg.driftName(), st.Name), cfg.outPath(cfg.driftAliasName(), st.Name)); err != nil {
 				return err
 			}
 			if rep.ApplySkipped {
@@ -118,7 +118,7 @@ func (c *ApplyStageCmd) Run(ctx context.Context, rt *app.Runtime) error {
 	}
 	// No drift check: an empty report, for readers that always want one.
 	if alias := cfg.outPath(cfg.driftAliasName(), st.Name); alias != "" && !fileExists(alias) {
-		if err := r.writeDrift(st, &DriftReport{Resources: []map[string]any{}}, false); err != nil {
+		if err := r.writeDrift(&DriftReport{Resources: []map[string]any{}}, cfg.outPath(cfg.driftAliasName(), st.Name)); err != nil {
 			return r.fail("%v", err)
 		}
 	}

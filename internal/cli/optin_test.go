@@ -95,7 +95,10 @@ func TestOldCommandsMatchMain(t *testing.T) {
 		var got bytes.Buffer
 		for _, c := range optinCases() {
 			fmt.Fprintf(&got, "=== %s\n", c.name)
-			got.WriteString(runOptinCase(t, c, cfg.body))
+			// A subtest each, so t.Chdir's directory ends with the case.
+			t.Run(cfg.name+"/"+c.name, func(t *testing.T) {
+				got.WriteString(runOptinCase(t, c, cfg.body))
+			})
 		}
 		if *updateOptin {
 			if cfg.body != "" {
@@ -122,18 +125,7 @@ var optinVolatile = regexp.MustCompile(`(tf-plan(-guard)?-dev)-[0-9]+-[A-Za-z0-9
 func runOptinCase(t *testing.T, c optinCase, config string) string {
 	t.Helper()
 	dir := t.TempDir()
-	old, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chdir(dir); err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if err := os.Chdir(old); err != nil {
-			t.Fatal(err)
-		}
-	}()
+	t.Chdir(dir)
 	files := map[string]string{
 		".terraform-version":        "1.7.3\n",
 		"vars/common/common.tfvars": "",
@@ -232,4 +224,3 @@ func TestStageCommandsNeedConfig(t *testing.T) {
 		})
 	}
 }
-

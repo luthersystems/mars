@@ -444,3 +444,17 @@ func (o orderedObject) MarshalJSON() ([]byte, error) {
 // marshalNoEscape is compact JSON without HTML escaping, as reports are
 // written.
 func marshalNoEscape(v any) ([]byte, error) { return encodeJSON(v, false) }
+
+// stageReports are a stage's per-stage reports: what a failed stage must
+// not leave behind. The drift report only when drift is true (the run
+// writes one).
+func (c *StagesConfig) stageReports(st *StageEntry, drift bool) []string {
+	paths := []string{
+		c.outPath(c.planJSONName(), st.Name),
+		c.outPath(c.stageSummaryName(), st.Name),
+	}
+	if drift {
+		paths = append(paths, c.outPath(c.driftName(), st.Name))
+	}
+	return paths
+}
