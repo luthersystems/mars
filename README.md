@@ -88,6 +88,13 @@ them in `mars-stages.yaml` at its root; [docs/stages.md](docs/stages.md)
 has the format. The commands run in the project root (`--config <file>`
 names another config).
 
+They are opt-in: nothing changes unless you call `plan-all`, `plan-stage`
+or `apply-stage` with a `mars-stages.yaml`. No other command reads the file
+(`drift-check` and `plan-summary` read no config either), and `init`,
+`plan`, `apply`, `destroy`, `terraform` and the rest behave as before
+whether or not it exists. Without a config the three stage commands fail
+(exit 1) and name the file.
+
 - `mars <env> plan-all [--stages a,b] [--continue] [--check-drift]` plans
   each stage to a saved plan, writes its `terraform show -json`, counts its
   changes, applies a stage marked `apply_if_no_state` when its state is

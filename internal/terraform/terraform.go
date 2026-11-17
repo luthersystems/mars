@@ -104,8 +104,10 @@ type service struct {
 	skipPrompt bool
 	runner     runner.Runner
 	stdin      io.Reader
-	// in reads stdin for prompts. There is one per service, so a prompt
-	// does not lose input that an earlier prompt's reader buffered.
+	// in, when set, is the one reader of stdin for every prompt, so a
+	// prompt does not lose input that an earlier prompt's reader buffered.
+	// Only the stage commands set it (shareInput); the other commands read
+	// each prompt with a new reader, as they always have.
 	in     *bufio.Reader
 	stdout io.Writer
 	stderr io.Writer
@@ -595,12 +597,21 @@ func (s *service) confirmApply(planPath string) bool {
 	return true
 }
 
-// input is the service's one reader of stdin.
+// input is the reader of stdin for one prompt: the shared one after
+// shareInput, otherwise a new one.
 func (s *service) input() *bufio.Reader {
+	if s.in != nil {
+		return s.in
+	}
+	return bufio.NewReader(s.stdin)
+}
+
+// shareInput makes every later prompt read stdin through one reader. The
+// stage commands prompt once per stage and call it.
+func (s *service) shareInput() {
 	if s.in == nil {
 		s.in = bufio.NewReader(s.stdin)
 	}
-	return s.in
 }
 
 func (s *service) varFileArgs() []string {

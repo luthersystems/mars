@@ -23,6 +23,21 @@ credential setup (`setupCloudEnv`, which wraps the mars call), and the
 per-stage file staging and backend generation (`tfSetup`, `bootstrap.sh`),
 which a stage `setup` hook can run.
 
+## Opt-in
+
+Nothing changes unless you call `plan-all`, `plan-stage` or `apply-stage`
+with a `mars-stages.yaml`. Only these three commands read the config;
+`drift-check` and `plan-summary` read none, and every other command
+(`init`, `plan`, `apply`, `destroy`, `terraform`, `ansible-*`, `packer`,
+`alb` and the rest) behaves as before whether or not the file exists. The
+stage commands read each prompt's answer through one stdin reader, so
+answers piped for several stages all arrive; the other commands keep their
+own reader per prompt. `TestOldCommandsMatchMain` (`internal/cli`) holds
+the older commands' command lines, environment, output and exit codes to a
+golden recorded from main before the stage commands, with no config, a
+valid one and an invalid one. Without a config the stage commands fail
+(exit 1) and name the file.
+
 ## The config file
 
 `mars-stages.yaml` at the project root (`--config <file>` names another).

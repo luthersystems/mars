@@ -27,7 +27,9 @@ func newStageRun(rt *app.Runtime, name, configPath string) (*stageRun, error) {
 	if err != nil {
 		return nil, cmdError(rt.Stderr, name, "%v", err)
 	}
-	return &stageRun{cfg: cfg, s: newService(rt), rt: rt, name: name}, nil
+	s := newService(rt)
+	s.shareInput()
+	return &stageRun{cfg: cfg, s: s, rt: rt, name: name}, nil
 }
 
 // fail prints "mars <cmd>: <msg>" and returns exit code 1.
