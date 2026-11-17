@@ -1,0 +1,16 @@
+{
+  "resource_drift": [
+    {
+      "address": "module.gcp_firestore.google_firestore_database.database",
+      "type": "google_firestore_database",
+      "change": {
+        "before": {"etag": "IOOtxuGkl5QDMN34r+Gkl5QD"},
+        "after":  {"etag": "IK2w2PHFl5QDMIHQkeKkl5QD"}
+      }
+    }
+  ],
+  "resource_changes": [
+    {"address": "module.gcp_firestore.google_firestore_database.database", "change": {"actions": ["no-op"]}},
+    {"address": "module.gcp_new_component.google_storage_bucket.bucket",   "change": {"actions": ["create"]}}
+  ]
+}

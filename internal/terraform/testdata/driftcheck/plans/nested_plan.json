@@ -1,0 +1,10 @@
+{"resource_drift": [
+  {
+    "address": "aws_lb.example",
+    "type": "aws_lb",
+    "change": {
+      "before": {"access_logs": [{"bucket": "", "enabled": false, "prefix": null}], "subnet_mapping": [{"outpost_arn": null}], "tags": {}},
+      "after":  {"access_logs": [{"bucket": "", "enabled": false, "prefix": ""}],  "subnet_mapping": [{"outpost_arn": ""}],  "tags": null}
+    }
+  }
+]}

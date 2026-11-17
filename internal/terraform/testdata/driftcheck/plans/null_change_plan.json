@@ -1,0 +1,1 @@
+{"resource_drift":[{"address":"a.b","change":null},{"address":"a.c"},{"address":"a.d","change":{"before":null,"after":{"x":1}}},{"address":"a.d","change":{"before":{"x":1},"after":{}}}],"resource_changes":[{"address":"a.d","change":{"actions":["delete","create"]}},{"address":"a.d","change":{"actions":false}},{"address":"a.c","change":{"actions":["read"]}}]}

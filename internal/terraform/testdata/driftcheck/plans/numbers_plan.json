@@ -1,0 +1,1 @@
+{"resource_drift":[{"address":"a.num","type":"t","change":{"before":{"n":1e2,"f":1.0,"big":100000000000000000001,"z":-0,"tiny":0.0000001,"keep":1.000},"after":{"n":100,"f":1,"big":100000000000000000000,"z":0,"tiny":1e-7,"keep":2}}}],"resource_changes":[{"address":"a.num","change":{"actions":["update"]}}]}

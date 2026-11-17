@@ -1,0 +1,1 @@
+{"resource_drift":{"one":{"address":"a.obj","change":{"before":{"x":1},"after":{"x":2}}}},"resource_changes":{"r":{"address":"a.obj","change":{"actions":["update"]}}}}

@@ -1,0 +1,1 @@
+{"resource_drift":[{"address":"a.é <&>","change":{"before":{"s":"tab\there \"q\" \\ \u0001\u007f/ 😀","dup":1,"dup":2},"after":{"s":"x","dup":3}}}]}

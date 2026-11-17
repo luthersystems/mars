@@ -30,6 +30,7 @@ type CLI struct {
 	MigrationFromPlan terraform.MigrationFromPlanCmd `cmd:"" name:"migration_fromplan" help:"Generate tfedit migration file from a Terraform plan."`
 	MigratePlan       terraform.MigratePlanCmd       `cmd:"" name:"migrate_plan" help:"Run tfmigrate plan."`
 	MigrateApply      terraform.MigrateApplyCmd      `cmd:"" name:"migrate_apply" help:"Run tfmigrate apply."`
+	DriftCheck        terraform.DriftCheckCmd        `cmd:"" name:"drift-check" help:"Check a saved plan for resource drift and write drift.json."`
 
 	AnsiblePlaybook     ansible.PlaybookCmd        `cmd:"ansible-playbook" help:"Run ansible-playbook with Mars defaults."`
 	AnsibleExecute      ansible.ExecuteCmd         `cmd:"ansible-execute" help:"Run ansible with Mars defaults."`
@@ -93,7 +94,9 @@ func Main(ctx context.Context, args []string, stdin io.Reader, stdout io.Writer,
 		Stderr:     stderr,
 	}
 	if err := parsed.Run(ctx, rt); err != nil {
-		fmt.Fprintln(stderr, err)
+		if !runner.IsSilent(err) {
+			fmt.Fprintln(stderr, err)
+		}
 		return runner.ExitCode(err)
 	}
 	return 0

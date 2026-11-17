@@ -1,0 +1,16 @@
+{
+  "resource_drift": [
+    {
+      "address": "module.gcp_firestore.google_firestore_database.database",
+      "type": "google_firestore_database",
+      "name": "database",
+      "change": {
+        "before": {"etag": "old-etag"},
+        "after":  {"etag": "new-etag"}
+      }
+    }
+  ],
+  "resource_changes": [
+    {"address": "module.gcp_firestore.google_firestore_database.database", "change": {"actions": ["no-op"]}}
+  ]
+}

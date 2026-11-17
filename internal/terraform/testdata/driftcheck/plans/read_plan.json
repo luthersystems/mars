@@ -1,0 +1,15 @@
+{
+  "resource_drift": [
+    {
+      "address": "aws_s3_bucket.example",
+      "type": "aws_s3_bucket",
+      "change": {
+        "before": {"tags": {"env": "prod"}},
+        "after":  {"tags": {"env": "staging"}}
+      }
+    }
+  ],
+  "resource_changes": [
+    {"address": "data.aws_caller_identity.current", "change": {"actions": ["read"]}}
+  ]
+}

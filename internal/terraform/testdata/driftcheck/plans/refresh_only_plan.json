@@ -1,0 +1,12 @@
+{
+  "resource_drift": [
+    {
+      "address": "aws_s3_bucket.example",
+      "type": "aws_s3_bucket",
+      "change": {
+        "before": {"versioning": [{"enabled": true}]},
+        "after":  {"versioning": [{"enabled": false}]}
+      }
+    }
+  ]
+}

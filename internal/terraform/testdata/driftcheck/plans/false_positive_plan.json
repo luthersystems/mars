@@ -1,0 +1,10 @@
+{"resource_drift": [
+  {
+    "address": "aws_s3_bucket.example",
+    "type": "aws_s3_bucket",
+    "change": {
+      "before": {"cors_rule": null, "grant": null, "lifecycle_rule": null, "logging": null, "replication_configuration": null, "server_side_encryption_configuration": [], "versioning": [{"enabled": false, "mfa_delete": false}], "website": null, "policy": null},
+      "after":  {"cors_rule": [],   "grant": [],   "lifecycle_rule": [],   "logging": {},   "replication_configuration": "",  "server_side_encryption_configuration": [], "versioning": [{"enabled": false, "mfa_delete": false}], "website": [],   "policy": ""}
+    }
+  }
+]}
