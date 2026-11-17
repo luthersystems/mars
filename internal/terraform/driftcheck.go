@@ -7,6 +7,7 @@ import (
 	"io"
 	"sort"
 
+	tfjson "github.com/hashicorp/terraform-json"
 	"github.com/luthersystems/mars/internal/app"
 	"github.com/luthersystems/mars/internal/runner"
 )
@@ -100,8 +101,15 @@ func driftExitCode(r *DriftReport, ignoreDrift, strict bool) int {
 // driftEntry is a resource_drift entry: the raw object for the report and
 // the fields the check reads.
 type driftEntry struct {
-	obj     map[string]any
+	obj map[string]any
+	key objectKey
+}
+
+// objectKey names one resource object: its address, and its deposed key for
+// a deposed object ("" for the current one).
+type objectKey struct {
 	address string
+	deposed string
 }
 
 func buildDriftReport(raw []byte, ignoreDrift bool) (*DriftReport, error) {
@@ -124,32 +132,32 @@ func buildDriftReport(raw []byte, ignoreDrift bool) (*DriftReport, error) {
 		}
 	}
 
-	actionableAddrs := map[string]bool{}
-	actionsByAddr := map[string][]string{}
+	// Changes are keyed by (address, deposed), so a deposed object's change
+	// (a create_before_destroy leftover, usually ["delete"]) neither makes
+	// the current object's drift actionable nor replaces its action.
+	actionable := map[objectKey]bool{}
+	actionsByObj := map[objectKey]tfjson.Actions{}
 	for _, rc := range plan.ResourceChanges {
-		acts := rc.actions()
-		if !isNoOpOrRead(acts) {
-			actionableAddrs[rc.Address] = true
+		k := objectKey{rc.Address, rc.DeposedKey}
+		acts := changeActions(rc)
+		if !noOpOrRead(acts) {
+			actionable[k] = true
 		}
-		// A later change of the same address wins, as in the script.
-		actionsByAddr[rc.Address] = acts
+		// A later change of the same object wins, as in the script.
+		actionsByObj[k] = acts
 	}
 
 	report := &DriftReport{Resources: []map[string]any{}}
 	for _, e := range drift {
-		if actionableAddrs[e.address] {
+		// Drift of a deposed object is reported but never actionable:
+		// Terraform only ever deletes a deposed object.
+		if e.key.deposed == "" && actionable[e.key] {
 			report.ActionableCount++
 		}
-		obj := make(map[string]any, len(e.obj)+1)
-		for k, v := range e.obj {
-			obj[k] = v
-		}
-		if acts, ok := actionsByAddr[e.address]; ok && acts != nil {
-			obj["action"] = acts
-		} else {
-			obj["action"] = nil
-		}
-		report.Resources = append(report.Resources, obj)
+		// e.obj is this entry's own decoded copy. A missing change or
+		// actions is a nil Actions, which encodes as null.
+		e.obj["action"] = actionsByObj[e.key]
+		report.Resources = append(report.Resources, e.obj)
 	}
 	report.DriftCount = len(drift)
 	report.DriftDetected = report.DriftCount > 0
@@ -175,7 +183,8 @@ func readDriftEntry(raw json.RawMessage) (driftEntry, bool, error) {
 	if !ok {
 		return driftEntry{}, false, fmt.Errorf("address is not a string")
 	}
-	e := driftEntry{obj: obj, address: addr}
+	deposed, _ := obj["deposed"].(string)
+	e := driftEntry{obj: obj, key: objectKey{addr, deposed}}
 	change, present := obj["change"]
 	if !present || change == nil {
 		return e, true, nil
@@ -206,10 +215,6 @@ func sideObject(ch map[string]any, side string) (map[string]any, error) {
 		return nil, fmt.Errorf("change.%s is not an object", side)
 	}
 	return m, nil
-}
-
-func isNoOpOrRead(actions []string) bool {
-	return len(actions) == 1 && (actions[0] == "no-op" || actions[0] == "read")
 }
 
 // normalizeEmpty maps null, [], {}, false, 0 and "" to null, recursively,

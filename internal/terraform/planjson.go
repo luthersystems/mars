@@ -8,8 +8,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"slices"
 	"strconv"
 
+	tfjson "github.com/hashicorp/terraform-json"
 	"github.com/luthersystems/mars/internal/app"
 	"github.com/luthersystems/mars/internal/runner"
 )
@@ -31,22 +34,26 @@ func cmdError(stderr io.Writer, cmd, format string, args ...any) error {
 // loadPlanJSON returns the JSON form of a plan. path is either a saved plan
 // file (binary, read with `terraform show -json`) or a plan already rendered
 // as JSON (a file whose first non-space byte is '{'), such as the
-// tfplan-<stage>.json files the template keeps.
+// tfplan-<stage>.json files the template keeps. The file is read once.
 func loadPlanJSON(ctx context.Context, rt *app.Runtime, cmd, path string) ([]byte, error) {
 	st, err := os.Stat(path)
 	if err != nil || !st.Mode().IsRegular() {
 		return nil, cmdError(rt.Stderr, cmd, "plan file not found: %s", path)
 	}
-	if isJSONFile(path) {
-		b, err := os.ReadFile(path) //nolint:gosec // G304: the plan file the caller named
-		if err != nil {
-			return nil, cmdError(rt.Stderr, cmd, "%v", err)
-		}
+	b, err := os.ReadFile(path) //nolint:gosec // G304: the plan file the caller named
+	if err != nil {
+		return nil, cmdError(rt.Stderr, cmd, "%v", err)
+	}
+	// A saved plan is a zip archive, which starts with "PK".
+	if trimmed := bytes.TrimLeft(b, " \t\r\n"); len(trimmed) > 0 && trimmed[0] == '{' {
 		return b, nil
 	}
-	// A plan file needs no workspace selection, so this runs bare terraform
-	// rather than going through the workspace sequence. terraform's own
-	// stderr passes through.
+	// Install the project's pinned terraform first, as migration_fromplan
+	// does: terraform show reads only plans of its own version. A plan file
+	// needs no workspace selection. terraform's own stderr passes through.
+	if err := newService(rt).tfenvInit(ctx); err != nil {
+		return nil, err
+	}
 	out, err := rt.Runner.Capture(ctx, runner.Command{
 		Argv:   []string{"terraform", "show", "-json", path},
 		Stderr: rt.Stderr,
@@ -62,56 +69,36 @@ func loadPlanJSON(ctx context.Context, rt *app.Runtime, cmd, path string) ([]byt
 	return out, nil
 }
 
-// isJSONFile reports whether the file starts, after white space, with '{'.
-// A saved plan is a zip archive, which starts with "PK".
-func isJSONFile(path string) bool {
-	f, err := os.Open(path) //nolint:gosec // G304: the plan file the caller named
-	if err != nil {
-		return false
-	}
-	defer f.Close() //nolint:errcheck // read-only
-	buf := make([]byte, 512)
-	n, _ := io.ReadFull(f, buf)
-	trimmed := bytes.TrimLeft(buf[:n], " \t\r\n")
-	return len(trimmed) > 0 && trimmed[0] == '{'
-}
-
-// planDoc is the part of `terraform show -json` both commands read.
+// planDoc is the part of `terraform show -json` both commands read. It is
+// not tfjson.Plan, whose decoder insists on a format_version.
 type planDoc struct {
 	// resource_drift is kept raw: only drift-check reads it (driftEntries),
 	// and passes its entries through to the report unchanged.
-	ResourceDrift   json.RawMessage  `json:"resource_drift"`
-	ResourceChanges []resourceChange `json:"resource_changes"`
+	ResourceDrift   json.RawMessage          `json:"resource_drift"`
+	ResourceChanges []*tfjson.ResourceChange `json:"resource_changes"`
 }
 
-type resourceChange struct {
-	Address string        `json:"address"`
-	Change  *changeFields `json:"change"`
-}
-
-type changeFields struct {
-	// Actions is nil when the plan has no actions (null or absent), and
-	// empty for [].
-	Actions []string `json:"actions"`
-	// Importing is set (Terraform 1.5+) when the change imports the
-	// resource; its action is then no-op or an update.
-	Importing json.RawMessage `json:"importing"`
-}
-
-func (rc resourceChange) actions() []string {
-	if rc.Change == nil {
+// changeActions is rc.change.actions: nil when the change or its actions
+// are missing or null, empty for [].
+func changeActions(rc *tfjson.ResourceChange) tfjson.Actions {
+	if rc == nil || rc.Change == nil {
 		return nil
 	}
 	return rc.Change.Actions
 }
 
-func (rc resourceChange) importing() bool {
-	if rc.Change == nil {
-		return false
+// importing reports whether the change imports the resource:
+// change.importing (Terraform 1.5+), or an "import" action, which the
+// template's fixtures use.
+func importing(rc *tfjson.ResourceChange) bool {
+	if rc != nil && rc.Change != nil && rc.Change.Importing != nil {
+		return true
 	}
-	imp := bytes.TrimSpace(rc.Change.Importing)
-	return len(imp) > 0 && !bytes.Equal(imp, []byte("null"))
+	return slices.Contains(changeActions(rc), tfjson.Action("import"))
 }
+
+// noOpOrRead is a change Terraform will not act on.
+func noOpOrRead(a tfjson.Actions) bool { return a.NoOp() || a.Read() }
 
 // parsePlan decodes the plan. An empty document is an error: terraform show
 // -json always prints an object, so empty output means something failed.
@@ -165,6 +152,9 @@ func writeReport(rt *app.Runtime, cmd, path string, v any) error {
 	if path == "" {
 		_, err := rt.Stdout.Write(buf.Bytes())
 		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil { //nolint:gosec // G301: as the script's mkdir -p of the outputs directory
+		return cmdError(rt.Stderr, cmd, "%v", err)
 	}
 	if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil { //nolint:gosec // G306: a report other steps read
 		return cmdError(rt.Stderr, cmd, "%v", err)

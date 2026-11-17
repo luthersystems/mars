@@ -235,6 +235,7 @@ var planSummaryDivergences = map[string]struct {
 	"null_change_plan.json":       {0, "actions null: jq's contains failed; mars counts nothing for it"},
 	"action_missing_plan.json":    {0, "no actions: as null_change_plan.json"},
 	"no_actions_plan.json":        {0, "no actions: as null_change_plan.json"},
+	"forget_only_plan.json":       {0, "forget only: the script did not know forget (has_changes false); mars counts it (true)"},
 }
 
 var planSummaryFields = []string{"add", "change", "destroy", "import", "has_changes"}

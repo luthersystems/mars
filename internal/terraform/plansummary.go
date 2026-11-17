@@ -4,6 +4,7 @@ import (
 	"context"
 	"slices"
 
+	tfjson "github.com/hashicorp/terraform-json"
 	"github.com/luthersystems/mars/internal/app"
 )
 
@@ -21,9 +22,14 @@ import (
 // changes that import a resource: change.importing set (Terraform 1.5+), or
 // an "import" action, which the template's fixtures use.
 //
+// forget counts resources Terraform drops from state without destroying
+// them (a removed block with lifecycle { destroy = false }, Terraform 1.7+).
+// A forget-only plan has changes: it changes the state. The template's
+// counts did not know the action.
+//
 // addresses lists each changed resource once by kind: create, update,
 // delete or replace. addresses.import lists the imported ones (an import may
-// also be an update).
+// also be an update), and addresses.forget the forgotten ones.
 //
 // Exit codes: 0 summary written, 1 error (no plan file, terraform show
 // failed, or a plan that is not terraform's JSON).
@@ -39,6 +45,7 @@ type PlanSummary struct {
 	Destroy    int           `json:"destroy"`
 	Replace    int           `json:"replace"`
 	Import     int           `json:"import"`
+	Forget     int           `json:"forget"`
 	HasChanges bool          `json:"has_changes"`
 	Addresses  PlanAddresses `json:"addresses"`
 }
@@ -51,6 +58,7 @@ type PlanAddresses struct {
 	Delete  []string `json:"delete"`
 	Replace []string `json:"replace"`
 	Import  []string `json:"import"`
+	Forget  []string `json:"forget"`
 }
 
 const planSummaryName = "plan-summary"
@@ -69,20 +77,28 @@ func (c *PlanSummaryCmd) Run(ctx context.Context, rt *app.Runtime) error {
 
 func summarizePlan(plan *planDoc) *PlanSummary {
 	s := &PlanSummary{Addresses: PlanAddresses{
-		Create: []string{}, Update: []string{}, Delete: []string{}, Replace: []string{}, Import: []string{},
+		Create: []string{}, Update: []string{}, Delete: []string{}, Replace: []string{},
+		Import: []string{}, Forget: []string{},
 	}}
 	for _, rc := range plan.ResourceChanges {
-		acts := rc.actions()
-		if rc.importing() || slices.Contains(acts, "import") {
+		acts := changeActions(rc)
+		if importing(rc) {
 			s.Import++
 			s.Addresses.Import = append(s.Addresses.Import, rc.Address)
 		}
-		if isNoOpOrRead(acts) {
+		if acts.Forget() {
+			s.Forget++
+			s.Addresses.Forget = append(s.Addresses.Forget, rc.Address)
 			continue
 		}
-		create := slices.Contains(acts, "create")
-		update := slices.Contains(acts, "update")
-		del := slices.Contains(acts, "delete")
+		if noOpOrRead(acts) {
+			continue
+		}
+		// Containment, not tfjson's exact predicates, as the template's
+		// counts: its fixtures have ["import", "update"], an update.
+		create := slices.Contains(acts, tfjson.ActionCreate)
+		update := slices.Contains(acts, tfjson.ActionUpdate)
+		del := slices.Contains(acts, tfjson.ActionDelete)
 		if create {
 			s.Add++
 		}
@@ -93,7 +109,7 @@ func summarizePlan(plan *planDoc) *PlanSummary {
 			s.Destroy++
 		}
 		switch {
-		case create && del:
+		case acts.Replace():
 			s.Replace++
 			s.Addresses.Replace = append(s.Addresses.Replace, rc.Address)
 		case create:
@@ -104,6 +120,6 @@ func summarizePlan(plan *planDoc) *PlanSummary {
 			s.Addresses.Delete = append(s.Addresses.Delete, rc.Address)
 		}
 	}
-	s.HasChanges = s.Add+s.Change+s.Destroy+s.Import > 0
+	s.HasChanges = s.Add+s.Change+s.Destroy+s.Import+s.Forget > 0
 	return s
 }

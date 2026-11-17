@@ -32,13 +32,14 @@ func TestSummarizePlan(t *testing.T) {
 	}
 	got := summarizePlan(plan)
 	want := &PlanSummary{
-		Add: 3, Change: 2, Destroy: 3, Replace: 2, Import: 3, HasChanges: true,
+		Add: 3, Change: 2, Destroy: 3, Replace: 2, Import: 3, Forget: 1, HasChanges: true,
 		Addresses: PlanAddresses{
 			Create:  []string{"a.create"},
 			Update:  []string{"a.update", "a.adopted_upd"},
 			Delete:  []string{"a.delete"},
 			Replace: []string{"a.cbd", "a.dbc"},
 			Import:  []string{"a.adopted", "a.adopted_upd", "a.legacy_import"},
+			Forget:  []string{"a.forget"},
 		},
 	}
 	if !reflect.DeepEqual(got, want) {
@@ -52,13 +53,15 @@ const emptySummary = `{
   "destroy": 0,
   "replace": 0,
   "import": 0,
+  "forget": 0,
   "has_changes": false,
   "addresses": {
     "create": [],
     "update": [],
     "delete": [],
     "replace": [],
-    "import": []
+    "import": [],
+    "forget": []
   }
 }
 `
@@ -118,5 +121,55 @@ func TestPlanSummaryOut(t *testing.T) {
 	b, err := os.ReadFile("s.json")
 	if err != nil || string(b) != emptySummary || stdout.String() != "" {
 		t.Errorf("out %q (%v), stdout %q", b, err, stdout.String())
+	}
+}
+
+func TestSummarizePlanForget(t *testing.T) {
+	plan, err := parsePlan([]byte(`{"resource_changes": [
+  {"address": "a.adopted", "change": {"actions": ["forget"]}},
+  {"address": "a.same", "change": {"actions": ["no-op"]}}
+]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := summarizePlan(plan)
+	if got.Forget != 1 || !got.HasChanges || !reflect.DeepEqual(got.Addresses.Forget, []string{"a.adopted"}) {
+		t.Errorf("forget-only plan: %+v", got)
+	}
+	if got.Add+got.Change+got.Destroy+got.Replace+got.Import != 0 {
+		t.Errorf("forget counted as a resource change: %+v", got)
+	}
+}
+
+func TestPlanSummaryOutMakesParentDir(t *testing.T) {
+	t.Chdir(t.TempDir())
+	if err := os.WriteFile("p.json", []byte(`{}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rt := &app.Runtime{Runner: &runner.Fake{}, Stdout: &strings.Builder{}, Stderr: &strings.Builder{}}
+	if err := (&PlanSummaryCmd{PlanFile: "p.json", Out: "a/b/s.json"}).Run(context.Background(), rt); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat("a/b/s.json"); err != nil {
+		t.Errorf("--out in a new directory: %v", err)
+	}
+}
+
+func TestLoadPlanJSONRunsTfenvFirst(t *testing.T) {
+	t.Chdir(t.TempDir())
+	if err := os.WriteFile(".terraform-version", []byte("1.7.5\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("p", []byte("PK\x03\x04"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	fake := &runner.Fake{CaptureOut: [][]byte{[]byte(`{}`)}}
+	rt := &app.Runtime{Runner: fake, Stdout: &strings.Builder{}, Stderr: &strings.Builder{}}
+	if err := (&PlanSummaryCmd{PlanFile: "p"}).Run(context.Background(), rt); err != nil {
+		t.Fatal(err)
+	}
+	want := [][]string{{"flock", tfenvInstallLockPath, "tfenv", "install"}, {"terraform", "show", "-json", "p"}}
+	if got := fake.Commands(); !reflect.DeepEqual(got, want) {
+		t.Errorf("commands %v, want %v", got, want)
 	}
 }

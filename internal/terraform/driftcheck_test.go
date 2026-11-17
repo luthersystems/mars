@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	tfjson "github.com/hashicorp/terraform-json"
 	"github.com/luthersystems/mars/internal/app"
 	"github.com/luthersystems/mars/internal/runner"
 )
@@ -247,10 +248,10 @@ func TestDriftCheckActionEnrichment(t *testing.T) {
 		got[res["address"].(string)] = res["action"]
 	}
 	want := map[string]any{
-		"a.none":      nil,
-		"a.read":      []string{"read"},
-		"a.dup":       []string{"update"},
-		"a.noactions": nil,
+		"a.none":      tfjson.Actions(nil),
+		"a.read":      tfjson.Actions{tfjson.ActionRead},
+		"a.dup":       tfjson.Actions{tfjson.ActionUpdate},
+		"a.noactions": tfjson.Actions(nil),
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("actions %v, want %v", got, want)
@@ -279,5 +280,48 @@ func TestJSONEqualNumbers(t *testing.T) {
 	c, _ := decodeValue([]byte(`[100, 2, 100000000000000000000]`))
 	if jsonEqual(a, c) {
 		t.Errorf("%v and %v should differ", a, c)
+	}
+}
+
+// A deposed object's delete must not make the current object's drift
+// actionable, nor replace its action.
+func TestDriftCheckDeposed(t *testing.T) {
+	plan := `{
+  "resource_drift": [
+    {"address": "a.x", "change": {"before": {"v": 1}, "after": {"v": 2}}},
+    {"address": "a.x", "deposed": "00000001", "change": {"before": {"v": 1}, "after": {"v": 3}}}
+  ],
+  "resource_changes": [
+    {"address": "a.x", "change": {"actions": ["no-op"]}},
+    {"address": "a.x", "deposed": "00000001", "change": {"actions": ["delete"]}}
+  ]
+}`
+	r, err := buildDriftReport([]byte(plan), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.DriftCount != 2 || r.Actionable || r.ActionableCount != 0 || r.ApplySkipped {
+		t.Errorf("report %+v", r)
+	}
+	want := []any{tfjson.Actions{tfjson.ActionNoop}, tfjson.Actions{tfjson.ActionDelete}}
+	for i, res := range r.Resources {
+		if !reflect.DeepEqual(res["action"], want[i]) {
+			t.Errorf("resources[%d].action %#v, want %#v", i, res["action"], want[i])
+		}
+	}
+}
+
+func TestDriftCheckOutMakesParentDir(t *testing.T) {
+	t.Chdir(t.TempDir())
+	if err := os.WriteFile("plan.json", []byte(driftPlanJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rt := &app.Runtime{Runner: &runner.Fake{}, Stdout: &strings.Builder{}, Stderr: &strings.Builder{}}
+	err := (&DriftCheckCmd{PlanFile: "plan.json", Out: "outputs/new/drift.json"}).Run(context.Background(), rt)
+	if code := runner.ExitCode(err); code != 2 {
+		t.Fatalf("exit %d: %v", code, err)
+	}
+	if _, err := os.Stat("outputs/new/drift.json"); err != nil {
+		t.Errorf("--out in a new directory: %v", err)
 	}
 }

@@ -48,13 +48,14 @@ mars dev terraform -- providers --help
 
 Both read a saved plan file (through `terraform show -json`) or a plan
 already rendered as JSON, and print a JSON report on stdout, or write it to
-`--out <file>`. They need no workspace.
+`--out <file>` (its directory is made if missing). They need no workspace;
+for a saved plan they first install the project's `.terraform-version`.
 
 `mars <env> drift-check <planfile>` reports resource drift: the plan's
 `resource_drift` entries whose before and after still differ once null, `[]`,
 `{}`, `""`, `0` and `false` are treated as the same (provider API noise).
-A drifted resource is actionable when the plan also changes it (an action
-other than no-op or read); drift in computed attributes only is reported
+A drifted resource is actionable when the plan also changes the same object
+(same address, not a deposed object) with an action other than no-op or read; drift in computed attributes only is reported
 but not actionable. The report has `drift_detected`, `drift_count`,
 `actionable`, `actionable_count`, `apply_skipped` (actionable drift and no
 `--ignore-drift`) and `resources` (the drift entries, each with `action`,
@@ -69,8 +70,9 @@ its change's actions or null). A human summary goes to stderr.
 `mars <env> plan-summary <planfile>` counts the plan's changes as
 terraform's "Plan:" line does (`add`, `change`, `destroy`; a replacement
 counts in add and destroy), plus `replace`, `import` (`change.importing`, or
-an `import` action) and `has_changes`, and lists the addresses under
-`addresses.create`, `.update`, `.delete`, `.replace` and `.import`. It exits
+an `import` action), `forget` (a `removed` block with `destroy = false`) and
+`has_changes`, and lists the addresses under `addresses.create`, `.update`,
+`.delete`, `.replace`, `.import` and `.forget`. It exits
 0, or 1 on an error.
 
 ```

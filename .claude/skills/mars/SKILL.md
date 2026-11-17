@@ -36,7 +36,7 @@ mars <env> import <addr> <id>             # Import existing resource
 mars <env> taint <resource>               # Mark for recreation
 mars <env> drift-check <planfile>         # Drift report (JSON on stdout); exit 0 none, 2 actionable drift, 1 error
 #   --ignore-drift (force apply: exit 0), --strict (exit 2 on any drift), --out <file>
-mars <env> plan-summary <planfile>        # add/change/destroy/replace/import counts + addresses (JSON)
+mars <env> plan-summary <planfile>        # add/change/destroy/replace/import/forget counts + addresses (JSON)
 #   --out <file>; <planfile> may be a saved plan or `terraform show -json` output
 ```
 
