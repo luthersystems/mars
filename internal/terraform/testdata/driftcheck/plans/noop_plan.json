@@ -1,0 +1,15 @@
+{
+  "resource_drift": [
+    {
+      "address": "module.aws_iam.aws_iam_role.writer",
+      "type": "aws_iam_role",
+      "change": {
+        "before": {"managed_policy_arns": []},
+        "after":  {"managed_policy_arns": ["arn:aws:iam::aws:policy/example"]}
+      }
+    }
+  ],
+  "resource_changes": [
+    {"address": "module.aws_iam.aws_iam_role.writer", "change": {"actions": ["no-op"]}}
+  ]
+}

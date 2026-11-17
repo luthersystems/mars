@@ -1,0 +1,16 @@
+{
+  "resource_drift": [
+    {
+      "address": "module.gcp_iam.google_project_iam_member.binding",
+      "type": "google_project_iam_member",
+      "change": {
+        "before": {"member": "user:old@example.com"},
+        "after":  {"member": "user:tampered@example.com"}
+      }
+    }
+  ],
+  "resource_changes": [
+    {"address": "module.gcp_iam.google_project_iam_member.binding",      "change": {"actions": ["update"]}},
+    {"address": "module.gcp_new_component.google_storage_bucket.bucket", "change": {"actions": ["create"]}}
+  ]
+}

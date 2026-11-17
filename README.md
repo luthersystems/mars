@@ -44,6 +44,80 @@ parsing them as Mars flags.
 mars dev terraform -- providers --help
 ```
 
+### Plan reports: drift-check and plan-summary
+
+Both read a saved plan file (through `terraform show -json`) or a plan
+already rendered as JSON, and print a JSON report on stdout, or write it to
+`--out <file>` (its directory is made if missing). They need no workspace;
+for a saved plan they first install the project's `.terraform-version`.
+
+`mars <env> drift-check <planfile>` reports resource drift: the plan's
+`resource_drift` entries whose before and after still differ once null, `[]`,
+`{}`, `""`, `0` and `false` are treated as the same (provider API noise).
+A drifted resource is actionable when the plan also changes the same object
+(same address, not a deposed object) with an action other than no-op or read; drift in computed attributes only is reported
+but not actionable. The report has `drift_detected`, `drift_count`,
+`actionable`, `actionable_count`, `apply_skipped` (actionable drift and no
+`--ignore-drift`) and `resources` (the drift entries, each with `action`,
+its change's actions or null). A human summary goes to stderr.
+
+| Exit | Meaning |
+|---|---|
+| 0 | no drift, drift that is not actionable, or any drift with `--ignore-drift` |
+| 2 | actionable drift; with `--strict`, any drift |
+| 1 | error: no plan file, `terraform show` failed, or not a terraform plan |
+
+`mars <env> plan-summary <planfile>` counts the plan's changes as
+terraform's "Plan:" line does (`add`, `change`, `destroy`; a replacement
+counts in add and destroy), plus `replace`, `import` (`change.importing`, or
+an `import` action), `forget` (a `removed` block with `destroy = false`) and
+`has_changes`, and lists the addresses under `addresses.create`, `.update`,
+`.delete`, `.replace`, `.import` and `.forget`. It exits
+0, or 1 on an error.
+
+```
+mars dev plan --out plan.tfplan
+mars dev drift-check plan.tfplan --out drift.json; rc=$?
+mars dev plan-summary plan.tfplan
+```
+
+### Multi-stage plan and apply: plan-all, plan-stage, apply-stage
+
+A project with several Terraform stages (root modules run in order) lists
+them in `mars-stages.yaml` at its root; [docs/stages.md](docs/stages.md)
+has the format. The commands run in the project root (`--config <file>`
+names another config).
+
+They are opt-in: nothing changes unless you call `plan-all`, `plan-stage`
+or `apply-stage` with a `mars-stages.yaml`. No other command reads the file
+(`drift-check` and `plan-summary` read no config either), and `init`,
+`plan`, `apply`, `destroy`, `terraform` and the rest behave as before
+whether or not it exists. Without a config the three stage commands fail
+(exit 1) and name the file.
+
+- `mars <env> plan-all [--stages a,b] [--continue] [--check-drift]` plans
+  each stage to a saved plan, writes its `terraform show -json`, counts its
+  changes, applies a stage marked `apply_if_no_state` when its state is
+  empty, and writes the summary (`plan-summary.json`) and plan alias
+  (`tfplan.json`). Exit 0 when every stage planned, 1 otherwise.
+- `mars <env> plan-stage <stage> [--refresh-only] [--check-drift]
+  [--strict] [--ignore-drift] [--plan-file f]` plans one stage. With
+  `--check-drift` it writes the drift report and exits as `drift-check`.
+- `mars <env> apply-stage <stage> [--plan f] [--check-drift]
+  [--ignore-drift] [--outputs] [--clean-providers]` applies a saved plan (or
+  plans first), skips the apply (exit 0, `apply_skipped: true`) on
+  actionable drift, and with `--outputs` writes `terraform output -json`.
+  Exit 0 or 1.
+
+### The per-project -infra repo: infra-* commands
+
+`mars <env> infra-merge`, `infra-pull`, `infra-commit`, `infra-snapshot`,
+`infra-push`, `infra-clone` and `infra-persist` keep a
+sandbox-infrastructure-template project's `-infra` git repo in step with
+what was deployed: the git logic the template's `shell_utils.sh` used to
+hold. They are opt-in and read no mars config; see
+[docs/infra-repo.md](docs/infra-repo.md) for the rules and exit codes.
+
 ### Pre-warmed provider plugin cache
 
 The image ships pre-warmed binaries for the providers pinned by

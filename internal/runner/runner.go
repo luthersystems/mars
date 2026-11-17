@@ -72,6 +72,30 @@ func Exit(code int) error {
 	return &ExitError{Code: code}
 }
 
+// SilentExitError ends mars with Code and prints nothing more: the command
+// has already said what went wrong, in the words a caller parses (a Go port
+// of a shell script must not add mars's "command exited with status N").
+type SilentExitError struct{ Code int }
+
+func (e *SilentExitError) Error() string { return fmt.Sprintf("exit status %d", e.Code) }
+
+// ExitCode lets ExitCode find the code.
+func (e *SilentExitError) ExitCode() int { return e.Code }
+
+// ExitSilently returns a SilentExitError for code, or nil for 0.
+func ExitSilently(code int) error {
+	if code == 0 {
+		return nil
+	}
+	return &SilentExitError{Code: code}
+}
+
+// IsSilent reports whether err asks mars to print nothing for it.
+func IsSilent(err error) bool {
+	var s *SilentExitError
+	return errors.As(err, &s)
+}
+
 func Cmd(name string, args ...string) Command {
 	return Command{Argv: append([]string{name}, args...)}
 }

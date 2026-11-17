@@ -1,0 +1,5 @@
+{"resource_changes":[
+ {"address":"aws_s3_bucket.imported","change":{"actions":["import"]}},
+ {"address":"aws_iam_role.imported_and_updated","change":{"actions":["import","update"]}},
+ {"address":"aws_instance.new","change":{"actions":["create"]}}
+]}

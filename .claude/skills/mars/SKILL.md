@@ -34,6 +34,16 @@ mars <env> terraform output <name>        # Get output value
 mars <env> new-workspace                  # Create new workspace
 mars <env> import <addr> <id>             # Import existing resource
 mars <env> taint <resource>               # Mark for recreation
+mars <env> drift-check <planfile>         # Drift report (JSON on stdout); exit 0 none, 2 actionable drift, 1 error
+#   --ignore-drift (force apply: exit 0), --strict (exit 2 on any drift), --out <file>
+mars <env> plan-summary <planfile>        # add/change/destroy/replace/import/forget counts + addresses (JSON)
+#   --out <file>; <planfile> may be a saved plan or `terraform show -json` output
+# Multi-stage projects: mars-stages.yaml at the project root (format: docs/stages.md)
+mars <env> plan-all                       # Plan every stage; writes outputs/plan-summary.json, tfplan.json; exit 0 ok, 1 a stage failed
+#   --stages a,b (subset, in order), --continue (keep other stages' rows), --check-drift, --config <file>
+mars <env> plan-stage <stage>             # Plan one stage; --refresh-only, --check-drift (exit 2 on drift), --strict, --ignore-drift, --plan-file
+mars <env> apply-stage <stage>            # Apply one stage: --plan <file>, --check-drift (skips apply on actionable drift, exit 0),
+#   --ignore-drift, --outputs (terraform output -json to outputs/), --clean-providers; exit 0 or 1
 ```
 
 ## Ansible Commands

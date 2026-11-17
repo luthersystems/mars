@@ -1,0 +1,476 @@
+=== init
+exit 0
+run flock /opt/tfenv/versions/.install.lock tfenv install
+  quiet
+run terraform init
+  quiet
+stdout:
+
+stderr:
+(flock /opt/tfenv/versions/.install.lock tfenv install)
+(terraform init)
+
+=== init flags
+exit 0
+run flock /opt/tfenv/versions/.install.lock tfenv install
+  quiet
+run terraform init -backend-config b.hcl --upgrade --reconfigure
+  quiet
+stdout:
+
+stderr:
+(flock /opt/tfenv/versions/.install.lock tfenv install)
+(terraform init -backend-config b.hcl --upgrade --reconfigure)
+
+=== init init fails
+exit 3
+run flock /opt/tfenv/versions/.install.lock tfenv install
+  quiet
+run terraform init
+  quiet
+stdout:
+
+stderr:
+(flock /opt/tfenv/versions/.install.lock tfenv install)
+(terraform init)
+command exited with status 3
+
+=== plan skip-prompt
+exit 0
+run flock /opt/tfenv/versions/.install.lock tfenv install
+  quiet
+capture terraform workspace show
+run terraform workspace select dev
+  quiet
+run terraform plan -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars
+  quiet
+stdout:
+
+stderr:
+(flock /opt/tfenv/versions/.install.lock tfenv install)
+
+switching environment [31mdefault[0m ~> [32mdev[0m
+
+(terraform workspace select dev && terraform plan -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars)
+
+=== plan same workspace
+exit 0
+run flock /opt/tfenv/versions/.install.lock tfenv install
+  quiet
+capture terraform workspace show
+run terraform workspace select dev
+  quiet
+run terraform plan -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars -out=p.out
+  quiet
+stdout:
+
+stderr:
+(flock /opt/tfenv/versions/.install.lock tfenv install)
+(terraform workspace select dev && terraform plan -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars -out=p.out)
+
+=== plan prompt yes
+exit 0
+run flock /opt/tfenv/versions/.install.lock tfenv install
+  quiet
+capture terraform workspace show
+run terraform workspace select dev
+  quiet
+run terraform plan -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars
+  quiet
+stdout:
+
+stderr:
+(flock /opt/tfenv/versions/.install.lock tfenv install)
+
+switching environment [31mdefault[0m ~> [32mdev[0m
+
+switch to dev? [y/N] (terraform workspace select dev && terraform plan -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars)
+
+=== plan prompt no
+exit 1
+run flock /opt/tfenv/versions/.install.lock tfenv install
+  quiet
+capture terraform workspace show
+stdout:
+
+stderr:
+(flock /opt/tfenv/versions/.install.lock tfenv install)
+
+switching environment [31mdefault[0m ~> [32mdev[0m
+
+switch to dev? [y/N] command exited with status 1
+
+=== plan prompt eof
+exit 1
+run flock /opt/tfenv/versions/.install.lock tfenv install
+  quiet
+capture terraform workspace show
+stdout:
+
+stderr:
+(flock /opt/tfenv/versions/.install.lock tfenv install)
+
+switching environment [31mdefault[0m ~> [32mdev[0m
+
+switch to dev? [y/N] command exited with status 1
+
+=== plan prompt retry
+exit 0
+run flock /opt/tfenv/versions/.install.lock tfenv install
+  quiet
+capture terraform workspace show
+run terraform workspace select dev
+  quiet
+run terraform plan -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars
+  quiet
+stdout:
+
+stderr:
+(flock /opt/tfenv/versions/.install.lock tfenv install)
+
+switching environment [31mdefault[0m ~> [32mdev[0m
+
+switch to dev? [y/N] what?
+switch to dev? [y/N] (terraform workspace select dev && terraform plan -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars)
+
+=== plan fails
+exit 0
+run flock /opt/tfenv/versions/.install.lock tfenv install
+  quiet
+capture terraform workspace show
+run terraform workspace select dev
+  quiet
+run terraform plan -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars
+  quiet
+stdout:
+
+stderr:
+(flock /opt/tfenv/versions/.install.lock tfenv install)
+(terraform workspace select dev && terraform plan -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars)
+
+=== plan apply yes
+exit 0
+run flock /opt/tfenv/versions/.install.lock tfenv install
+  quiet
+capture terraform workspace show
+run terraform workspace select dev
+  quiet
+run terraform plan -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars -out=.tf-plans/tf-plan-dev-TIME-RAND.out
+  quiet
+run flock /opt/tfenv/versions/.install.lock tfenv install
+  quiet
+capture terraform workspace show
+run terraform workspace select dev
+  quiet
+run terraform apply .tf-plans/tf-plan-dev-TIME-RAND.out
+  quiet
+stdout:
+
+Would you like to apply this plan?
+You must answer 'yes' to continue
+> 
+
+stderr:
+(flock /opt/tfenv/versions/.install.lock tfenv install)
+(terraform workspace select dev && terraform plan -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars -out=.tf-plans/tf-plan-dev-TIME-RAND.out)
+(flock /opt/tfenv/versions/.install.lock tfenv install)
+(terraform workspace select dev && terraform apply .tf-plans/tf-plan-dev-TIME-RAND.out)
+
+=== plan apply eof
+exit 1
+run flock /opt/tfenv/versions/.install.lock tfenv install
+  quiet
+capture terraform workspace show
+run terraform workspace select dev
+  quiet
+run terraform plan -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars -out=.tf-plans/tf-plan-dev-TIME-RAND.out
+  quiet
+stdout:
+
+Would you like to apply this plan?
+You must answer 'yes' to continue
+> 
+Aborted -- plan will not be applied
+path: .tf-plans/tf-plan-dev-TIME-RAND.out
+
+stderr:
+(flock /opt/tfenv/versions/.install.lock tfenv install)
+(terraform workspace select dev && terraform plan -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars -out=.tf-plans/tf-plan-dev-TIME-RAND.out)
+command exited with status 1
+
+=== plan apply retry
+exit 1
+run flock /opt/tfenv/versions/.install.lock tfenv install
+  quiet
+capture terraform workspace show
+run terraform workspace select dev
+  quiet
+run terraform plan -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars -out=.tf-plans/tf-plan-dev-TIME-RAND.out
+  quiet
+stdout:
+
+Would you like to apply this plan?
+You must answer 'yes' to continue
+> Aborted -- plan will not be applied
+path: .tf-plans/tf-plan-dev-TIME-RAND.out
+
+stderr:
+(flock /opt/tfenv/versions/.install.lock tfenv install)
+(terraform workspace select dev && terraform plan -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars -out=.tf-plans/tf-plan-dev-TIME-RAND.out)
+command exited with status 1
+
+=== plan apply piped answers
+exit 1
+run flock /opt/tfenv/versions/.install.lock tfenv install
+  quiet
+capture terraform workspace show
+run terraform workspace select dev
+  quiet
+run terraform plan -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars -out=.tf-plans/tf-plan-dev-TIME-RAND.out
+  quiet
+stdout:
+
+Would you like to apply this plan?
+You must answer 'yes' to continue
+> 
+Aborted -- plan will not be applied
+path: .tf-plans/tf-plan-dev-TIME-RAND.out
+
+stderr:
+(flock /opt/tfenv/versions/.install.lock tfenv install)
+
+switching environment [31mdefault[0m ~> [32mdev[0m
+
+switch to dev? [y/N] (terraform workspace select dev && terraform plan -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars -out=.tf-plans/tf-plan-dev-TIME-RAND.out)
+command exited with status 1
+
+=== apply
+exit 0
+run flock /opt/tfenv/versions/.install.lock tfenv install
+  quiet
+capture terraform workspace show
+run terraform workspace select dev
+  quiet
+run terraform apply -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars
+  quiet
+stdout:
+
+stderr:
+(flock /opt/tfenv/versions/.install.lock tfenv install)
+(terraform workspace select dev && terraform apply -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars)
+
+=== apply eof
+exit 0
+run flock /opt/tfenv/versions/.install.lock tfenv install
+  quiet
+capture terraform workspace show
+run terraform workspace select dev
+  quiet
+run terraform apply -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars
+  quiet
+stdout:
+
+stderr:
+(flock /opt/tfenv/versions/.install.lock tfenv install)
+(terraform workspace select dev && terraform apply -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars)
+
+=== apply approve
+exit 0
+run flock /opt/tfenv/versions/.install.lock tfenv install
+  quiet
+capture terraform workspace show
+run terraform workspace select dev
+  quiet
+run terraform apply -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars -auto-approve
+  quiet
+stdout:
+
+stderr:
+(flock /opt/tfenv/versions/.install.lock tfenv install)
+(terraform workspace select dev && terraform apply -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars -auto-approve)
+
+=== apply approve targets
+exit 0
+run flock /opt/tfenv/versions/.install.lock tfenv install
+  quiet
+capture terraform workspace show
+run terraform workspace select dev
+  quiet
+run terraform apply -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars -target module.a -target module.b -auto-approve
+  quiet
+stdout:
+
+stderr:
+(flock /opt/tfenv/versions/.install.lock tfenv install)
+(terraform workspace select dev && terraform apply -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars -target module.a -target module.b -auto-approve)
+
+=== apply plan file
+exit 0
+run flock /opt/tfenv/versions/.install.lock tfenv install
+  quiet
+capture terraform workspace show
+run terraform workspace select dev
+  quiet
+run terraform apply saved.out
+  quiet
+stdout:
+
+stderr:
+(flock /opt/tfenv/versions/.install.lock tfenv install)
+(terraform workspace select dev && terraform apply saved.out)
+
+=== apply forbid
+exit 0
+run flock /opt/tfenv/versions/.install.lock tfenv install
+  quiet
+capture terraform workspace show
+run terraform workspace select dev
+  quiet
+run terraform plan -out=.tf-plans/tf-plan-guard-dev-TIME-RAND.out -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars
+  quiet
+capture terraform show -json .tf-plans/tf-plan-guard-dev-TIME-RAND.out
+run terraform workspace select dev
+  quiet
+run terraform apply .tf-plans/tf-plan-guard-dev-TIME-RAND.out
+  quiet
+stdout:
+forbid-resource-changes: OK — no create/update/delete; 0 state-only forget(s)
+
+stderr:
+(flock /opt/tfenv/versions/.install.lock tfenv install)
+(terraform workspace select dev && terraform plan -out=.tf-plans/tf-plan-guard-dev-TIME-RAND.out -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars)
+(terraform workspace select dev && terraform apply .tf-plans/tf-plan-guard-dev-TIME-RAND.out)
+
+=== apply prompt no
+exit 1
+run flock /opt/tfenv/versions/.install.lock tfenv install
+  quiet
+capture terraform workspace show
+stdout:
+
+stderr:
+(flock /opt/tfenv/versions/.install.lock tfenv install)
+
+switching environment [31mprod[0m ~> [32mdev[0m
+
+switch to dev? [y/N] command exited with status 1
+
+=== destroy
+exit 0
+run flock /opt/tfenv/versions/.install.lock tfenv install
+  quiet
+capture terraform workspace show
+run terraform workspace select dev
+  quiet
+run terraform destroy -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars
+  quiet
+stdout:
+
+stderr:
+(flock /opt/tfenv/versions/.install.lock tfenv install)
+(terraform workspace select dev && terraform destroy -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars)
+
+=== destroy approve
+exit 0
+run flock /opt/tfenv/versions/.install.lock tfenv install
+  quiet
+capture terraform workspace show
+run terraform workspace select dev
+  quiet
+run terraform destroy -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars -target module.a -auto-approve
+  quiet
+stdout:
+
+stderr:
+(flock /opt/tfenv/versions/.install.lock tfenv install)
+(terraform workspace select dev && terraform destroy -var-file=vars/common/common.tfvars -var-file=vars/dev/dev.tfvars -target module.a -auto-approve)
+
+=== terraform output
+exit 0
+run flock /opt/tfenv/versions/.install.lock tfenv install
+  quiet
+capture terraform workspace show
+run terraform workspace select dev
+  quiet
+run terraform output name
+  quiet
+stdout:
+
+stderr:
+(flock /opt/tfenv/versions/.install.lock tfenv install)
+(terraform workspace select dev && terraform output name)
+
+=== terraform output json
+exit 0
+run flock /opt/tfenv/versions/.install.lock tfenv install
+  quiet
+capture terraform workspace show
+run terraform workspace select dev
+  quiet
+run terraform output -json
+  quiet
+stdout:
+
+stderr:
+(flock /opt/tfenv/versions/.install.lock tfenv install)
+
+switching environment [31mdefault[0m ~> [32mdev[0m
+
+(terraform workspace select dev && terraform output -json)
+
+=== terraform fails
+exit 4
+run flock /opt/tfenv/versions/.install.lock tfenv install
+  quiet
+capture terraform workspace show
+run terraform workspace select dev
+  quiet
+run terraform state list
+  quiet
+stdout:
+
+stderr:
+(flock /opt/tfenv/versions/.install.lock tfenv install)
+(terraform workspace select dev && terraform state list)
+command exited with status 4
+
+=== show
+exit 0
+run flock /opt/tfenv/versions/.install.lock tfenv install
+  quiet
+capture terraform workspace show
+run terraform workspace select dev
+  quiet
+run terraform show
+  quiet
+stdout:
+
+stderr:
+(flock /opt/tfenv/versions/.install.lock tfenv install)
+(terraform workspace select dev && terraform show)
+
+=== new-workspace
+exit 0
+run flock /opt/tfenv/versions/.install.lock tfenv install
+  quiet
+run terraform workspace new dev
+  quiet
+stdout:
+
+stderr:
+(flock /opt/tfenv/versions/.install.lock tfenv install)
+(terraform workspace new dev)
+
+=== no env vars
+exit 1
+run flock /opt/tfenv/versions/.install.lock tfenv install
+  quiet
+stdout:
+
+stderr:
+(flock /opt/tfenv/versions/.install.lock tfenv install)
+
+No environment in this project: qa
+
+.command exited with status 1
+
