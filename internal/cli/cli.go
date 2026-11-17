@@ -30,7 +30,8 @@ type CLI struct {
 	MigrationFromPlan terraform.MigrationFromPlanCmd `cmd:"" name:"migration_fromplan" help:"Generate tfedit migration file from a Terraform plan."`
 	MigratePlan       terraform.MigratePlanCmd       `cmd:"" name:"migrate_plan" help:"Run tfmigrate plan."`
 	MigrateApply      terraform.MigrateApplyCmd      `cmd:"" name:"migrate_apply" help:"Run tfmigrate apply."`
-	DriftCheck        terraform.DriftCheckCmd        `cmd:"" name:"drift-check" help:"Check a saved plan for resource drift and write drift.json."`
+	DriftCheck        terraform.DriftCheckCmd        `cmd:"" name:"drift-check" help:"Report resource drift in a plan as JSON (exit 2 on actionable drift)."`
+	PlanSummary       terraform.PlanSummaryCmd       `cmd:"" name:"plan-summary" help:"Count a plan's resource changes and list their addresses, as JSON."`
 
 	AnsiblePlaybook     ansible.PlaybookCmd        `cmd:"ansible-playbook" help:"Run ansible-playbook with Mars defaults."`
 	AnsibleExecute      ansible.ExecuteCmd         `cmd:"ansible-execute" help:"Run ansible with Mars defaults."`

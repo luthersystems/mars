@@ -2,7 +2,6 @@ package terraform
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -15,7 +14,7 @@ import (
 
 const driftPlanJSON = `{
   "resource_drift": [{"address": "aws_s3_bucket.example", "type": "aws_s3_bucket",
-    "change": {"before": {"tags": {"a": "1"}, "acl": null}, "after": {"tags": {"a": "2"}, "acl": []}}}],
+    "change": {"before": {"tags": {"a": "1"}, "acl": null, "n": 1.50}, "after": {"tags": {"a": "2"}, "acl": [], "n": 1.50}}}],
   "resource_changes": [{"address": "aws_s3_bucket.example", "change": {"actions": ["update"]}}]
 }`
 
@@ -23,36 +22,49 @@ const wantDriftReport = `{
   "drift_detected": true,
   "drift_count": 1,
   "actionable": true,
+  "actionable_count": 1,
   "apply_skipped": %s,
-  "template_version": %s,
-  "presets_version": null,
   "resources": [
     {
-      "address": "aws_s3_bucket.example",
-      "type": "aws_s3_bucket",
-      "change": {
-        "before": {
-          "tags": {
-            "a": "1"
-          },
-          "acl": null
-        },
-        "after": {
-          "tags": {
-            "a": "2"
-          },
-          "acl": []
-        }
-      },
       "action": [
         "update"
-      ]
+      ],
+      "address": "aws_s3_bucket.example",
+      "change": {
+        "after": {
+          "acl": [],
+          "n": 1.50,
+          "tags": {
+            "a": "2"
+          }
+        },
+        "before": {
+          "acl": null,
+          "n": 1.50,
+          "tags": {
+            "a": "1"
+          }
+        }
+      },
+      "type": "aws_s3_bucket"
     }
   ]
 }
 `
 
+const noDriftReport = `{
+  "drift_detected": false,
+  "drift_count": 0,
+  "actionable": false,
+  "actionable_count": 0,
+  "apply_skipped": false,
+  "resources": []
+}
+`
+
 func TestDriftCheck(t *testing.T) {
+	// Drift only in a computed attribute: the resource change is a no-op.
+	computedOnly := strings.Replace(driftPlanJSON, `["update"]`, `["no-op"]`, 1)
 	cases := []struct {
 		name       string
 		cmd        DriftCheckCmd
@@ -60,101 +72,96 @@ func TestDriftCheck(t *testing.T) {
 		showErr    error
 		noPlan     bool
 		wantCode   int
-		wantStdout []string
-		wantStderr string
-		wantFiles  map[string]string
+		wantStdout string
+		wantStderr []string
 	}{
 		{
-			name:       "no drift writes nothing",
+			name:       "no drift",
 			show:       `{"resource_drift": []}`,
-			wantStdout: []string{"template_version=unknown", "presets_version=unknown", "No resource drift detected."},
-			wantFiles:  map[string]string{},
+			wantStdout: noDriftReport,
+			wantStderr: []string{"No resource drift detected."},
 		},
 		{
-			name:       "empty show output is no drift",
-			show:       "\n",
-			wantStdout: []string{"No resource drift detected."},
-			wantFiles:  map[string]string{},
+			name:       "null-versus-empty only is not drift",
+			show:       `{"resource_drift": [{"address": "a.b", "change": {"before": {"x": null, "y": 0}, "after": {"x": [], "y": false}}}]}`,
+			wantStdout: noDriftReport,
 		},
 		{
-			name: "actionable drift skips apply and exits 0",
-			cmd:  DriftCheckCmd{TemplateVersion: "v1"},
-			show: driftPlanJSON,
-			wantStdout: []string{
-				"template_version=v1",
+			name:       "actionable drift exits 2",
+			show:       driftPlanJSON,
+			wantCode:   2,
+			wantStdout: strings.Replace(wantDriftReport, "%s", "true", 1),
+			wantStderr: []string{
 				"Drift detected: 1 resource(s) have drifted.",
 				"  aws_s3_bucket.example",
 				`    tags: {"a":"1"} -> {"a":"2"}`,
-				"INFO: actionable drift detected; apply_skipped=true.",
+				"actionable",
 			},
-			wantFiles: map[string]string{"drift.json": fmt.Sprintf(wantDriftReport, "true", `"v1"`)},
 		},
 		{
 			name:       "ignore-drift wins over strict",
 			cmd:        DriftCheckCmd{IgnoreDrift: true, Strict: true},
 			show:       driftPlanJSON,
-			wantStdout: []string{"WARNING: Drift ignored (--ignore-drift flag set)"},
-			wantFiles:  map[string]string{"drift.json": fmt.Sprintf(wantDriftReport, "false", "null")},
+			wantStdout: strings.Replace(wantDriftReport, "%s", "false", 1),
 		},
 		{
-			name:       "strict exits 2",
-			cmd:        DriftCheckCmd{Strict: true},
-			show:       driftPlanJSON,
-			wantCode:   2,
-			wantFiles:  map[string]string{"drift.json": fmt.Sprintf(wantDriftReport, "true", "null")},
-			wantStdout: []string{"Drift report written to "},
+			name:       "drift that is not actionable exits 0",
+			show:       computedOnly,
+			wantStderr: []string{"not actionable"},
 		},
 		{
-			name: "stage writes both files",
-			cmd:  DriftCheckCmd{Stage: "cloud-provision"},
-			show: driftPlanJSON,
-			wantFiles: map[string]string{
-				"drift.json":                 fmt.Sprintf(wantDriftReport, "true", "null"),
-				"drift-cloud-provision.json": fmt.Sprintf(wantDriftReport, "true", "null"),
-			},
-			wantStdout: []string{"drift-cloud-provision.json (and drift.json)"},
+			name:     "strict exits 2 on drift that is not actionable",
+			cmd:      DriftCheckCmd{Strict: true},
+			show:     computedOnly,
+			wantCode: 2,
 		},
 		{
 			name:       "missing plan file",
 			noPlan:     true,
 			wantCode:   1,
-			wantStderr: "ERROR: plan file not found: test.tfplan\n",
-			wantFiles:  map[string]string{},
+			wantStderr: []string{"mars drift-check: plan file not found: test.tfplan"},
 		},
 		{
-			name:      "terraform show exit code passes through",
-			showErr:   &runner.ExitError{Code: 3},
-			wantCode:  3,
-			wantFiles: map[string]string{},
+			name:       "terraform show fails",
+			showErr:    &runner.ExitError{Code: 3},
+			wantCode:   1,
+			wantStderr: []string{"terraform show -json test.tfplan failed (exit 3)"},
+		},
+		{
+			name:       "empty show output",
+			show:       "\n",
+			wantCode:   1,
+			wantStderr: []string{"the plan JSON is empty"},
 		},
 		{
 			name:       "plan that is not JSON",
 			show:       `{"resource_drift": [`,
-			wantCode:   5,
-			wantStderr: "jq: parse error: unexpected end of JSON input\n",
-			wantFiles:  map[string]string{},
+			wantCode:   1,
+			wantStderr: []string{"does not have terraform's shape"},
 		},
 		{
 			name:       "plan with the wrong shape",
 			show:       `{"resource_drift": "x"}`,
-			wantCode:   5,
-			wantStderr: "jq: error (at <stdin>:1): Cannot iterate over string (\"x\")\n",
-			wantFiles:  map[string]string{},
+			wantCode:   1,
+			wantStderr: []string{"does not have terraform's shape"},
+		},
+		{
+			name:       "before that is not an object",
+			show:       `{"resource_drift": [{"address": "a.b", "change": {"before": "x", "after": {}}}]}`,
+			wantCode:   1,
+			wantStderr: []string{"resource_drift[0]: a.b: change.before is not an object"},
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			dir := t.TempDir()
-			t.Chdir(dir)
+			t.Chdir(t.TempDir())
 			if !c.noPlan {
-				if err := os.WriteFile("test.tfplan", []byte("plan"), 0o644); err != nil {
+				if err := os.WriteFile("test.tfplan", []byte("PK\x03\x04plan"), 0o644); err != nil {
 					t.Fatal(err)
 				}
 			}
-			outputs := filepath.Join(dir, "out")
 			cmd := c.cmd
 			cmd.PlanFile = "test.tfplan"
-			cmd.OutputsDir = outputs
 			fake := &runner.Fake{CaptureOut: [][]byte{[]byte(c.show)}, CaptureError: []error{c.showErr}}
 			var stdout, stderr strings.Builder
 			rt := &app.Runtime{Target: "default", Runner: fake, Stdout: &stdout, Stderr: &stderr}
@@ -166,13 +173,16 @@ func TestDriftCheck(t *testing.T) {
 			if err != nil && !runner.IsSilent(err) {
 				t.Errorf("error %v is not silent; mars would print it", err)
 			}
-			for _, want := range c.wantStdout {
-				if !strings.Contains(stdout.String(), want) {
-					t.Errorf("stdout lacks %q:\n%s", want, stdout.String())
-				}
+			if c.wantStdout != "" && stdout.String() != c.wantStdout {
+				t.Errorf("stdout:\n%s\nwant\n%s", stdout.String(), c.wantStdout)
 			}
-			if c.wantStderr != "" && stderr.String() != c.wantStderr {
-				t.Errorf("stderr %q, want %q", stderr.String(), c.wantStderr)
+			if c.wantCode == 1 && stdout.String() != "" {
+				t.Errorf("stdout on error: %s", stdout.String())
+			}
+			for _, want := range c.wantStderr {
+				if !strings.Contains(stderr.String(), want) {
+					t.Errorf("stderr lacks %q:\n%s", want, stderr.String())
+				}
 			}
 			if !c.noPlan {
 				want := [][]string{{"terraform", "show", "-json", "test.tfplan"}}
@@ -180,44 +190,94 @@ func TestDriftCheck(t *testing.T) {
 					t.Errorf("commands %v, want %v", got, want)
 				}
 			}
-			got := map[string]string{}
-			entries, _ := os.ReadDir(outputs)
-			for _, e := range entries {
-				b, _ := os.ReadFile(filepath.Join(outputs, e.Name()))
-				got[e.Name()] = string(b)
-			}
-			for name, body := range c.wantFiles {
-				if got[name] != body {
-					t.Errorf("%s:\n%s\nwant\n%s", name, got[name], body)
-				}
-			}
-			if len(got) != len(c.wantFiles) {
-				t.Errorf("files %v, want %d", reflect.ValueOf(got).MapKeys(), len(c.wantFiles))
-			}
 		})
 	}
 }
 
-func TestDriftCheckDefaultOutputsDir(t *testing.T) {
+func TestDriftCheckJSONPlanAndOut(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
-	if err := os.WriteFile("p", []byte("plan"), 0o644); err != nil {
+	if err := os.WriteFile("plan.json", []byte("\n  "+driftPlanJSON), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("MARS_PROJECT_ROOT", filepath.Join(dir, "root"))
-	fake := &runner.Fake{CaptureOut: [][]byte{[]byte(driftPlanJSON)}}
-	var stdout strings.Builder
-	rt := &app.Runtime{Runner: fake, Stdout: &stdout, Stderr: &strings.Builder{}}
-	if err := (&DriftCheckCmd{PlanFile: "p"}).Run(context.Background(), rt); err != nil {
+	out := filepath.Join(dir, "drift.json")
+	fake := &runner.Fake{}
+	var stdout, stderr strings.Builder
+	rt := &app.Runtime{Runner: fake, Stdout: &stdout, Stderr: &stderr}
+	err := (&DriftCheckCmd{PlanFile: "plan.json", Out: out}).Run(context.Background(), rt)
+	if code := runner.ExitCode(err); code != 2 {
+		t.Fatalf("exit %d, want 2: %v", code, err)
+	}
+	if len(fake.Commands()) != 0 {
+		t.Errorf("a JSON plan ran %v; want no terraform", fake.Commands())
+	}
+	if stdout.String() != "" {
+		t.Errorf("stdout with --out: %q", stdout.String())
+	}
+	b, err := os.ReadFile(out)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "root", "outputs", "drift.json")); err != nil {
-		t.Errorf("drift.json not under $MARS_PROJECT_ROOT/outputs: %v", err)
+	if want := strings.Replace(wantDriftReport, "%s", "true", 1); string(b) != want {
+		t.Errorf("--out file:\n%s\nwant\n%s", b, want)
 	}
+}
 
-	t.Setenv("MARS_PROJECT_ROOT", "")
-	c := &DriftCheckCmd{PlanFile: "p"}
-	if got := c.outputsDir(); got != "/marsproject/outputs" {
-		t.Errorf("default outputs dir %q, want /marsproject/outputs", got)
+func TestDriftCheckActionEnrichment(t *testing.T) {
+	plan := `{
+  "resource_drift": [
+    {"address": "a.none"},
+    {"address": "a.read", "change": {"before": {"x": 1}, "after": {"x": 2}}},
+    {"address": "a.dup", "change": {"before": {"x": 1}, "after": {"x": 2}}},
+    {"address": "a.noactions", "change": {"before": {"x": 1}, "after": {"x": 2}}}
+  ],
+  "resource_changes": [
+    {"address": "a.read", "change": {"actions": ["read"]}},
+    {"address": "a.dup", "change": {"actions": ["delete", "create"]}},
+    {"address": "a.dup", "change": {"actions": ["update"]}},
+    {"address": "a.noactions", "change": {}}
+  ]
+}`
+	r, err := buildDriftReport([]byte(plan), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]any{}
+	for _, res := range r.Resources {
+		got[res["address"].(string)] = res["action"]
+	}
+	want := map[string]any{
+		"a.none":      nil,
+		"a.read":      []string{"read"},
+		"a.dup":       []string{"update"},
+		"a.noactions": nil,
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("actions %v, want %v", got, want)
+	}
+	// a.dup and a.noactions (no actions fails safe) are actionable.
+	if r.DriftCount != 4 || r.ActionableCount != 2 || !r.ApplySkipped {
+		t.Errorf("report %+v", r)
+	}
+}
+
+func TestNormalizeEmpty(t *testing.T) {
+	v, _ := decodeValue([]byte(`{"a": [0, "", {}], "b": {"c": false}, "d": "x", "e": -0.0}`))
+	got := normalizeEmpty(v)
+	want := map[string]any{"a": []any{nil, nil, nil}, "b": map[string]any{"c": nil}, "d": "x", "e": nil}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestJSONEqualNumbers(t *testing.T) {
+	a, _ := decodeValue([]byte(`[1e2, 1.0, 100000000000000000001]`))
+	b, _ := decodeValue([]byte(`[100, 1, 100000000000000000000]`))
+	if !jsonEqual(a, b) {
+		t.Errorf("%v and %v should be equal", a, b)
+	}
+	c, _ := decodeValue([]byte(`[100, 2, 100000000000000000000]`))
+	if jsonEqual(a, c) {
+		t.Errorf("%v and %v should differ", a, c)
 	}
 }

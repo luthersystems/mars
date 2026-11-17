@@ -55,6 +55,8 @@ mars <env> plan --target=<resource>       # Repeat --target for multiple resourc
 mars <env> apply --target=<a> --target=<b> # Repeatable for apply too
 mars <env> destroy --target=<a> --target=<b> # And for destroy
 mars <env> terraform output <name>        # Get terraform output
+mars <env> drift-check <planfile>         # Drift report as JSON; exit 0 none, 2 actionable drift, 1 error
+mars <env> plan-summary <planfile>        # Change counts and addresses of a plan, as JSON
 
 # Ansible operations
 mars <env> ansible-playbook playbook.yaml

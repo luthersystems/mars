@@ -1,0 +1,11 @@
+{"format_version":"1.2","resource_changes":[
+ {"address":"a.create","change":{"actions":["create"]}},
+ {"address":"a.update","change":{"actions":["update"]}},
+ {"address":"a.delete","change":{"actions":["delete"]}},
+ {"address":"a.replace_cbd","change":{"actions":["create","delete"]}},
+ {"address":"a.replace","change":{"actions":["delete","create"]}},
+ {"address":"a.noop","change":{"actions":["no-op"]}},
+ {"address":"data.a.read","change":{"actions":["read"]}},
+ {"address":"a.forget","change":{"actions":["forget"]}},
+ {"address":"module.m.a.create[0]","change":{"actions":["create"]}}
+]}

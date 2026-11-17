@@ -34,9 +34,10 @@ mars <env> terraform output <name>        # Get output value
 mars <env> new-workspace                  # Create new workspace
 mars <env> import <addr> <id>             # Import existing resource
 mars <env> taint <resource>               # Mark for recreation
-mars <env> drift-check <planfile>         # Drift check of a saved plan; writes outputs/drift.json
-#   --ignore-drift (force apply), --strict (exit 2 on drift), --stage <name>,
-#   --outputs-dir (default $MARS_PROJECT_ROOT/outputs, else /marsproject/outputs)
+mars <env> drift-check <planfile>         # Drift report (JSON on stdout); exit 0 none, 2 actionable drift, 1 error
+#   --ignore-drift (force apply: exit 0), --strict (exit 2 on any drift), --out <file>
+mars <env> plan-summary <planfile>        # add/change/destroy/replace/import counts + addresses (JSON)
+#   --out <file>; <planfile> may be a saved plan or `terraform show -json` output
 ```
 
 ## Ansible Commands
