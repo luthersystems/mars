@@ -150,7 +150,7 @@ func (r *Repo) Merge(ctx context.Context, abortOnConflict bool) int {
 		return MergeOK
 	}
 	if !r.hasRemote(ctx, "infra") {
-		r.info("Skipping gitMergeInfraMain: no infra remote configured")
+		r.info("Skipping the infra/main merge: no infra remote configured")
 		return MergeOK
 	}
 	// Refuse a merge (or rebase, ...) someone else started, and never abort
@@ -160,7 +160,7 @@ func (r *Repo) Merge(ctx context.Context, abortOnConflict bool) int {
 		return MergeFailed
 	}
 	if r.configBool(ctx, snapshotTreeKey) {
-		r.info("ℹ️  infra/main not merged: this checkout holds the deploy archive (cloneInfraRepo); the snapshot commit replaces infra/main.")
+		r.info("ℹ️  infra/main not merged: this checkout holds the deploy archive (infra-clone); the snapshot commit replaces infra/main.")
 		return MergeSkipped
 	}
 	if r.headCommit(ctx) == "" {
@@ -457,13 +457,13 @@ func (r *Repo) Persist(ctx context.Context) {
 	r.info("📦 [git-infra] Persisting applied stack to the per-project -infra repo…")
 	r.Clone(ctx)
 	if !r.hasGitDir() {
-		r.warn("⚠️  [git-infra] WARNING: no .git at %s at persist time — cloneInfraRepo (prepare-custom-stack, or this step) could not clone the -infra repo. Stack will NOT be pushed. [sandbox-infrastructure-template#143]", r.Root)
+		r.warn("⚠️  [git-infra] WARNING: no .git at %s at persist time — infra-clone (prepare-custom-stack, or this step) could not clone the -infra repo. Stack will NOT be pushed. [sandbox-infrastructure-template#143]", r.Root)
 	}
 	if r.tfVar(repoURLVar) == "" {
 		r.warn("⚠️  [git-infra] WARNING: repo_clone_ssh_url is empty at persist time — cloud-provision's git_repo.auto.tfvars.json did not reach the apply working tree. [sandbox-infrastructure-template#143]")
 	}
 	if r.Snapshot(ctx, persistCommitMessage) != 0 {
-		r.warn("⚠️  [git-infra] WARNING: gitSnapshotCommit returned non-zero (continuing; non-fatal). [sandbox-infrastructure-template#160]")
+		r.warn("⚠️  [git-infra] WARNING: the snapshot commit returned non-zero (continuing; non-fatal). [sandbox-infrastructure-template#160]")
 	}
 	r.Push(ctx)
 }
