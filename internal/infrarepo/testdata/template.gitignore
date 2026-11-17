@@ -1,0 +1,105 @@
+# secrets/ holds deploy keys and credential drops. `secrets/*` and not
+# `secrets/` so the tracked README can be re-included: untrackIgnoredFiles
+# (shell_utils.sh) untracks every tracked file that this file ignores, and
+# without the carve-out it would drop the README from every -infra repo. #160
+secrets/*
+!secrets/README.md
+.tmp/
+.template_version
+tf/auto-vars/skip_remote_state.auto.tfvars.json
+.claude/scheduled_tasks.lock
+
+# Deploy-time-generated provider + resource files, materialized by
+# _selectCloudFiles() (shell_utils.sh) copying each
+# tf/**/{providers-<cloud>,<cloud>-resources}.tf.tmpl onto its .tmpl-less
+# basename. They are regenerated on every deploy and must never ride the
+# persistInfraRepo() `git add -A` snapshot push to the per-project -infra repo.
+#
+# NARROWED from the historic over-broad `tf/*/providers-*.tf` glob — a
+# snapshot-fidelity gap caught by the bridge team's e2e. That glob ALSO matched
+# the composer-archive-owned providers-imported.tf / providers-aliases.tf
+# (insideout-terraform-presets #677), which the InsideOut composer emits into
+# the custom-stack archive and rsyncs into tf/custom-stack-provision/. Those are
+# real stack files that MUST survive into the reviewable -infra snapshot, but
+# the glob silently excluded them from the `git add -A` push. Deploys were
+# unaffected (they read the rsync'd worktree on disk, not git) — this was
+# snapshot fidelity only. Exclude ONLY the exact generated basenames:
+tf/*/providers-aws.tf
+tf/*/providers-gcp.tf
+# <cloud>-resources.tf (aws-resources.tf / gcp-resources.tf) are also produced
+# by _selectCloudFiles(); the composer emits NO *-resources.tf, so this stays as
+# the correct generated-only glob.
+tf/*/*-resources.tf
+# Belt-and-suspenders: re-include the composer-archive-owned provider siblings
+# so they are always committed, even if the generated-file glob above is ever
+# widened back to `tf/*/providers-*.tf`. Keep these negations. #677
+!tf/*/providers-imported.tf
+!tf/*/providers-aliases.tf
+
+# Terraform's tooling cache. Regenerable on next `terraform init` from
+# mars's filesystem_mirror. Without this rule the ~750 MiB AWS provider
+# binary that reverse-import populates under
+# outputs/reverse-import/{,genconfig/}.terraform/providers/ rides every
+# Oracle archive commit and accumulates ~168 MiB / commit in
+# .git/objects forever. See sandbox-infrastructure-template#136 (which
+# strips the worktree before targz) and ui-core#382 (the .git history
+# bloat follow-up).
+.terraform/
+
+# ===========================================================================
+# sandbox-infrastructure-template#160 — keep deploy-time tfvars, cloud
+# credentials, and terraform outputs OUT of the per-project -infra repo.
+#
+# persistInfraRepo() (shell_utils.sh) runs `git add -A` against the -infra
+# clone after every custom-stack apply. `git add -A` skips an UNTRACKED file
+# matched here, but it still commits new versions of a TRACKED one, so
+# gitCommit first untracks every tracked file matched here
+# (untrackIgnoredFiles). Every pipeline read of these files is on-disk
+# (getTfVar / terraform auto-load), so excluding them from git is
+# zero-deployment-risk.
+# ===========================================================================
+
+# tf/auto-vars/ holds the deploy-time common.auto.tfvars.json (cloud
+# credentials + base64 archive blob), the repo_clone_ssh_url, skip_remote_state,
+# etc. — all written at apply time and all sensitive. Ignore the directory's
+# contents. Use `tf/auto-vars/*` (not `tf/auto-vars/`) so the repo's own
+# tracked, NON-secret scaffolding under vars/ can be re-included below — this is
+# git-idiomatic, not a weakening of the pattern (`*` covers the same direct
+# children). #160
+tf/auto-vars/*
+# Negation carve-out for the paths `git ls-files` shows tracked before #160:
+#   tf/auto-vars/vars/common/config.tfvars   (comment-only tfvars scaffold)
+#   tf/auto-vars/vars/default/README         (docs)
+# They are static, non-secret, and NOT written at deploy time (no script or CI
+# injects them), so keep them tracked rather than weakening the pattern. #160
+# NOTE: tf/auto-vars/common.auto.tfvars.json is deliberately NOT carved out —
+# it is the exact credentials/archive blob #160 exists to exclude, so
+# re-including it would reintroduce the leak. This repo once tracked it as a
+# `{}` seed. That was the leak: .gitignore does not stop git from committing a
+# file it already tracks, so `git add -A` pushed the credentials to -infra
+# repos. The template no longer tracks it, and untrackIgnoredFiles
+# (shell_utils.sh) untracks it in project trees and -infra repos that still do.
+# tests/test-infra-push.sh fails if this repo tracks any file it ignores.
+!tf/auto-vars/vars/
+!tf/auto-vars/vars/**
+
+# Any *.auto.tfvars.json anywhere: the tf/auto-vars/ credential blob AND the
+# per-stage copies tfSetup drops into tf/<stage>/ (`cp -rf auto-vars/*`), plus
+# the Phase-1 secrets copy. Placed AFTER the vars/ carve-out so a stray
+# *.auto.tfvars.json under vars/ is still excluded. #160
+*.auto.tfvars.json
+
+# Terraform JSON backend config generated at deploy time. #160
+backend.tf.json
+
+# Saved terraform plan files (e.g. apply.tfplan, refresh.tfplan, <id>.tfplan). #160
+*.tfplan
+
+# outputs/ holds terraform outputs + drift.json + tfplan*.json written at apply
+# time (apply-with-outputs.sh / apply-plan.sh / drift-refresh.sh). #160
+outputs/
+
+# Phase-1 per-stage decrypted secrets copy tfSetup stages from
+# secrets/cloud-credentials.auto.tfvars.json. Belt-and-suspenders (already
+# matched by *.auto.tfvars.json above). #160
+tf/*/zz-secret.auto.tfvars.json
