@@ -83,7 +83,7 @@ type cmdResult struct {
 
 func runShell(t *testing.T, script string, args ...string) cmdResult {
 	t.Helper()
-	cmd := exec.Command("bash", append([]string{script}, args...)...)
+	cmd := exec.Command("bash", append([]string{script}, args...)...) //nolint:gosec // G204: runs the test's own fixture script with fixed args
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
 	err := cmd.Run()
