@@ -198,6 +198,9 @@ func TestPersistUntracksTrackedCredentials(t *testing.T) {
 	if !strings.Contains(readFile(t, filepath.Join(proj, "tf/auto-vars/common.auto.tfvars.json")), "FAKE-SECRET-K") {
 		t.Errorf("the credentials file was removed from disk")
 	}
+	// The log names each untracked file: it is the record that a
+	// credentials file was tracked, and so pushed, before.
+	assertContains(t, out.String(), "Untracking file(s) that .gitignore ignores (#160):\n    tf/auto-vars/common.auto.tfvars.json\n")
 }
 
 // Shell case M: after ui-core squashes the project history, the next deploy

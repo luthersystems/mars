@@ -50,9 +50,19 @@ func (r *Repo) untrackIgnored(ctx context.Context) error {
 		r.warn("⚠️  [git-infra] WARNING: git ls-files could not list the ignored files; not staging. [sandbox-infrastructure-template#160]")
 		return err
 	}
+	files := splitZ(out)
+	if len(files) == 0 {
+		return nil
+	}
+	// The list is the record that these files were tracked, so pushed,
+	// before: a credentials file among them needs rotating.
+	r.warn("🔒 [git-infra] Untracking file(s) that .gitignore ignores (#160):")
+	for _, f := range files {
+		r.warn("    %s", f)
+	}
 	// --literal-pathspecs: the names are paths, not pathspecs, so a name
 	// with * or [ ] untracks only itself.
-	if err := r.gitBatched(ctx, []string{"--literal-pathspecs", "rm", "--cached", "--quiet", "--ignore-unmatch"}, splitZ(out)); err != nil {
+	if err := r.gitBatched(ctx, []string{"--literal-pathspecs", "rm", "--cached", "--quiet", "--ignore-unmatch"}, files); err != nil {
 		// Going on would commit the ignored files again (#160: the
 		// deploy-time credentials file).
 		r.warn("⚠️  [git-infra] WARNING: git rm --cached failed; not staging, so the ignored files are not committed. [sandbox-infrastructure-template#160]")

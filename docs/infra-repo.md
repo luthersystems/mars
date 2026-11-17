@@ -95,7 +95,8 @@ removed from the tip (it stays in history).
 ### Staging rules (commit and snapshot)
 
 - Every tracked file that `.gitignore` ignores is untracked first (`git rm
-  --cached`, literal pathspecs); the file stays on disk. `.gitignore` does
+  --cached`, literal pathspecs), and each is logged: a credentials file
+  there was pushed before and needs rotating. The file stays on disk. `.gitignore` does
   not stop `git add -A` from committing new versions of a tracked file, and
   the old template tracked the credentials file (#160). A failure to list
   or untrack stops the commit (fail closed).
@@ -126,6 +127,11 @@ It keeps the template-only paths. `destroy.sh` maps its 1 to 75
   resolve it with `git rm`.
 - `infra-clone` writes `<root>/.git` with `git clone --separate-git-dir`;
   a failed clone removes it (it did not exist before).
+- With the deploy key, `core.sshCommand` in `.git/config` names the key by
+  its absolute path under the root mars saw, as the shell did. Run through
+  the template's `./mars` docker wrapper, that is the container's
+  `/marsproject`, which host-side git cannot find; on a laptop set
+  `MARS_BIN` to a native mars instead (the wrapper also has no SSH agent).
 
 ## Tests
 
