@@ -32,6 +32,9 @@ type CLI struct {
 	MigrateApply      terraform.MigrateApplyCmd      `cmd:"" name:"migrate_apply" help:"Run tfmigrate apply."`
 	DriftCheck        terraform.DriftCheckCmd        `cmd:"" name:"drift-check" help:"Report resource drift in a plan as JSON (exit 2 on actionable drift)."`
 	PlanSummary       terraform.PlanSummaryCmd       `cmd:"" name:"plan-summary" help:"Count a plan's resource changes and list their addresses, as JSON."`
+	PlanAll           terraform.PlanAllCmd           `cmd:"" name:"plan-all" help:"Plan every stage of mars-stages.yaml and write a summary (exit 1 if a stage fails)."`
+	PlanStage         terraform.PlanStageCmd         `cmd:"" name:"plan-stage" help:"Plan one stage of mars-stages.yaml; with --check-drift exit 2 on drift."`
+	ApplyStage        terraform.ApplyStageCmd        `cmd:"" name:"apply-stage" help:"Apply one stage of mars-stages.yaml, with an optional drift gate and outputs capture."`
 
 	AnsiblePlaybook     ansible.PlaybookCmd        `cmd:"ansible-playbook" help:"Run ansible-playbook with Mars defaults."`
 	AnsibleExecute      ansible.ExecuteCmd         `cmd:"ansible-execute" help:"Run ansible with Mars defaults."`
