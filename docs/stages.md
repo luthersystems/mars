@@ -17,8 +17,9 @@ layout: the stage names, their directories, which stage a new project must
 apply first, and where the reports go are all settings.
 
 What stays with the project: anything that is not Terraform. For the
-template that is the git snapshot and push of the infra repo
-(`gitSnapshotCommit`, `gitPushInfra`, `persistInfraRepo`), the cloud
+template that is the git snapshot and push of the infra repo (the
+`infra-*` commands, [infra-repo.md](infra-repo.md), which the template
+calls), the cloud
 credential setup (`setupCloudEnv`, which wraps the mars call), and the
 per-stage file staging and backend generation (`tfSetup`, `bootstrap.sh`),
 which a stage `setup` hook can run.

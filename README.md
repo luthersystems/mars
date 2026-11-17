@@ -109,6 +109,15 @@ whether or not it exists. Without a config the three stage commands fail
   actionable drift, and with `--outputs` writes `terraform output -json`.
   Exit 0 or 1.
 
+### The per-project -infra repo: infra-* commands
+
+`mars <env> infra-merge`, `infra-pull`, `infra-commit`, `infra-snapshot`,
+`infra-push`, `infra-clone` and `infra-persist` keep a
+sandbox-infrastructure-template project's `-infra` git repo in step with
+what was deployed: the git logic the template's `shell_utils.sh` used to
+hold. They are opt-in and read no mars config; see
+[docs/infra-repo.md](docs/infra-repo.md) for the rules and exit codes.
+
 ### Pre-warmed provider plugin cache
 
 The image ships pre-warmed binaries for the providers pinned by
