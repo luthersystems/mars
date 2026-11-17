@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Fake terraform for the drift-check tests: `show -json` prints the fixture
+# named by FAKE_SHOW_OUTPUT (and FAKE_SHOW_STDERR to stderr) and exits
+# FAKE_SHOW_RC. Every call is logged to FAKE_TF_LOG when set.
+if [[ -n "${FAKE_TF_LOG:-}" ]]; then echo "$*" >>"$FAKE_TF_LOG"; fi
+if [[ "$1" == "show" && "$2" == "-json" ]]; then
+  if [[ -n "${FAKE_SHOW_STDERR:-}" ]]; then echo "$FAKE_SHOW_STDERR" >&2; fi
+  if [[ -n "${FAKE_SHOW_OUTPUT:-}" ]]; then cat "$FAKE_SHOW_OUTPUT"; fi
+  exit "${FAKE_SHOW_RC:-0}"
+fi

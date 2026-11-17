@@ -1,0 +1,1 @@
+{"resource_drift":[{"address":"a.arr","change":{"before":["x",[],0,{"k":""}],"after":["y",null,false,{"k":null}]}}],"resource_changes":[{"address":"a.arr","change":{"actions":["no-op"]}}]}

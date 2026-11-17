@@ -104,9 +104,14 @@ type service struct {
 	skipPrompt bool
 	runner     runner.Runner
 	stdin      io.Reader
-	stdout     io.Writer
-	stderr     io.Writer
-	clock      app.Clock
+	// in, when set, is the one reader of stdin for every prompt, so a
+	// prompt does not lose input that an earlier prompt's reader buffered.
+	// Only the stage commands set it (shareInput); the other commands read
+	// each prompt with a new reader, as they always have.
+	in     *bufio.Reader
+	stdout io.Writer
+	stderr io.Writer
+	clock  app.Clock
 }
 
 func (c *InitCmd) Run(ctx context.Context, rt *app.Runtime) error {
@@ -537,7 +542,7 @@ func (s *service) promptEnvSwitch(ctx context.Context) error {
 	if s.skipPrompt {
 		return nil
 	}
-	reader := bufio.NewReader(s.stdin)
+	reader := s.input()
 	for {
 		fmt.Fprintf(s.stderr, "switch to %s? [y/N] ", s.env)
 		resp, err := reader.ReadString('\n')
@@ -564,7 +569,7 @@ func (s *service) promptEnvSwitch(ctx context.Context) error {
 func (s *service) confirmApply(planPath string) bool {
 	fmt.Fprintln(s.stdout)
 	fmt.Fprintln(s.stdout, "Would you like to apply this plan?")
-	reader := bufio.NewReader(s.stdin)
+	reader := s.input()
 	cont := ""
 	for cont != "yes" {
 		fmt.Fprintln(s.stdout, "You must answer 'yes' to continue")
@@ -590,6 +595,23 @@ func (s *service) confirmApply(planPath string) bool {
 	}
 	fmt.Fprintln(s.stdout)
 	return true
+}
+
+// input is the reader of stdin for one prompt: the shared one after
+// shareInput, otherwise a new one.
+func (s *service) input() *bufio.Reader {
+	if s.in != nil {
+		return s.in
+	}
+	return bufio.NewReader(s.stdin)
+}
+
+// shareInput makes every later prompt read stdin through one reader. The
+// stage commands prompt once per stage and call it.
+func (s *service) shareInput() {
+	if s.in == nil {
+		s.in = bufio.NewReader(s.stdin)
+	}
 }
 
 func (s *service) varFileArgs() []string {

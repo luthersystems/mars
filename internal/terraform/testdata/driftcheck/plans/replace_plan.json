@@ -1,0 +1,8 @@
+{
+  "resource_drift": [
+    {"address": "aws_x.y", "type": "aws_x", "name": "y", "change": {"before": {"k": "a"}, "after": {"k": "b"}}}
+  ],
+  "resource_changes": [
+    {"address": "aws_x.y", "change": {"actions": ["create", "delete"]}}
+  ]
+}

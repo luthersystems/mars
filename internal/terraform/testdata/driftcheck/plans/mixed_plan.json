@@ -1,0 +1,23 @@
+{
+  "resource_drift": [
+    {
+      "address": "aws_s3_bucket.false_positive",
+      "type": "aws_s3_bucket",
+      "change": {
+        "before": {"cors_rule": null, "tags": {"env": "prod"}},
+        "after":  {"cors_rule": [],   "tags": {"env": "prod"}}
+      }
+    },
+    {
+      "address": "aws_instance.real_drift",
+      "type": "aws_instance",
+      "change": {
+        "before": {"instance_type": "t3.micro", "tags": {"Name": "old"}},
+        "after":  {"instance_type": "t3.small", "tags": {"Name": "new"}}
+      }
+    }
+  ],
+  "resource_changes": [
+    {"address": "aws_instance.real_drift", "change": {"actions": ["update"]}}
+  ]
+}

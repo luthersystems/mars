@@ -1,0 +1,1 @@
+{"resource_drift":[{"address":"a.b","change":{"before":"a long string value","after":"y"}},{"address":"a.c","change":{"before":{},"after":{"x":1}}}]}

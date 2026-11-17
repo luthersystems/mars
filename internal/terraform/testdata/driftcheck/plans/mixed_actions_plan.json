@@ -1,0 +1,10 @@
+{
+  "resource_drift": [
+    {"address": "aws_x.y", "change": {"before": {"k": "a"}, "after": {"k": "b"}}}
+  ],
+  "resource_changes": [
+    {"address": "aws_a.b", "change": {"actions": ["no-op"]}},
+    {"address": "aws_c.d", "change": {"actions": ["read"]}},
+    {"address": "aws_x.y", "change": {"actions": ["update"]}}
+  ]
+}

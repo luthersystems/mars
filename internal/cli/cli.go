@@ -10,6 +10,7 @@ import (
 	"github.com/luthersystems/mars/internal/alb"
 	"github.com/luthersystems/mars/internal/ansible"
 	"github.com/luthersystems/mars/internal/app"
+	"github.com/luthersystems/mars/internal/infrarepo"
 	"github.com/luthersystems/mars/internal/packer"
 	"github.com/luthersystems/mars/internal/runner"
 	"github.com/luthersystems/mars/internal/terraform"
@@ -30,6 +31,19 @@ type CLI struct {
 	MigrationFromPlan terraform.MigrationFromPlanCmd `cmd:"" name:"migration_fromplan" help:"Generate tfedit migration file from a Terraform plan."`
 	MigratePlan       terraform.MigratePlanCmd       `cmd:"" name:"migrate_plan" help:"Run tfmigrate plan."`
 	MigrateApply      terraform.MigrateApplyCmd      `cmd:"" name:"migrate_apply" help:"Run tfmigrate apply."`
+	DriftCheck        terraform.DriftCheckCmd        `cmd:"" name:"drift-check" help:"Report resource drift in a plan as JSON (exit 2 on actionable drift)."`
+	PlanSummary       terraform.PlanSummaryCmd       `cmd:"" name:"plan-summary" help:"Count a plan's resource changes and list their addresses, as JSON."`
+	PlanAll           terraform.PlanAllCmd           `cmd:"" name:"plan-all" help:"Plan every stage of mars-stages.yaml and write a summary (exit 1 if a stage fails)."`
+	PlanStage         terraform.PlanStageCmd         `cmd:"" name:"plan-stage" help:"Plan one stage of mars-stages.yaml; with --check-drift exit 2 on drift."`
+	ApplyStage        terraform.ApplyStageCmd        `cmd:"" name:"apply-stage" help:"Apply one stage of mars-stages.yaml, with an optional drift gate and outputs capture."`
+
+	InfraClone    infrarepo.CloneCmd    `cmd:"" name:"infra-clone" help:"Give a project tree without .git the git state of its -infra repo (exit 0)."`
+	InfraMerge    infrarepo.MergeCmd    `cmd:"" name:"infra-merge" help:"Merge infra/main into the project tree (exit 0 merged, 1 failed, 2 not merged)."`
+	InfraPull     infrarepo.PullCmd     `cmd:"" name:"infra-pull" help:"Merge origin/main, then infra/main, into the project tree."`
+	InfraCommit   infrarepo.CommitCmd   `cmd:"" name:"infra-commit" help:"Commit the project tree (exit 1 when refused or failed)."`
+	InfraSnapshot infrarepo.SnapshotCmd `cmd:"" name:"infra-snapshot" help:"Commit the deployed tree as one snapshot on top of infra/main (exit 1 when refused or failed)."`
+	InfraPush     infrarepo.PushCmd     `cmd:"" name:"infra-push" help:"Push HEAD to the infra remote (exit 0; warns on failure)."`
+	InfraPersist  infrarepo.PersistCmd  `cmd:"" name:"infra-persist" help:"Clone if needed, snapshot and push the deployed tree (exit 0; warns on failure)."`
 
 	AnsiblePlaybook     ansible.PlaybookCmd        `cmd:"ansible-playbook" help:"Run ansible-playbook with Mars defaults."`
 	AnsibleExecute      ansible.ExecuteCmd         `cmd:"ansible-execute" help:"Run ansible with Mars defaults."`
@@ -93,7 +107,9 @@ func Main(ctx context.Context, args []string, stdin io.Reader, stdout io.Writer,
 		Stderr:     stderr,
 	}
 	if err := parsed.Run(ctx, rt); err != nil {
-		fmt.Fprintln(stderr, err)
+		if !runner.IsSilent(err) {
+			fmt.Fprintln(stderr, err)
+		}
 		return runner.ExitCode(err)
 	}
 	return 0

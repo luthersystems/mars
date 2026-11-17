@@ -1,0 +1,1 @@
+{"resource_changes":[{"address":"a.adopted","change":{"actions":["forget"]}},{"address":"a.same","change":{"actions":["no-op"]}}]}

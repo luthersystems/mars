@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Fake terraform for the stages differential test. The stage is the base
+# name of the working directory. Fixtures in $FAKE_STAGES:
+#   <stage>.json       terraform show -json output (default: no changes)
+#   <stage>.fail       plan fails
+#   <stage>.has-state  state list lists a resource
+#   <stage>.apply-fail apply fails
+# Each call is logged as "<stage> <args>" to $FAKE_TF_LOG.
+stage="$(basename "$PWD")"
+echo "$stage $*" >>"$FAKE_TF_LOG"
+case "$1" in
+  workspace)
+    [[ "$2" == "show" ]] && echo default
+    ;;
+  plan)
+    [[ -f "$FAKE_STAGES/$stage.fail" ]] && exit 1
+    for arg in "$@"; do
+      if [[ "$arg" == -out=* ]]; then touch "${arg#-out=}"; fi
+    done
+    ;;
+  show)
+    if [[ -f "$FAKE_STAGES/$stage.json" ]]; then cat "$FAKE_STAGES/$stage.json"; else echo '{"resource_changes": []}'; fi
+    ;;
+  state)
+    [[ -f "$FAKE_STAGES/$stage.has-state" ]] && echo "aws_s3_bucket.state"
+    ;;
+  apply)
+    [[ -f "$FAKE_STAGES/$stage.apply-fail" ]] && exit 1
+    ;;
+  output)
+    printf '{"stage": {"value": "%s"}}\n' "$stage"
+    ;;
+esac
+exit 0
