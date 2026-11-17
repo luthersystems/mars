@@ -1,7 +1,7 @@
 # Multi-stage plan and apply (`mars-stages.yaml`)
 
-Status: design, with the first implementation of `plan-all`, `plan-stage`
-and `apply-stage`. It is the general part of
+Status: implemented (`plan-all`, `plan-stage`, `apply-stage`); the
+template still runs its shell until it moves to these commands. It is the general part of
 sandbox-infrastructure-template's `tf/plan-all.sh`, `tf/plan.sh`,
 `tf/apply-plan.sh`, `tf/apply-with-outputs.sh` (drift mode) and
 `tf/drift-refresh.sh` (sandbox-infrastructure-template#114).
@@ -191,6 +191,14 @@ Exit codes: 0 planned (no drift, or drift that does not count); 2 with
 Exit codes: 0 applied, or the apply skipped on drift (`apply_skipped` in the
 report); 1 error.
 
+## Tests
+
+`internal/terraform/stages_test.go` runs the commands on a fake runner.
+`internal/terraform/stages_diff_test.go` runs the template's scripts
+(copied into `testdata/stages/template`) and the mars commands on the same
+fake project and fake terraform, and compares exit codes, applied stages
+and every JSON file field for field.
+
 ## Differences from the template's shell
 
 - The plan is always saved (`-out=<plan_file>`), so a stage always has plan
@@ -205,6 +213,8 @@ report); 1 error.
   drift mode ran a bare `terraform plan`.
 - The drift report has `actionable_count` too, and per-stage counts follow
   `plan-summary` (see above).
+- A drift check writes its reports when there is no drift too
+  (`drift_detected: false`); the template's drift-check.sh wrote none then.
 - Not ported: the git steps, cloud credentials, version log lines and the
   template's file staging. A `setup` hook runs as a child process, so an
   `export` in it does not reach mars; export such variables before calling

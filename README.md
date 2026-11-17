@@ -81,6 +81,27 @@ mars dev drift-check plan.tfplan --out drift.json; rc=$?
 mars dev plan-summary plan.tfplan
 ```
 
+### Multi-stage plan and apply: plan-all, plan-stage, apply-stage
+
+A project with several Terraform stages (root modules run in order) lists
+them in `mars-stages.yaml` at its root; [docs/stages.md](docs/stages.md)
+has the format. The commands run in the project root (`--config <file>`
+names another config).
+
+- `mars <env> plan-all [--stages a,b] [--continue] [--check-drift]` plans
+  each stage to a saved plan, writes its `terraform show -json`, counts its
+  changes, applies a stage marked `apply_if_no_state` when its state is
+  empty, and writes the summary (`plan-summary.json`) and plan alias
+  (`tfplan.json`). Exit 0 when every stage planned, 1 otherwise.
+- `mars <env> plan-stage <stage> [--refresh-only] [--check-drift]
+  [--strict] [--ignore-drift] [--plan-file f]` plans one stage. With
+  `--check-drift` it writes the drift report and exits as `drift-check`.
+- `mars <env> apply-stage <stage> [--plan f] [--check-drift]
+  [--ignore-drift] [--outputs] [--clean-providers]` applies a saved plan (or
+  plans first), skips the apply (exit 0, `apply_skipped: true`) on
+  actionable drift, and with `--outputs` writes `terraform output -json`.
+  Exit 0 or 1.
+
 ### Pre-warmed provider plugin cache
 
 The image ships pre-warmed binaries for the providers pinned by
