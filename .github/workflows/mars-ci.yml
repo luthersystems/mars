@@ -3,6 +3,8 @@ name: CI Build
 on:
   # The merge queue runs the required checks on the merged result.
   merge_group:
+  # No paths filter: the gate job below is a required check, so every PR
+  # must start a run. The changes job skips the other jobs on docs-only PRs.
   pull_request:
     branches:
       - main
@@ -11,6 +13,31 @@ on:
     branches:
       - main
 jobs:
+  # Decides whether the build and test jobs must run (scripts/ci-changes.sh).
+  changes:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.decide.outputs.code }}
+    steps:
+      # On a pull request this checks out the merge commit. Its first parent
+      # is the base branch tip, so depth 2 is enough for the diff.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Test the decision script and the gate's needs list
+        run: ./scripts/ci-changes-test.sh
+      - id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            ./scripts/ci-changes.sh HEAD^1 HEAD | tee -a "$GITHUB_OUTPUT"
+          else
+            ./scripts/ci-changes.sh | tee -a "$GITHUB_OUTPUT"
+          fi
+
   # Runs the Go unit tests, which include the fast same-repo/cross-repo drift
   # guards in internal/providercache (Dockerfile bake vs "Sources of truth"
   # comment vs smoke-tf-cache.sh vs the insideout-terraform-presets composer
@@ -19,6 +46,8 @@ jobs:
   # without ever exercising them.
   go-test:
     name: go test
+    needs: changes
+    if: needs.changes.outputs.code != 'false'
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     steps:
@@ -38,6 +67,8 @@ jobs:
   # cluster.
   fabric3-upgrade:
     name: fabric 3 upgrade test
+    needs: changes
+    if: needs.changes.outputs.code != 'false'
     # 24.04: its Python 3.12 runs the Ansible of the mars image.
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -61,6 +92,8 @@ jobs:
         run: ./scripts/test-fabric3-upgrade.sh
   build:
     name: ${{ matrix.image }} - ${{ matrix.arch }} docker build
+    needs: changes
+    if: needs.changes.outputs.code != 'false'
     runs-on: ${{ fromJSON('{"arm64":"ubuntu-22.04-arm","amd64":"ubuntu-22.04"}')[matrix.arch] }}
     strategy:
       matrix:
@@ -107,3 +140,32 @@ jobs:
           dockerfiles: Dockerfile
           # The tag holds the one platform this job built.
           images: luthersystems/mars:${{ github.sha }} linux/${{ matrix.arch }}
+
+  ci-all:
+    name: CI (all required checks)
+    # always(), so the gate reports on every run. A cancelled or failed job
+    # then fails the gate below. A gate that did not run, or was skipped,
+    # could count as passing for the required check.
+    if: always()
+    needs: [changes, go-test, fabric3-upgrade, build]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      # Pass only if the changes job succeeded and every other job succeeded,
+      # or was skipped because the changes job said the PR is docs-only
+      # (code=false). Any other skip fails, so a job skipped by mistake
+      # cannot pass the gate.
+      - name: Fail unless every required job passed
+        if: >-
+          needs.changes.result != 'success'
+          || contains(needs.*.result, 'failure')
+          || contains(needs.*.result, 'cancelled')
+          || (needs.changes.outputs.code != 'false' && contains(needs.*.result, 'skipped'))
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS_JSON"
+          echo "::error::A required CI job failed, was cancelled or was skipped."
+          exit 1
+      - name: Every required job passed or was skipped as docs-only
+        run: echo "ok"

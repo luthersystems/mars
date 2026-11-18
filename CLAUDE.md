@@ -132,7 +132,7 @@ echo 1.7.3 > .terraform-version
 
 ## CI/CD & Releases
 
-- `.github/workflows/mars-ci.yml` - Builds on PRs to main (amd64 + arm64)
+- `.github/workflows/mars-ci.yml` - Builds on PRs to main, in the merge queue and on pushes to main (amd64 + arm64). Its gate job `ci-all`, "CI (all required checks)", is the required check: it passes only when every job passed, or skipped because the PR changes docs only (`*.md`, `docs/`, `.claude/`; `scripts/ci-changes.sh`, tested by `scripts/ci-changes-test.sh`). Add each new job to its `needs`
 - `.github/workflows/mars-release.yml` - Triggered by git tags, builds and pushes multi-arch images to DockerHub
 - After the images are pushed, a `vX.Y.Z` tag runs `scripts/deploy.sh`, which bumps `.mars-version` in luthersystems/ui-infrastructure (its `bump_mars_version.sh`, over SSH with `SSH_DEPLOY_PRIVATE_KEY`, as connectorhub and substrate do). That push deploys the release to platform-test. Prod shares the pin but deploys only by a manual dispatch
 - Images are built with Docker buildx for both amd64 and arm64 architectures
