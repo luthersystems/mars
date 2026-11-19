@@ -22,6 +22,14 @@ import (
 const (
 	DefaultOutputDir = "/marsproject/outputs/reverse-import"
 	resultFile       = "reverse-result.json"
+
+	// BoundClosureEnv turns on the presets closure contract
+	// (reverseimport.Options.BoundClosureToSelection,
+	// insideout-terraform-presets#864/#867) when it is exactly "true". ui-core
+	// sets it on the container of a run whose caller opted in. The job reads it
+	// itself, so the template's reverse-import.sh passes it through unchanged.
+	// --bound-closure-to-selection, when given, overrides it.
+	BoundClosureEnv = "REVERSE_IMPORT_BOUND_CLOSURE_TO_SELECTION"
 )
 
 type Runner func(context.Context, reversejob.Request, reverseimport.Options) (reversejob.Result, error)
@@ -204,6 +212,12 @@ func Main(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer
 	}
 	defer discoverer.Close()
 
+	if cfg.boundClosureToSelection {
+		// Say so in the job log, so an operator or e2e can confirm the run
+		// used the closure contract rather than the default adopt-all chase.
+		fmt.Fprintln(stdout, "bound_closure_to_selection=true: dependencies outside the selected types are referenced, not adopted")
+	}
+
 	result, err := run(ctx, req, reverseimport.Options{
 		OutputDir: cfg.outputDir,
 		Workdir:   cfg.workDir,
@@ -232,6 +246,10 @@ func Main(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer
 		// closure-capable (pkg/reverseimport/closure.go), so setting Discoverer
 		// wires both.
 		Discoverer: discoverer,
+		// Off unless the caller opted this run in (see BoundClosureEnv). Off
+		// keeps the engine's historical behavior of adopting every dependency
+		// dep-chase finds.
+		BoundClosureToSelection: cfg.boundClosureToSelection,
 		// Stream the engine's live phase progress + terraform subprocess
 		// output to the job's stdout so Oracle's follow=1 stream (and the
 		// InsideOut import wizard's log console) shows continuous progress
@@ -307,6 +325,8 @@ type config struct {
 	importProjectID string
 	importSessionID string
 	terraformBinary string
+
+	boundClosureToSelection bool
 }
 
 func parseArgs(args []string, stderr io.Writer) (config, int, bool) {
@@ -330,6 +350,10 @@ Flags:`)
 	fs.StringVar(&cfg.importProjectID, "import-project-id", "", "InsideOut import project ID for provenance")
 	fs.StringVar(&cfg.importSessionID, "import-session-id", "", "InsideOut import session ID for provenance")
 	fs.StringVar(&cfg.terraformBinary, "terraform-binary", "", "path to terraform binary")
+	// Only the exact string "true" turns it on, so a stray or mistyped value
+	// can never opt a run into the closure contract.
+	fs.BoolVar(&cfg.boundClosureToSelection, "bound-closure-to-selection", os.Getenv(BoundClosureEnv) == "true",
+		"reference, rather than adopt, dependencies whose type is outside the selection (default: $"+BoundClosureEnv+" == \"true\")")
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
