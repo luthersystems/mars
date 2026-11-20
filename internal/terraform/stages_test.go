@@ -458,7 +458,7 @@ func TestPlanAllPlanFileFlag(t *testing.T) {
 	if !f.ran("a", "apply -input=false job1.tfplan") {
 		t.Errorf("new-project apply: %v", f.terraformCalls("a"))
 	}
-	for _, bad := range []string{"../x.tfplan", "/tmp/x.tfplan", "*.tfplan"} {
+	for _, bad := range []string{"../x.tfplan", "/tmp/x.tfplan", "*.tfplan", "plans/x.tfplan"} {
 		f.calls = nil
 		if code := runner.ExitCode((&PlanAllCmd{PlanFile: bad}).Run(context.Background(), rt)); code != 1 {
 			t.Errorf("--plan-file %q: exit %d, want 1", bad, code)

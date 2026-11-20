@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 
@@ -244,7 +245,10 @@ func (c *PlanAllCmd) Run(ctx context.Context, rt *app.Runtime) error {
 	if planFile == "" {
 		planFile = cfg.planFile()
 	}
-	if !isPlainLocal(planFile) {
+	// A bare name only: a name in a subdirectory that does not exist would
+	// fail in every stage's terraform plan, after cleanStale has removed the
+	// earlier run's reports.
+	if !isPlainLocal(planFile) || filepath.Base(planFile) != planFile {
 		return r.fail("--plan-file %q must be a file name inside the stage directory", planFile)
 	}
 	if err := c.cleanStale(cfg, stages); err != nil {
