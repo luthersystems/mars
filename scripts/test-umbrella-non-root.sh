@@ -11,7 +11,11 @@
 # Fake kubernetes.core k8s and helm modules, a fake ansible.posix synchronize
 # and a fake helm binary stand in for the cluster and the tools, so it needs
 # ansible-core and no credentials or network. Run as root, it runs the play as
-# the user nobody, because root can chown to root and would hide the bug.
+# the user nobody, because root can chown to root and would hide the bug; then
+# nobody must be able to read ansible and this checkout. Linux only (setpriv,
+# GNU stat). It stages the chart under a temporary root, not the image's
+# /opt/k8s: scripts/smoke-any-uid.sh checks that an arbitrary uid can write
+# the image's paths.
 # CI: the fabric3-upgrade job of .github/workflows/mars-ci.yml.
 
 set -euo pipefail
@@ -83,17 +87,24 @@ cat >"$TMP/umbrella.yml" <<YML
     - umbrella
 YML
 
-# The play runs as the caller, or as nobody when the caller is root.
-AS=()
+# The play runs as the caller, or as nobody when the caller is root. nobody
+# has no writable home, so it gets one under $TMP; the caller keeps its own,
+# where a pip --user ansible finds its packages.
+AS=(env)
 if [ "$(id -u)" = 0 ]; then
   chown -R nobody "$TMP"
-  AS=(setpriv --reuid=nobody --regid=nogroup --clear-groups --)
+  AS=(setpriv --reuid=nobody --regid="$(id -gn nobody)" --clear-groups -- env HOME="$TMP")
 fi
 USER_ID="$("${AS[@]}" id -u)"
 
+if ! "${AS[@]}" ansible-playbook --version >"$TMP/out" 2>&1; then
+  cat "$TMP/out"
+  echo "ansible-playbook does not run as uid $USER_ID: install ansible where that uid can read it"
+  exit 1
+fi
+
 rc=0
-"${AS[@]}" env \
-  HOME="$TMP" \
+"${AS[@]}" \
   PATH="$TMP/bin:$PATH" \
   ANSIBLE_ROLES_PATH="$ROLES" \
   ANSIBLE_COLLECTIONS_PATH="$TMP/collections" \
@@ -111,11 +122,12 @@ check "Chart.yaml is staged" yes "$([ -f "$CHART/Chart.yaml" ] && echo yes || ec
 check "helm dependency update ran" yes "$([ -f "$CHART/Chart.lock" ] && echo yes || echo no)"
 check "the running user owns the chart" "$USER_ID" "$(stat -c %u "$CHART/Chart.yaml" 2>/dev/null || echo none)"
 
-# No role chowns a file it stages on the deploy host to root (mars#367).
-# bastion_init is left out: it sets up a remote bastion with become.
+# No role chowns a file it stages on the deploy host to root (mars#367), in
+# the YAML form (owner: root) or the inline one (owner=root), by name or uid.
+# Left out: bastion_init and journald, which set up a remote host with become.
 check "no deploy-host role sets owner or group root" "" \
-  "$(grep -rnE '^\s*(owner|group):\s*"?root"?\s*$' "$ROLES" --include='*.yml' --include='*.yaml' |
-    grep -v "^$ROLES/bastion_init/" || true)"
+  "$(grep -rnE "(owner|group)(:[[:space:]]*|=)[\"']?(root|0)[\"']?([[:space:]]|$)" "$ROLES" \
+    --include='*.yml' --include='*.yaml' --exclude-dir=bastion_init --exclude-dir=journald || true)"
 
 if [ "$FAILS" -gt 0 ]; then
   echo "--- ansible output ---"
