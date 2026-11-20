@@ -3,24 +3,22 @@
 
 - name: Create umbrella chart directory
   # Stages files on the deploy host only. Run it in check mode too, because
-  # the cluster tasks after it read these files.
+  # the cluster tasks after it read these files. It sets no owner or group:
+  # mars runs ansible as the caller's uid (mars#363), which cannot chown to
+  # root, and helm needs only that the running user owns the files (mars#367).
   check_mode: false
   file:
     path: "{{ umbrella_helm_chart }}"
-    owner: root
-    group: root
     state: directory
     mode: "0755"
 
 - name: Render umbrella Chart.yaml
   # Stages files on the deploy host only. Run it in check mode too, because
-  # the cluster tasks after it read these files.
+  # the cluster tasks after it read these files. No owner or group, as above.
   check_mode: false
   template:
     src: Chart.yaml.j2
     dest: "{{ umbrella_helm_chart }}/Chart.yaml"
-    owner: root
-    group: root
     mode: "0644"
 
 - name: Install umbrella helm dependencies
