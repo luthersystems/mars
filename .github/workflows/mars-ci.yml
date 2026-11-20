@@ -86,6 +86,10 @@ jobs:
       # upgrade run (mars#348). A fake k8s_info stands in for the cluster.
       - name: Test the Fabric version guard
         run: ./scripts/test-fabric-version-guard.sh
+      # The umbrella role runs as a non-root uid, as mars runs ansible since
+      # mars#363 (mars#367). Fakes stand in for the cluster and helm.
+      - name: Test the umbrella role as a non-root uid
+        run: ./scripts/test-umbrella-non-root.sh
       - name: Test the upgrade path
         env:
           FABRIC_BIN_CACHE: ${{ runner.temp }}/fabric-bin
