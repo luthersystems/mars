@@ -434,6 +434,41 @@ func TestPlanAllStagesFlag(t *testing.T) {
 	}
 }
 
+// --plan-file saves every stage's plan under the caller's name, the name a
+// later apply-stage --plan reads, and the new-project apply applies that
+// file (sandbox-infrastructure-template#114: ui-core applies
+// {planID}.tfplan after a plan-all).
+func TestPlanAllPlanFileFlag(t *testing.T) {
+	_, f := stageProject(t, twoStageConfig)
+	f.state["a"] = "\n"
+	rt, _, stderr := stageRuntime(f)
+	if err := (&PlanAllCmd{PlanFile: "job1.tfplan"}).Run(context.Background(), rt); err != nil {
+		t.Fatalf("plan-all: %v\n%s", err, stderr)
+	}
+	for _, st := range []string{"a", "b"} {
+		if !f.ran(st, "plan ") || !f.ran(st, "show -json job1.tfplan") {
+			t.Errorf("stage %s: %v", st, f.terraformCalls(st))
+		}
+		for _, c := range f.terraformCalls(st) {
+			if strings.HasPrefix(c, "plan ") && !strings.HasSuffix(c, "-out=job1.tfplan") {
+				t.Errorf("stage %s plan = %s", st, c)
+			}
+		}
+	}
+	if !f.ran("a", "apply -input=false job1.tfplan") {
+		t.Errorf("new-project apply: %v", f.terraformCalls("a"))
+	}
+	for _, bad := range []string{"../x.tfplan", "/tmp/x.tfplan", "*.tfplan", "plans/x.tfplan"} {
+		f.calls = nil
+		if code := runner.ExitCode((&PlanAllCmd{PlanFile: bad}).Run(context.Background(), rt)); code != 1 {
+			t.Errorf("--plan-file %q: exit %d, want 1", bad, code)
+		}
+		if len(f.calls) != 0 {
+			t.Errorf("--plan-file %q ran %v", bad, f.calls)
+		}
+	}
+}
+
 func TestPlanAllContinueKeepsEarlierStages(t *testing.T) {
 	root, f := stageProject(t, twoStageConfig)
 	f.plans["a"] = planDelete1
