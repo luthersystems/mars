@@ -870,3 +870,51 @@ func writeRequest(t *testing.T, path string) {
 		t.Fatal(err)
 	}
 }
+
+// TestMainBoundClosureToSelection covers how the job turns on the presets
+// closure contract (insideout-terraform-presets#864/#867). ui-core sets the
+// env var on an opted-in run; --bound-closure-to-selection is the explicit
+// form. The first case is the drift guard: with neither, the engine must get
+// BoundClosureToSelection=false, the historical adopt-all behavior.
+func TestMainBoundClosureToSelection(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		env  string
+		args []string
+		want bool
+	}{
+		{name: "default off", want: false},
+		{name: "env true", env: "true", want: true},
+		{name: "env not exactly true", env: "TRUE", want: false},
+		{name: "env one", env: "1", want: false},
+		{name: "flag", args: []string{"--bound-closure-to-selection"}, want: true},
+		{name: "flag false overrides env", env: "true", args: []string{"--bound-closure-to-selection=false"}, want: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			useFakeDiscoverer(t)
+			t.Setenv(BoundClosureEnv, tc.env)
+			dir := t.TempDir()
+			requestPath := filepath.Join(dir, "request.json")
+			writeRequest(t, requestPath)
+
+			var got reverseimport.Options
+			run := func(_ context.Context, _ reversejob.Request, opts reverseimport.Options) (reversejob.Result, error) {
+				got = opts
+				return reversejob.Result{Version: reversejob.Version, Status: reversejob.StatusSucceeded}, nil
+			}
+			var stdout, stderr bytes.Buffer
+			args := append([]string{"--request", requestPath, "--out-dir", filepath.Join(dir, "out")}, tc.args...)
+			if code := Main(context.Background(), args, &stdout, &stderr, run); code != 0 {
+				t.Fatalf("exit code = %d, stderr:\n%s", code, stderr.String())
+			}
+			if got.BoundClosureToSelection != tc.want {
+				t.Fatalf("BoundClosureToSelection = %v, want %v", got.BoundClosureToSelection, tc.want)
+			}
+			// The job log says when the contract is on, so an e2e can check
+			// the run really opted in.
+			if gotLine := strings.Contains(stdout.String(), "bound_closure_to_selection=true"); gotLine != tc.want {
+				t.Fatalf("stdout mentions bound_closure_to_selection=true: %v, want %v; stdout:\n%s", gotLine, tc.want, stdout.String())
+			}
+		})
+	}
+}
