@@ -1,7 +1,7 @@
 # Multi-stage plan and apply (`mars-stages.yaml`)
 
-Status: implemented (`plan-all`, `plan-stage`, `apply-stage`); the
-template still runs its shell until it moves to these commands. It is the general part of
+Status: implemented (`plan-all`, `plan-stage`, `apply-stage`), and the
+template's scripts call them (from mars v0.149.0). It is the general part of
 sandbox-infrastructure-template's `tf/plan-all.sh`, `tf/plan.sh`,
 `tf/apply-plan.sh`, `tf/apply-with-outputs.sh` (drift mode) and
 `tf/drift-refresh.sh` (sandbox-infrastructure-template#114).
@@ -119,13 +119,15 @@ to `terraform plan`.
 
 ## Commands
 
-### `mars <env> plan-all [--stages a,b] [--continue] [--check-drift] [--config f]`
+### `mars <env> plan-all [--stages a,b] [--continue] [--check-drift] [--plan-file f] [--config f]`
 
 For each stage, in config order (or in the order of `--stages`):
 
 1. Run the setup hook.
 2. `terraform init <init_args>`, `terraform workspace select <env>`.
-3. `terraform plan <var files> -out=<plan_file>`.
+3. `terraform plan <var files> -out=<plan_file>` (`--plan-file` names
+   the file instead, in every stage: a caller that applies the plan in a
+   later step by name needs it, as ui-core does with `{planID}.tfplan`).
 4. `terraform show -json <plan_file>` into `files.plan_json`.
 5. With `apply_if_no_state`: `terraform state list`; when it lists nothing,
    `terraform apply -input=false <plan_file>`, with `TF_CLI_ARGS_plan` and
@@ -255,7 +257,7 @@ and every JSON file field for field.
   JSON. The template saved one only when ui-core's `TF_CLI_ARGS_plan` had
   `-out`. mars's `-out` comes after `TF_CLI_ARGS_plan` on terraform's
   command line, so it wins; a caller that needs a given name passes
-  `--plan-file` (plan-stage) or sets `plan_file`.
+  `--plan-file` (plan-all, plan-stage) or sets `plan_file`.
 - The new-project apply applies the saved plan instead of planning again.
 - A failed `terraform state list` is an error of the stage. The template read
   it as an empty state and applied.

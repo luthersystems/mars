@@ -27,6 +27,14 @@ type PlanAllCmd struct {
 	Stages     []string `name:"stages" help:"Plan only these stages, in this order (comma separated)."`
 	Continue   bool     `name:"continue" help:"Continue an earlier plan-all: keep the summary rows and plan JSON of the stages this run does not plan."`
 	CheckDrift bool     `name:"check-drift" help:"Also write each stage's drift report (it does not change the exit code)."`
+	// PlanFile names the saved plan in every stage directory. A caller
+	// that applies a plan later by name needs it: ui-core plans with
+	// -out={planID}.tfplan in TF_CLI_ARGS_plan and applies {planID}.tfplan
+	// in a later step, but mars's own -out comes after TF_CLI_ARGS_plan
+	// and wins, so without this flag the plan would be saved under the
+	// config's plan_file and the later apply would not find it
+	// (sandbox-infrastructure-template#114).
+	PlanFile string `name:"plan-file" help:"Saved plan file name in each stage directory (default: the config's plan_file)."`
 }
 
 // PlanStageCmd plans one stage: the general part of the template's
@@ -232,11 +240,17 @@ func (c *PlanAllCmd) Run(ctx context.Context, rt *app.Runtime) error {
 			}
 		}
 	}
+	planFile := c.PlanFile
+	if planFile == "" {
+		planFile = cfg.planFile()
+	}
+	if !isPlainLocal(planFile) {
+		return r.fail("--plan-file %q must be a file name inside the stage directory", planFile)
+	}
 	if err := c.cleanStale(cfg, stages); err != nil {
 		return r.fail("%v", err)
 	}
 
-	planFile := cfg.planFile()
 	for _, st := range stages {
 		r.logf("\n=== Planning stage: %s ===\n", st.Name)
 		applyFailed := false
