@@ -109,13 +109,11 @@ func (r *stageRun) planOneStage(ctx context.Context, st *StageEntry, planFile st
 		if planJSON != "" {
 			redacted, err := planredact.JSON(raw)
 			if err != nil {
-				return fmt.Errorf("stage %s: redact plan json: %w", st.Name, err)
+				return fmt.Errorf("stage %s: %w", st.Name, err)
 			}
 			if err := writeReportFile(planJSON, redacted); err != nil {
 				return err
 			}
-		}
-		if planJSON != "" {
 			r.logf("Plan JSON written to %s", planJSON)
 		}
 		if err := writeReportJSON(stageSummary, res.summary); err != nil {
@@ -475,7 +473,7 @@ func (r *stageRun) writePlanAlias(rows []namedRow) error {
 		r.logf("WARNING: no stage has plan JSON; %s not written", alias)
 		return nil
 	}
-	if err := copyFile(src, alias); err != nil {
+	if err := copyPlanJSON(src, alias); err != nil {
 		return err
 	}
 	r.logf("Canonical %s written from %s", alias, src)
@@ -524,7 +522,7 @@ func (c *PlanStageCmd) Run(ctx context.Context, rt *app.Runtime) error {
 	}
 	if src := cfg.outPath(cfg.planJSONName(), st.Name); src != "" {
 		if alias := cfg.outPath(cfg.planAliasName(), ""); alias != "" {
-			if err := copyFile(src, alias); err != nil {
+			if err := copyPlanJSON(src, alias); err != nil {
 				return fail(err)
 			}
 			r.logf("Canonical %s written", alias)

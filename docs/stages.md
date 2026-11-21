@@ -79,7 +79,7 @@ setup: ["bash", "tf/stage-setup.sh"] # default: none
 # Report file names, inside outputs_dir. {stage} is the stage name.
 # An empty value turns that file off.
 files:
-  plan_json: "tfplan-{stage}.json"   # terraform show -json of the stage's plan
+  plan_json: "tfplan-{stage}.json"   # terraform show -json of the stage's plan, redacted
   plan_alias: tfplan.json            # copy of one stage's plan JSON (see below)
   stage_summary: ""                  # full plan-summary report per stage, off by default
   summary: plan-summary.json         # plan-all's totals
@@ -128,7 +128,15 @@ For each stage, in config order (or in the order of `--stages`):
 3. `terraform plan <var files> -out=<plan_file>` (`--plan-file` names
    the file instead, in every stage: a caller that applies the plan in a
    later step by name needs it, as ui-core does with `{planID}.tfplan`).
-4. `terraform show -json <plan_file>` into `files.plan_json`.
+4. `terraform show -json <plan_file>`, redacted, into `files.plan_json`.
+   The file is uploaded and served, and Terraform writes every input
+   variable value into it, the credential tfvars among them, so mars writes
+   it through presets `planredact.JSON` (luthersystems/reliable#2553):
+   variable values, configuration defaults and literals, and sensitive
+   values become `"(sensitive)"`, and keys come out sorted. The counts
+   (step 6) and the drift report (step 7) read the exact plan. The plan
+   alias is redacted the same way, also when `--continue` copies a file an
+   older mars wrote.
 5. With `apply_if_no_state`: `terraform state list`; when it lists nothing,
    `terraform apply -input=false <plan_file>`, with `TF_CLI_ARGS_plan` and
    `TF_CLI_ARGS_apply` set empty (flags such as `-out` are not valid for

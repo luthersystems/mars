@@ -97,7 +97,8 @@ whether or not it exists. Without a config the three stage commands fail
 
 - `mars <env> plan-all [--stages a,b] [--continue] [--check-drift]
   [--plan-file f]` plans each stage to a saved plan (`--plan-file` names it,
-  for a later `apply-stage --plan f`), writes its `terraform show -json`, counts its
+  for a later `apply-stage --plan f`), writes its `terraform show -json` with the
+  credentials redacted (docs/stages.md), counts its
   changes, applies a stage marked `apply_if_no_state` when its state is
   empty, and writes the summary (`plan-summary.json`) and plan alias
   (`tfplan.json`). Exit 0 when every stage planned, 1 otherwise.
