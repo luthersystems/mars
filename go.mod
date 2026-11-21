@@ -18,7 +18,7 @@ require (
 	github.com/aws/smithy-go v1.28.9
 	github.com/hashicorp/terraform-json v0.29.0
 	github.com/joho/godotenv v1.5.1
-	github.com/luthersystems/insideout-terraform-presets v0.15.3-0.20261121000258-c9f2cf8c063e
+	github.com/luthersystems/insideout-terraform-presets v0.15.3-0.20261121002056-f1509df1328d
 	github.com/sosedoff/ansible-vault-go v0.2.0
 	golang.org/x/oauth2 v0.38.0
 	google.golang.org/api v0.314.0
