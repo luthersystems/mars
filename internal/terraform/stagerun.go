@@ -175,18 +175,6 @@ func (r *stageRun) applyPlan(ctx context.Context, st *StageEntry, planFile strin
 	return nil
 }
 
-// copyFile copies src to dst; an empty dst copies nothing.
-func copyFile(src, dst string) error {
-	if dst == "" {
-		return nil
-	}
-	b, err := os.ReadFile(src) //nolint:gosec // G304: a report this command wrote
-	if err != nil {
-		return err
-	}
-	return writeReportFile(dst, b)
-}
-
 // copyPlanJSON copies a stage's plan JSON to the alias through
 // planredact.JSON. This run wrote src redacted, but with --continue src may
 // be a file an older mars wrote with the credential tfvars in clear

@@ -8,10 +8,10 @@ import (
 	"testing"
 )
 
-// planWithCredentialVar is a stage plan as `terraform show -json` prints
+// stagePlanWithTFVarLeak is a stage plan as `terraform show -json` prints
 // it once the stage's credential tfvars are set: the value sits in
 // .variables in clear text (luthersystems/reliable#2553).
-const planWithCredentialVar = `{
+const stagePlanWithTFVarLeak = `{
   "format_version": "1.2",
   "variables": {"gcp_credentials_b64": {"value": "c3RhZ2UtcGxhbi1sZWFrLXZhbHVl"}},
   "resource_changes": [
@@ -25,8 +25,8 @@ const planWithCredentialVar = `{
 // summary, read from the exact plan, still counts the change.
 func TestPlanAllWritesRedactedPlanJSON(t *testing.T) {
 	root, f := stageProject(t, twoStageConfig)
-	f.plans["a"] = planWithCredentialVar
-	f.plans["b"] = planWithCredentialVar
+	f.plans["a"] = stagePlanWithTFVarLeak
+	f.plans["b"] = stagePlanWithTFVarLeak
 	rt, _, stderr := stageRuntime(f)
 
 	if err := (&PlanAllCmd{}).Run(context.Background(), rt); err != nil {
@@ -59,7 +59,7 @@ func TestPlanAllWritesRedactedPlanJSON(t *testing.T) {
 func TestPlanStageWritesRedactedPlanJSON(t *testing.T) {
 	for _, refreshOnly := range []bool{false, true} {
 		root, f := stageProject(t, twoStageConfig)
-		f.plans["a"] = planWithCredentialVar
+		f.plans["a"] = stagePlanWithTFVarLeak
 		rt, _, stderr := stageRuntime(f)
 		if err := (&PlanStageCmd{Stage: "a", RefreshOnly: refreshOnly}).Run(context.Background(), rt); err != nil {
 			t.Fatalf("plan-stage (refresh-only %v): %v\n%s", refreshOnly, err, stderr)
@@ -81,13 +81,13 @@ func TestPlanStageWritesRedactedPlanJSON(t *testing.T) {
 // redacted all the same.
 func TestPlanAllContinueRedactsOldAlias(t *testing.T) {
 	root, f := stageProject(t, twoStageConfig)
-	f.plans["a"] = planWithCredentialVar
+	f.plans["a"] = stagePlanWithTFVarLeak
 	rt, _, stderr := stageRuntime(f)
 	if err := os.MkdirAll(filepath.Join(root, "outputs"), 0o750); err != nil {
 		t.Fatal(err)
 	}
 	// Stage b is plan_alias_preferred; its file is from an older run.
-	if err := os.WriteFile(filepath.Join(root, "outputs", "tfplan-b.json"), []byte(planWithCredentialVar), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "outputs", "tfplan-b.json"), []byte(stagePlanWithTFVarLeak), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := (&PlanAllCmd{Stages: []string{"a"}, Continue: true}).Run(context.Background(), rt); err != nil {
