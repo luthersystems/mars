@@ -95,8 +95,9 @@ or `apply-stage` with a `mars-stages.yaml`. No other command reads the file
 whether or not it exists. Without a config the three stage commands fail
 (exit 1) and name the file.
 
-- `mars <env> plan-all [--stages a,b] [--continue] [--check-drift]` plans
-  each stage to a saved plan, writes its `terraform show -json`, counts its
+- `mars <env> plan-all [--stages a,b] [--continue] [--check-drift]
+  [--plan-file f]` plans each stage to a saved plan (`--plan-file` names it,
+  for a later `apply-stage --plan f`), writes its `terraform show -json`, counts its
   changes, applies a stage marked `apply_if_no_state` when its state is
   empty, and writes the summary (`plan-summary.json`) and plan alias
   (`tfplan.json`). Exit 0 when every stage planned, 1 otherwise.
