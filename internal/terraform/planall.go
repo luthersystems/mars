@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/luthersystems/insideout-terraform-presets/pkg/planredact"
+
 	"github.com/luthersystems/mars/internal/app"
 	"github.com/luthersystems/mars/internal/runner"
 )
@@ -98,10 +100,20 @@ func (r *stageRun) planOneStage(ctx context.Context, st *StageEntry, planFile st
 			return err
 		}
 		res = &stagePlan{raw: raw, plan: plan, summary: summarizePlan(plan)}
-		if err := writeReportFile(planJSON, raw); err != nil {
-			return err
-		}
+		// The plan JSON is uploaded with the outputs and served by ui-core
+		// and reliable, and `terraform show -json` writes every input
+		// variable value into it, the credential tfvars among them. Write
+		// the redacted form; the summary and drift report use the exact
+		// plan in res (luthersystems/reliable#2553). The tfplan.json alias
+		// is a copy of this file, so it is redacted too.
 		if planJSON != "" {
+			redacted, err := planredact.JSON(raw)
+			if err != nil {
+				return fmt.Errorf("stage %s: %w", st.Name, err)
+			}
+			if err := writeReportFile(planJSON, redacted); err != nil {
+				return err
+			}
 			r.logf("Plan JSON written to %s", planJSON)
 		}
 		if err := writeReportJSON(stageSummary, res.summary); err != nil {
@@ -461,7 +473,7 @@ func (r *stageRun) writePlanAlias(rows []namedRow) error {
 		r.logf("WARNING: no stage has plan JSON; %s not written", alias)
 		return nil
 	}
-	if err := copyFile(src, alias); err != nil {
+	if err := copyPlanJSON(src, alias); err != nil {
 		return err
 	}
 	r.logf("Canonical %s written from %s", alias, src)
@@ -510,7 +522,7 @@ func (c *PlanStageCmd) Run(ctx context.Context, rt *app.Runtime) error {
 	}
 	if src := cfg.outPath(cfg.planJSONName(), st.Name); src != "" {
 		if alias := cfg.outPath(cfg.planAliasName(), ""); alias != "" {
-			if err := copyFile(src, alias); err != nil {
+			if err := copyPlanJSON(src, alias); err != nil {
 				return fail(err)
 			}
 			r.logf("Canonical %s written", alias)

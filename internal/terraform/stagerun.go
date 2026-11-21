@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/luthersystems/insideout-terraform-presets/pkg/planredact"
 	"github.com/luthersystems/mars/internal/app"
 	"github.com/luthersystems/mars/internal/runner"
 )
@@ -174,16 +175,22 @@ func (r *stageRun) applyPlan(ctx context.Context, st *StageEntry, planFile strin
 	return nil
 }
 
-// copyFile copies src to dst; an empty dst copies nothing.
-func copyFile(src, dst string) error {
-	if dst == "" {
-		return nil
-	}
-	b, err := os.ReadFile(src) //nolint:gosec // G304: a report this command wrote
+// copyPlanJSON copies a stage's plan JSON to the alias through
+// planredact.JSON. This run wrote src redacted, but with --continue src may
+// be a file an older mars wrote with the credential tfvars in clear
+// (luthersystems/reliable#2553). Redaction is idempotent, so a redacted src
+// comes out unchanged. A src that cannot be redacted is an error: the alias
+// is uploaded, so it is never a raw copy.
+func copyPlanJSON(src, dst string) error {
+	b, err := os.ReadFile(src) //nolint:gosec // G304: a plan JSON this command's config names
 	if err != nil {
 		return err
 	}
-	return writeReportFile(dst, b)
+	redacted, err := planredact.JSON(b)
+	if err != nil {
+		return fmt.Errorf("%s: %w", src, err)
+	}
+	return writeReportFile(dst, redacted)
 }
 
 func fileExists(path string) bool {
