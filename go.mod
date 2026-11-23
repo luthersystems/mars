@@ -9,19 +9,19 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets v1.5.1
 	github.com/alecthomas/kong v1.17.0
 	github.com/aws/aws-sdk-go-v2 v1.48.0
-	github.com/aws/aws-sdk-go-v2/config v1.33.18
-	github.com/aws/aws-sdk-go-v2/credentials v1.21.0
-	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2 v1.64.0
-	github.com/aws/aws-sdk-go-v2/service/iam v1.65.0
+	github.com/aws/aws-sdk-go-v2/config v1.33.21
+	github.com/aws/aws-sdk-go-v2/credentials v1.21.3
+	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2 v1.65.0
+	github.com/aws/aws-sdk-go-v2/service/iam v1.68.0
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.51.0
-	github.com/aws/aws-sdk-go-v2/service/sts v1.52.0
+	github.com/aws/aws-sdk-go-v2/service/sts v1.53.0
 	github.com/aws/smithy-go v1.28.9
 	github.com/hashicorp/terraform-json v0.29.0
 	github.com/joho/godotenv v1.5.1
 	github.com/luthersystems/insideout-terraform-presets v0.15.3
 	github.com/sosedoff/ansible-vault-go v0.2.0
 	golang.org/x/oauth2 v0.38.0
-	google.golang.org/api v0.314.0
+	google.golang.org/api v0.316.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -75,7 +75,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/route53 v1.65.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.106.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/servicediscovery v1.43.3 // indirect
-	github.com/aws/aws-sdk-go-v2/service/signin v1.13.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/signin v1.14.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.39.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.44.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/wafv2 v1.77.1 // indirect
