@@ -22,9 +22,16 @@ name: Release (dispatch)
 # bump: patch | minor. mars's cadence is minor (v0.142.0 -> v0.143.0), so
 # that is the default; patch is for a hotfix rebuild.
 #
-# Notes: scripts/release-notes.sh, a Markdown list of the PRs and commits on
-# main since the previous tag. To change them, edit the GitHub release after
-# it is cut.
+# Notes: `notes: changes`, the shared list from luthersystems/.github
+# (actions/release-notes): one line for each merged PR or direct push on
+# main's first-parent history since the previous tag, then a link to the full
+# compare. It replaced mars's own scripts/release-notes.sh, which wrote the
+# same kind of list but stopped at 200 changes, so one shared copy now serves
+# every repo. The shared workflow reads that script from luthersystems/.github
+# at the v1 tag, not at the SHA pinned below, so a newer v1 can change the
+# notes with no change here; the version checks and the release command stay
+# at the pin. To change the notes of one release, edit the GitHub release
+# after it is cut.
 on:
   workflow_dispatch:
     inputs:
@@ -88,11 +95,11 @@ jobs:
       actions: read # read the mars-ci.yml runs for the release commit
       contents: read # verify the release; the Claude App token creates it
       id-token: write # Bedrock role and the Claude App token
-    uses: luthersystems/.github/.github/workflows/release-tag.yml@870afa409a35ed174b67d86c5ac4ed6da848cad8 # v1.9.1
+    uses: luthersystems/.github/.github/workflows/release-tag.yml@4e8bf04a35502684326dbb61d74b770dde397024 # v1.10.0
     with:
       version: ${{ needs.version.outputs.version }}
       dry_run: ${{ inputs.dry_run }}
       ci_workflow: mars-ci.yml
       ci_wait_minutes: 20
       release_token: claude-app
-      notes_command: bash scripts/release-notes.sh
+      notes: changes
