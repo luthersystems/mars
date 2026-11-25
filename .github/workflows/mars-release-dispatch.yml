@@ -23,11 +23,15 @@ name: Release (dispatch)
 # that is the default; patch is for a hotfix rebuild.
 #
 # Notes: `notes: changes`, the shared list from luthersystems/.github
-# (actions/release-notes): one line for each PR or commit on main since the
-# previous tag, then a link to the full compare. It replaced mars's own
-# scripts/release-notes.sh, which wrote the same kind of list but stopped at
-# 200 changes, so one shared copy now serves every repo. To change the notes
-# of one release, edit the GitHub release after it is cut.
+# (actions/release-notes): one line for each merged PR or direct push on
+# main's first-parent history since the previous tag, then a link to the full
+# compare. It replaced mars's own scripts/release-notes.sh, which wrote the
+# same kind of list but stopped at 200 changes, so one shared copy now serves
+# every repo. The shared workflow reads that script from luthersystems/.github
+# at the v1 tag, not at the SHA pinned below, so a newer v1 can change the
+# notes with no change here; the version checks and the release command stay
+# at the pin. To change the notes of one release, edit the GitHub release
+# after it is cut.
 on:
   workflow_dispatch:
     inputs:
