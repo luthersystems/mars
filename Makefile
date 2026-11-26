@@ -3,7 +3,11 @@ STATIC_IMAGE=luthersystems/${PROJECT}
 
 GO_SOURCES=$(shell find cmd internal -type f -name '*.go')
 
-AWSCLI_VERSION=2.7.0
+# The AWS CLI in the image. Scripts that run in mars (the sandbox template's
+# stage scripts) get this version, not a host one: 2.7.0 had no
+# "configure export-credentials", which broke the first keyless GCP deploy
+# (luthersystems/mars#377). Release zips are signed with aws-cli-pkg-key.asc.
+AWSCLI_VERSION=2.39.7
 
 TFEDIT_VERSION=0.0.3
 TFMIGRATE_VERSION=0.3.3
