@@ -2,5 +2,5 @@
 # NOTE:  There is no default value for kubectl_eks_cluster_name and the value
 # must be declared in either the inventory or playbook.
 kubectl_eks_cluster_name: ""
-aws_cli_version_desired: "2.7.0"
+aws_cli_version_desired: "2.39.7"
 bastion_init_virtualenv: /opt/ansible_venv

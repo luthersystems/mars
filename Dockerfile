@@ -221,6 +221,9 @@ COPY --from=mars-cli /out/vault-aws-secretsmanager /opt/bin/vault-aws-secretsman
 COPY --from=mars-cli /out/vault-az-keyvault /opt/bin/vault-az-keyvault
 COPY --from=downloader /tmp/awscliv2.zip /tmp/awscliv2.zip
 RUN unzip -d /tmp /tmp/awscliv2.zip && /tmp/aws/install && rm -rf /tmp/aws*
+# Scripts that run in mars need "aws configure export-credentials" (2.9 and
+# later); 2.7.0 lacked it and broke the first keyless GCP deploy (#377).
+RUN aws configure export-credentials help >/dev/null
 
 ENTRYPOINT ["/opt/mars/mars-entrypoint"]
 
