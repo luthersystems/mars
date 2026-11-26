@@ -223,7 +223,12 @@ COPY --from=downloader /tmp/awscliv2.zip /tmp/awscliv2.zip
 RUN unzip -d /tmp /tmp/awscliv2.zip && /tmp/aws/install && rm -rf /tmp/aws*
 # Scripts that run in mars need "aws configure export-credentials" (2.9 and
 # later); 2.7.0 lacked it and broke the first keyless GCP deploy (#377).
-RUN aws configure export-credentials help >/dev/null
+# The check asks for a profile that does not exist: a CLI with the
+# subcommand names the profile in its error, and one without it reports an
+# invalid choice. "help" would need groff or mandoc, which the image lacks.
+RUN out=$(AWS_CONFIG_FILE=/dev/null AWS_SHARED_CREDENTIALS_FILE=/dev/null \
+      aws configure export-credentials --profile mars-build-probe 2>&1); \
+    echo "$out" | grep -q mars-build-probe || { echo "$out" >&2; exit 1; }
 
 ENTRYPOINT ["/opt/mars/mars-entrypoint"]
 
